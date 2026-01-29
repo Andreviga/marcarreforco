@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ALUNO
+  PROFESSOR
+  ADMIN
+}
+
+enum Modality {
+  PRESENCIAL
+  ONLINE
+}
+
+enum SessionStatus {
+  ATIVA
+  CANCELADA
+}
+
+enum EnrollmentStatus {
+  AGENDADO
+  DESMARCADO
+}
+
+enum AttendanceStatus {
+  PRESENTE
+  AUSENTE
+  ATRASADO
+}
+
+enum InvoiceStatus {
+  ABERTA
+  EMITIDA
+  PAGA
+}
+
+model User {
+  id           String          @id @default(cuid())
+  name         String
+  email        String          @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime        @default(now())
+
+  studentProfile StudentProfile?
+  teacherProfile TeacherProfile?
+
+  enrollments   Enrollment[]   @relation("StudentEnrollments")
+  attendances   Attendance[]   @relation("MarkedAttendances")
+  studentAttendances Attendance[] @relation("StudentAttendances")
+  sessions      Session[]      @relation("TeacherSessions")
+  invoices      Invoice[]      @relation("StudentInvoices")
+  auditLogs     AuditLog[]     @relation("ActorAuditLogs")
+}
+
+model StudentProfile {
+  userId  String @id
+  serie   String
+  turma   String
+  unidade String
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model TeacherProfile {
+  userId String @id
+
+  user     User             @relation(fields: [userId], references: [id])
+  subjects TeacherSubject[]
+}
+
+model Subject {
+  id     String          @id @default(cuid())
+  name   String          @unique
+  defaultPriceCents Int  @default(0)
+  teachers TeacherSubject[]
+  sessions Session[]
+  createdAt DateTime @default(now())
+}
+
+model SessionPackage {
+  id           String   @id @default(cuid())
+  name         String
+  sessionCount Int
+  priceCents   Int
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  @@unique([name])
+}
+
+model TeacherSubject {
+  teacherId String
+  subjectId String
+
+  teacher TeacherProfile @relation(fields: [teacherId], references: [userId])
+  subject Subject        @relation(fields: [subjectId], references: [id])
+
+  @@id([teacherId, subjectId])
+}
+
+model Session {
+  id         String        @id @default(cuid())
+  subjectId  String
+  teacherId  String
+  startsAt   DateTime
+  endsAt     DateTime
+  location   String
+  modality   Modality
+  priceCents Int
+  status     SessionStatus @default(ATIVA)
+  createdAt  DateTime      @default(now())
+
+  subject    Subject       @relation(fields: [subjectId], references: [id])
+  teacher    User          @relation("TeacherSessions", fields: [teacherId], references: [id])
+  enrollments Enrollment[]
+  attendances Attendance[]
+  invoiceItems InvoiceItem[]
+}
+
+model Enrollment {
+  id         String           @id @default(cuid())
+  sessionId  String
+  studentId  String
+  status     EnrollmentStatus @default(AGENDADO)
+  createdAt  DateTime         @default(now())
+
+  session   Session @relation(fields: [sessionId], references: [id])
+  student   User    @relation("StudentEnrollments", fields: [studentId], references: [id])
+  attendance Attendance?
+
+  @@unique([sessionId, studentId])
+}
+
+model Attendance {
+  id            String           @id @default(cuid())
+  sessionId     String
+  studentId     String
+  enrollmentId  String           @unique
+  status        AttendanceStatus
+  note          String?
+  markedByUserId String
+  markedAt      DateTime         @default(now())
+
+  session   Session  @relation(fields: [sessionId], references: [id])
+  student   User     @relation("StudentAttendances", fields: [studentId], references: [id])
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+  markedBy  User     @relation("MarkedAttendances", fields: [markedByUserId], references: [id])
+  invoiceItems InvoiceItem[]
+
+  @@unique([sessionId, studentId])
+}
+
+model Invoice {
+  id         String        @id @default(cuid())
+  studentId  String
+  month      Int
+  year       Int
+  status     InvoiceStatus @default(ABERTA)
+  totalCents Int
+  createdAt  DateTime      @default(now())
+
+  student User         @relation("StudentInvoices", fields: [studentId], references: [id])
+  items   InvoiceItem[]
+
+  @@unique([studentId, month, year])
+}
+
+model InvoiceItem {
+  id           String @id @default(cuid())
+  invoiceId    String
+  sessionId    String
+  attendanceId String
+  description  String
+  occurredAt   DateTime
+  amountCents  Int
+
+  invoice    Invoice   @relation(fields: [invoiceId], references: [id])
+  session    Session   @relation(fields: [sessionId], references: [id])
+  attendance Attendance @relation(fields: [attendanceId], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  action      String
+  entityType  String
+  entityId    String
+  payloadJson Json
+  createdAt   DateTime @default(now())
+
+  actor User @relation("ActorAuditLogs", fields: [actorUserId], references: [id])
+}

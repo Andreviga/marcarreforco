@@ -1,0 +1,59 @@
+"use client";
+
+import { format } from "date-fns";
+import { useState } from "react";
+
+interface EnrollmentView {
+  id: string;
+  status: string;
+  session: {
+    id: string;
+    startsAt: string | Date;
+    endsAt: string | Date;
+    subject: { name: string };
+    teacher: { name: string };
+  };
+}
+
+export default function InscricoesClient({ enrollments }: { enrollments: EnrollmentView[] }) {
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  async function handleUnenroll(enrollmentId: string) {
+    setLoadingId(enrollmentId);
+    await fetch("/api/unenroll", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enrollmentId })
+    });
+    window.location.reload();
+  }
+
+  return (
+    <div className="grid gap-4">
+      {enrollments.map((enrollment) => (
+        <div key={enrollment.id} className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                {enrollment.session.subject.name}
+              </h3>
+              <p className="text-sm text-slate-500">
+                {enrollment.session.teacher.name} • {format(new Date(enrollment.session.startsAt), "dd/MM HH:mm")} - {format(new Date(enrollment.session.endsAt), "HH:mm")}
+              </p>
+              <p className="text-xs text-slate-400">Status: {enrollment.status}</p>
+            </div>
+            {enrollment.status === "AGENDADO" && (
+              <button
+                onClick={() => handleUnenroll(enrollment.id)}
+                disabled={loadingId === enrollment.id}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                {loadingId === enrollment.id ? "Desmarcando..." : "Desmarcar"}
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

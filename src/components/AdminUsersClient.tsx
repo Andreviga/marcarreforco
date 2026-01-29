@@ -1,0 +1,313 @@
+"use client";
+
+import { useState } from "react";
+import * as XLSX from "xlsx";
+
+interface UserRow {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  studentProfile?: { serie: string; turma: string; unidade: string } | null;
+}
+
+interface Subject {
+  id: string;
+  name: string;
+}
+
+export default function AdminUsersClient({ users, subjects }: { users: UserRow[]; subjects: Subject[] }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("ALUNO");
+  const [serie, setSerie] = useState("");
+  const [turma, setTurma] = useState("");
+  const [unidade, setUnidade] = useState("");
+  const [subjectIds, setSubjectIds] = useState<string[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<null | {
+    created: number;
+    skippedExisting: number;
+    duplicateInFile: number;
+    invalidRows: number;
+    details?: {
+      skippedExisting?: string[];
+      duplicateInFile?: string[];
+      invalidRows?: string[];
+      errors?: string[];
+    };
+  }>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password, role, serie, turma, unidade, subjectIds })
+    });
+    window.location.reload();
+  }
+
+  function toggleSubject(id: string) {
+    setSubjectIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  }
+
+  function normalize(value: string) {
+    return value
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "");
+  }
+
+  function parseRole(raw: string) {
+    const value = normalize(raw);
+    if (value === "aluno" || value === "student") return "ALUNO";
+    if (value === "professor" || value === "prof" || value === "teacher") return "PROFESSOR";
+    if (value === "admin" || value === "secretaria" || value === "secretario") return "ADMIN";
+    return "ALUNO";
+  }
+
+  function downloadTemplate() {
+    const header = ["nome", "email", "senha", "perfil", "serie", "turma", "unidade", "disciplinas"];
+    const example = ["Ana Souza", "ana@colegio.com", "123456", "ALUNO", "8º ano", "B", "Unidade Centro", "Matemática, Português"];
+    const worksheet = XLSX.utils.aoa_to_sheet([header, example]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "usuarios");
+    const data = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "usuarios_template.xlsx";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleImport(file: File) {
+    setImportError(null);
+    setImportResult(null);
+    setImporting(true);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        throw new Error("Planilha vazia");
+      }
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as string[][];
+      if (rows.length < 2) {
+        throw new Error("A planilha precisa ter cabeçalho e pelo menos 1 linha de dados");
+      }
+
+      const headers = rows[0].map((value) => normalize(String(value)));
+      const headerIndex = (name: string) => headers.indexOf(normalize(name));
+
+      const idxName = headerIndex("nome");
+      const idxEmail = headerIndex("email");
+      const idxPassword = headerIndex("senha");
+      const idxRole = headerIndex("perfil");
+      const idxSerie = headerIndex("serie");
+      const idxTurma = headerIndex("turma");
+      const idxUnidade = headerIndex("unidade");
+      const idxSubjects = headerIndex("disciplinas");
+
+      if (idxName === -1 || idxEmail === -1 || idxPassword === -1 || idxRole === -1) {
+        throw new Error("Cabeçalho inválido. Use o modelo fornecido.");
+      }
+
+      const subjectMap = new Map(subjects.map((subject) => [normalize(subject.name), subject.id]));
+
+      const payload = rows.slice(1).reduce((acc, row, index) => {
+        const nameValue = String(row[idxName] ?? "").trim();
+        const emailValue = String(row[idxEmail] ?? "").trim();
+        const passwordValue = String(row[idxPassword] ?? "").trim();
+        const roleValue = String(row[idxRole] ?? "").trim();
+
+        if (!nameValue && !emailValue) return acc;
+
+        const roleParsed = parseRole(roleValue || "ALUNO");
+        const subjectNames = idxSubjects !== -1 ? String(row[idxSubjects] ?? "") : "";
+        const subjectIdsParsed = subjectNames
+          .split(",")
+          .map((item) => normalize(item))
+          .filter(Boolean)
+          .map((item) => subjectMap.get(item))
+          .filter((item): item is string => Boolean(item));
+
+        acc.push({
+          _rowNumber: index + 2,
+          name: nameValue,
+          email: emailValue,
+          password: passwordValue,
+          role: roleParsed,
+          serie: idxSerie !== -1 ? String(row[idxSerie] ?? "").trim() : undefined,
+          turma: idxTurma !== -1 ? String(row[idxTurma] ?? "").trim() : undefined,
+          unidade: idxUnidade !== -1 ? String(row[idxUnidade] ?? "").trim() : undefined,
+          subjectIds: subjectIdsParsed.length ? subjectIdsParsed : undefined
+        });
+
+        return acc;
+      }, [] as Array<{ name: string; email: string; password: string; role: string; serie?: string; turma?: string; unidade?: string; subjectIds?: string[] }>);
+
+      if (!payload.length) {
+        throw new Error("Nenhum usuário válido foi encontrado");
+      }
+
+      const response = await fetch("/api/admin/users/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ users: payload })
+      });
+
+      if (!response.ok) {
+        throw new Error("Falha ao importar usuários");
+      }
+
+      const result = await response.json();
+      setImportResult(result);
+      window.location.reload();
+    } catch (error) {
+      setImportError((error as Error).message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleCreate} className="rounded-xl bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Novo usuário</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="text-sm text-slate-600">
+            Nome
+            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className="text-sm text-slate-600">
+            E-mail
+            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+          <label className="text-sm text-slate-600">
+            Senha
+            <input type="password" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </label>
+          <label className="text-sm text-slate-600">
+            Perfil
+            <select className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="ALUNO">Aluno</option>
+              <option value="PROFESSOR">Professor</option>
+              <option value="ADMIN">Secretaria/Admin</option>
+            </select>
+          </label>
+        </div>
+
+        {role === "ALUNO" && (
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <label className="text-sm text-slate-600">
+              Série
+              <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={serie} onChange={(e) => setSerie(e.target.value)} />
+            </label>
+            <label className="text-sm text-slate-600">
+              Turma
+              <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={turma} onChange={(e) => setTurma(e.target.value)} />
+            </label>
+            <label className="text-sm text-slate-600">
+              Unidade
+              <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={unidade} onChange={(e) => setUnidade(e.target.value)} />
+            </label>
+          </div>
+        )}
+
+        {role === "PROFESSOR" && (
+          <div className="mt-4">
+            <p className="text-sm text-slate-600">Disciplinas</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {subjects.map((subject) => (
+                <button
+                  type="button"
+                  key={subject.id}
+                  onClick={() => toggleSubject(subject.id)}
+                  className={`rounded-full border px-3 py-1 text-xs ${subjectIds.includes(subject.id) ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}
+                >
+                  {subject.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
+          Criar usuário
+        </button>
+      </form>
+
+      <div className="rounded-xl bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Importar usuários (Excel)</h2>
+            <p className="text-sm text-slate-500">Use o modelo para preencher a planilha.</p>
+          </div>
+          <button
+            type="button"
+            onClick={downloadTemplate}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:border-slate-300"
+          >
+            Baixar modelo
+          </button>
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            type="file"
+            accept=".xlsx,.csv"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                handleImport(file);
+              }
+            }}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+          <span className="text-sm text-slate-500">Formatos: .xlsx, .csv</span>
+        </div>
+        {importing && <p className="mt-3 text-sm text-slate-500">Importando...</p>}
+        {importError && <p className="mt-3 text-sm text-red-600">{importError}</p>}
+        {importResult && (
+          <p className="mt-3 text-sm text-slate-600">
+            Importados: {importResult.created} • Existentes: {importResult.skippedExisting} • Duplicados no arquivo: {importResult.duplicateInFile} • Inválidos: {importResult.invalidRows}
+          </p>
+        )}
+        {importResult?.details && (
+          <ul className="mt-3 space-y-1 text-xs text-slate-500">
+            {importResult.details.invalidRows?.map((item) => <li key={item}>Inválido: {item}</li>)}
+            {importResult.details.duplicateInFile?.map((item) => <li key={item}>Duplicado: {item}</li>)}
+            {importResult.details.skippedExisting?.map((item) => <li key={item}>Já existe: {item}</li>)}
+            {importResult.details.errors?.map((item) => <li key={item}>Erro: {item}</li>)}
+          </ul>
+        )}
+      </div>
+
+      <div className="rounded-xl bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Lista de usuários</h2>
+        <div className="mt-3 grid gap-2">
+          {users.map((user) => (
+            <div key={user.id} className="rounded-lg border border-slate-100 p-3 text-sm">
+              <p className="font-semibold text-slate-900">{user.name}</p>
+              <p className="text-xs text-slate-500">{user.email} • {user.role}</p>
+              {user.studentProfile && (
+                <p className="text-xs text-slate-500">
+                  {user.studentProfile.serie} • {user.studentProfile.turma} • {user.studentProfile.unidade}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
