@@ -68,7 +68,7 @@ export default function AdminPackagesClient({ packages }: { packages: SessionPac
             min={0}
             value={priceCents}
             onChange={(event) => setPriceCents(Number(event.target.value))}
-            placeholder="Preço"
+            placeholder="Valor"
             required
           />
           <label className="flex items-center gap-2 text-sm text-slate-600">
@@ -153,7 +153,7 @@ function PackageRow({
         </button>
       </div>
       <p className="md:col-span-5 text-xs text-slate-500">
-        {sessionCount} aulas • {formatCurrency(priceCents)}
+        {sessionCount} aulas • Valor: {formatCurrency(priceCents)}
       </p>
     </div>
   );

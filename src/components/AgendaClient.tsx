@@ -112,7 +112,7 @@ export default function AgendaClient({
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold text-slate-700">
-                    {formatCurrency(session.priceCents)}
+                    Valor: {formatCurrency(session.priceCents)}
                   </span>
                   {enrollment?.status === "AGENDADO" ? (
                     <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">

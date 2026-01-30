@@ -39,7 +39,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
             type="number"
             value={defaultPriceCents}
             onChange={(event) => setDefaultPriceCents(Number(event.target.value))}
-            placeholder="Preço"
+            placeholder="Valor"
           />
           <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
             Criar
@@ -54,7 +54,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
             <li key={subject.id} className="rounded-lg border border-slate-100 p-2">
               {subject.name}
               {typeof subject.defaultPriceCents === "number" && subject.defaultPriceCents > 0
-                ? ` - ${formatCurrency(subject.defaultPriceCents)}`
+                ? ` - Valor: ${formatCurrency(subject.defaultPriceCents)}`
                 : ""}
             </li>
           ))}

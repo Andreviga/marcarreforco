@@ -179,7 +179,7 @@ export default function AdminSessionsClient({
             </select>
           </label>
           <label className="text-sm text-slate-600">
-            Preço (centavos)
+            Valor (centavos)
             <input
               type="number"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
@@ -214,7 +214,7 @@ export default function AdminSessionsClient({
                   {format(new Date(session.startsAt), "dd/MM HH:mm")} - {format(new Date(session.endsAt), "HH:mm")}
                 </p>
                 <p className="text-xs text-slate-500">{session.teacher.name}</p>
-                <p className="text-xs text-slate-500">{formatCurrency(session.priceCents)}</p>
+                <p className="text-xs text-slate-500">Valor: {formatCurrency(session.priceCents)}</p>
                 <p className="text-xs text-slate-400">Status: {session.status}</p>
               </div>
               {session.status === "ATIVA" && (
