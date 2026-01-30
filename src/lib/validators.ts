@@ -18,10 +18,10 @@ const serieOptions = [
 const turmaOptions = ["Manhã", "Tarde"] as const;
 const unidadeOptions = ["Colégio Raízes"] as const;
 
-const optionalEnum = <T extends [string, ...string[]]>(values: T) =>
+const optionalEnum = <T extends readonly [string, ...string[]]>(values: T) =>
   z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-    z.enum(values).optional()
+    z.enum([...values] as [string, ...string[]]).optional()
   );
 
 export const serieSchema = optionalEnum(serieOptions);
