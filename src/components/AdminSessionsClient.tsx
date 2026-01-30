@@ -45,6 +45,9 @@ export default function AdminSessionsClient({
   const [modality, setModality] = useState("PRESENCIAL");
   const [price, setPrice] = useState(subjects[0]?.defaultPriceCents ?? 5000);
   const [repeatWeeks, setRepeatWeeks] = useState(1);
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [weekday, setWeekday] = useState(1);
 
   async function createSessions(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,6 +91,53 @@ export default function AdminSessionsClient({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status: "CANCELADA" })
     });
+    window.location.reload();
+  }
+
+  async function createMonthlySessions(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!month || !year) return;
+
+    const startDate = new Date(`${year}-${String(month).padStart(2, "0")}-01T${startTime}:00`);
+    const endDate = new Date(`${year}-${String(month).padStart(2, "0")}-01T${endTime}:00`);
+    const dates: Date[] = [];
+
+    const current = new Date(startDate);
+    while (current.getMonth() + 1 === month) {
+      if (current.getDay() === weekday) {
+        dates.push(new Date(current));
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    const payloadBase = {
+      subjectId,
+      teacherId,
+      location,
+      modality,
+      priceCents: Number(price)
+    };
+
+    const requests = dates.map((date) => {
+      const startsAt = new Date(date);
+      const endsAt = new Date(date);
+      const [startHour, startMinute] = startTime.split(":").map(Number);
+      const [endHour, endMinute] = endTime.split(":").map(Number);
+      startsAt.setHours(startHour, startMinute, 0, 0);
+      endsAt.setHours(endHour, endMinute, 0, 0);
+
+      return fetch("/api/admin/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payloadBase,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString()
+        })
+      });
+    });
+
+    await Promise.all(requests);
     window.location.reload();
   }
 
@@ -200,6 +250,73 @@ export default function AdminSessionsClient({
         </div>
         <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
           Criar sessões
+        </button>
+      </form>
+
+      <form onSubmit={createMonthlySessions} className="rounded-xl bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Gerar sessões por mês</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <label className="text-sm text-slate-600">
+            Mês
+            <input
+              type="number"
+              min={1}
+              max={12}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={month}
+              onChange={(event) => setMonth(Number(event.target.value))}
+            />
+          </label>
+          <label className="text-sm text-slate-600">
+            Ano
+            <input
+              type="number"
+              min={2020}
+              max={2100}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={year}
+              onChange={(event) => setYear(Number(event.target.value))}
+            />
+          </label>
+          <label className="text-sm text-slate-600">
+            Dia da semana
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={weekday}
+              onChange={(event) => setWeekday(Number(event.target.value))}
+            >
+              <option value={1}>Segunda</option>
+              <option value={2}>Terça</option>
+              <option value={3}>Quarta</option>
+              <option value={4}>Quinta</option>
+              <option value={5}>Sexta</option>
+              <option value={6}>Sábado</option>
+              <option value={0}>Domingo</option>
+            </select>
+          </label>
+          <label className="text-sm text-slate-600">
+            Horário
+            <div className="mt-1 flex gap-2">
+              <input
+                type="time"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                value={startTime}
+                onChange={(event) => setStartTime(event.target.value)}
+              />
+              <input
+                type="time"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                value={endTime}
+                onChange={(event) => setEndTime(event.target.value)}
+              />
+            </div>
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Serão criadas sessões em todas as datas do mês que caem no dia selecionado.
+        </p>
+        <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
+          Gerar sessões do mês
         </button>
       </form>
 
