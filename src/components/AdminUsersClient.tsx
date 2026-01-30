@@ -39,14 +39,24 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     };
   }>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await fetch("/api/admin/users", {
+    setFormError(null);
+    setFormSuccess(null);
+    const response = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, email, password, role, serie, turma, unidade, subjectIds })
     });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setFormError(data?.message ?? "Não foi possível criar o usuário.");
+      return;
+    }
+    setFormSuccess("Usuário criado com sucesso.");
     window.location.reload();
   }
 
@@ -242,6 +252,8 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
           </div>
         )}
 
+        {formError && <p className="mt-3 text-sm text-red-600">{formError}</p>}
+        {formSuccess && <p className="mt-3 text-sm text-emerald-600">{formSuccess}</p>}
         <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
           Criar usuário
         </button>

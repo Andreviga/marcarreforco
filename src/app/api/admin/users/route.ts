@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import { userCreateSchema, userUpdateSchema } from "@/lib/validators";
@@ -28,22 +29,30 @@ export async function POST(request: Request) {
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
 
-  const created = await prisma.user.create({
-    data: {
-      name: parsed.data.name,
-      email: parsed.data.email.toLowerCase(),
-      passwordHash,
-      role: parsed.data.role,
-      studentProfile: parsed.data.role === "ALUNO" ? {
-        create: {
-          serie: parsed.data.serie ?? "",
-          turma: parsed.data.turma ?? "",
-          unidade: parsed.data.unidade ?? ""
-        }
-      } : undefined,
-      teacherProfile: parsed.data.role === "PROFESSOR" ? { create: {} } : undefined
+  let created;
+  try {
+    created = await prisma.user.create({
+      data: {
+        name: parsed.data.name,
+        email: parsed.data.email.toLowerCase(),
+        passwordHash,
+        role: parsed.data.role,
+        studentProfile: parsed.data.role === "ALUNO" ? {
+          create: {
+            serie: parsed.data.serie ?? "",
+            turma: parsed.data.turma ?? "",
+            unidade: parsed.data.unidade ?? ""
+          }
+        } : undefined,
+        teacherProfile: parsed.data.role === "PROFESSOR" ? { create: {} } : undefined
+      }
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ message: "E-mail já cadastrado" }, { status: 409 });
     }
-  });
+    return NextResponse.json({ message: "Erro ao criar usuário" }, { status: 500 });
+  }
 
   if (parsed.data.role === "PROFESSOR" && parsed.data.subjectIds?.length) {
     await prisma.teacherSubject.createMany({
