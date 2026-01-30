@@ -1,7 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [adminPassword, setAdminPassword] = useState("");
   const [adminToken, setAdminToken] = useState("");
   const [showAdminBootstrap, setShowAdminBootstrap] = useState(false);
+  const [adminExists, setAdminExists] = useState<boolean | null>(null);
   const [serie, setSerie] = useState("");
   const [turma, setTurma] = useState("");
   const [unidade, setUnidade] = useState("");
@@ -68,6 +69,14 @@ export default function LoginPage() {
     setSuccess("Usuário criado. Faça login para continuar.");
     setMode("login");
   }
+
+  useEffect(() => {
+    if (typeof fetch !== "function") return;
+    fetch("/api/public/admin-exists")
+      .then((response) => response.json())
+      .then((data) => setAdminExists(Boolean(data?.exists)))
+      .catch(() => setAdminExists(false));
+  }, []);
 
   async function handleRequestAdminToken() {
     setLoading(true);
@@ -287,73 +296,75 @@ export default function LoginPage() {
             </form>
           )}
 
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={() => setShowAdminBootstrap((prev) => !prev)}
-              className="text-xs font-medium text-slate-500 hover:text-slate-700"
-            >
-              {showAdminBootstrap ? "Ocultar criação de admin" : "Criar admin inicial"}
-            </button>
+          {adminExists === false && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setShowAdminBootstrap((prev) => !prev)}
+                className="text-xs font-medium text-slate-500 hover:text-slate-700"
+              >
+                {showAdminBootstrap ? "Ocultar criação de admin" : "Criar admin inicial"}
+              </button>
 
-            {showAdminBootstrap && (
-              <form onSubmit={handleBootstrapAdmin} className="mt-3 space-y-3 rounded-2xl border border-slate-100 p-4">
-                <div>
-                  <label className="text-xs font-medium text-slate-600">Nome</label>
-                  <input
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    value={adminName}
-                    onChange={(event) => setAdminName(event.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-600">E-mail</label>
-                  <input
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    type="email"
-                    value={adminEmail}
-                    onChange={(event) => setAdminEmail(event.target.value)}
-                    required
-                  />
-                </div>
-                <button
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs text-slate-700 hover:border-slate-300"
-                  type="button"
-                  onClick={handleRequestAdminToken}
-                  disabled={loading}
-                >
-                  {loading ? "Enviando..." : "Enviar token por e-mail"}
-                </button>
-                <div>
-                  <label className="text-xs font-medium text-slate-600">Senha</label>
-                  <input
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    type="password"
-                    value={adminPassword}
-                    onChange={(event) => setAdminPassword(event.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-600">Token recebido por e-mail</label>
-                  <input
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    value={adminToken}
-                    onChange={(event) => setAdminToken(event.target.value)}
-                    required
-                  />
-                </div>
-                <button
-                  className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800"
-                  type="submit"
-                  disabled={loading}
-                >
-                  {loading ? "Criando..." : "Criar admin"}
-                </button>
-              </form>
-            )}
-          </div>
+              {showAdminBootstrap && (
+                <form onSubmit={handleBootstrapAdmin} className="mt-3 space-y-3 rounded-2xl border border-slate-100 p-4">
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">Nome</label>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      value={adminName}
+                      onChange={(event) => setAdminName(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">E-mail</label>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      type="email"
+                      value={adminEmail}
+                      onChange={(event) => setAdminEmail(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <button
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-xs text-slate-700 hover:border-slate-300"
+                    type="button"
+                    onClick={handleRequestAdminToken}
+                    disabled={loading}
+                  >
+                    {loading ? "Enviando..." : "Enviar token por e-mail"}
+                  </button>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">Senha</label>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      type="password"
+                      value={adminPassword}
+                      onChange={(event) => setAdminPassword(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600">Token recebido por e-mail</label>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      value={adminToken}
+                      onChange={(event) => setAdminToken(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <button
+                    className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800"
+                    type="submit"
+                    disabled={loading}
+                  >
+                    {loading ? "Criando..." : "Criar admin"}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
