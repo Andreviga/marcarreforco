@@ -3,6 +3,25 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 
+const seriesOptions = [
+  "1º ano",
+  "2º ano",
+  "3º ano",
+  "4º ano",
+  "5º ano",
+  "6º ano",
+  "7º ano",
+  "8º ano",
+  "9º ano",
+  "1ª série",
+  "2ª série",
+  "3ª série"
+];
+
+const turmaOptions = ["Manhã", "Tarde"];
+
+const defaultUnidade = "Colégio Raízes";
+
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
@@ -11,7 +30,7 @@ export default function LoginPage() {
   const [accessCode, setAccessCode] = useState("");
   const [serie, setSerie] = useState("");
   const [turma, setTurma] = useState("");
-  const [unidade, setUnidade] = useState("");
+  const [unidade, setUnidade] = useState(defaultUnidade);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -192,27 +211,39 @@ export default function LoginPage() {
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
                   <label className="text-sm font-medium text-slate-700">Série</label>
-                  <input
+                  <select
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                     value={serie}
                     onChange={(event) => setSerie(event.target.value)}
-                  />
+                  >
+                    <option value="">Selecione</option>
+                    {seriesOptions.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700">Turma</label>
-                  <input
+                  <select
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                     value={turma}
                     onChange={(event) => setTurma(event.target.value)}
-                  />
+                  >
+                    <option value="">Selecione</option>
+                    {turmaOptions.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700">Unidade</label>
-                  <input
+                  <select
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                     value={unidade}
                     onChange={(event) => setUnidade(event.target.value)}
-                  />
+                  >
+                    <option value={defaultUnidade}>{defaultUnidade}</option>
+                  </select>
                 </div>
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}

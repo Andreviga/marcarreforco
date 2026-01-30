@@ -2,20 +2,17 @@ import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import AppShell from "@/components/AppShell";
 
-const LinkMock = ({ href, children }: { href: string; children: ReactNode }) => (
-  <a href={href}>{children}</a>
-);
-LinkMock.displayName = "LinkMock";
-
 jest.mock("next/link", () => ({
   __esModule: true,
-  default: LinkMock
+  default: ({ href, children }: { href: string; children: ReactNode }) => (
+    <a href={href}>{children}</a>
+  )
 }));
 
-const SignOutButtonMock = () => <button>Mock Sign Out</button>;
-SignOutButtonMock.displayName = "SignOutButtonMock";
-
-jest.mock("@/components/SignOutButton", () => SignOutButtonMock);
+jest.mock("@/components/SignOutButton", () => ({
+  __esModule: true,
+  default: () => <button>Mock Sign Out</button>
+}));
 
 describe("AppShell", () => {
   it("renders title, subtitle, nav items, and children for admin", () => {

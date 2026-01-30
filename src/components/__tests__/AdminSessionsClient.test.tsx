@@ -41,7 +41,7 @@ describe("AdminSessionsClient", () => {
     render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
 
     const subjectSelect = screen.getByLabelText("Disciplina");
-    const priceInput = screen.getByLabelText("Preço (centavos)") as HTMLInputElement;
+    const priceInput = screen.getByLabelText("Valor (centavos)") as HTMLInputElement;
 
     await userEvent.selectOptions(subjectSelect, "sub2");
 

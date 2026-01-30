@@ -41,8 +41,8 @@ async function main() {
       studentProfile: {
         create: {
           serie: "8º ano",
-          turma: "B",
-          unidade: "Unidade Centro"
+          turma: "Manhã",
+          unidade: "Colégio Raízes"
         }
       }
     }

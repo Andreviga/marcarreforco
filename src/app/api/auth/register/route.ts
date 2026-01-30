@@ -2,15 +2,18 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { serieSchema, turmaSchema, unidadeSchema } from "@/lib/validators";
+
+const defaultUnidade = "Colégio Raízes";
 
 const registerSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(6),
   accessCode: z.string().min(1),
-  serie: z.string().optional(),
-  turma: z.string().optional(),
-  unidade: z.string().optional()
+  serie: serieSchema,
+  turma: turmaSchema,
+  unidade: unidadeSchema
 });
 
 export async function POST(request: Request) {
@@ -42,7 +45,7 @@ export async function POST(request: Request) {
         create: {
           serie: parsed.data.serie ?? "",
           turma: parsed.data.turma ?? "",
-          unidade: parsed.data.unidade ?? ""
+          unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade
         }
       }
     }

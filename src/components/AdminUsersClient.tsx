@@ -16,6 +16,25 @@ interface Subject {
   name: string;
 }
 
+const seriesOptions = [
+  "1º ano",
+  "2º ano",
+  "3º ano",
+  "4º ano",
+  "5º ano",
+  "6º ano",
+  "7º ano",
+  "8º ano",
+  "9º ano",
+  "1ª série",
+  "2ª série",
+  "3ª série"
+];
+
+const turmaOptions = ["Manhã", "Tarde"];
+
+const defaultUnidade = "Colégio Raízes";
+
 export default function AdminUsersClient({ users, subjects }: { users: UserRow[]; subjects: Subject[] }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,7 +42,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
   const [role, setRole] = useState("ALUNO");
   const [serie, setSerie] = useState("");
   const [turma, setTurma] = useState("");
-  const [unidade, setUnidade] = useState("");
+  const [unidade, setUnidade] = useState(defaultUnidade);
   const [subjectIds, setSubjectIds] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<null | {
@@ -92,7 +111,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
 
   function downloadTemplate() {
     const header = ["nome", "email", "senha", "perfil", "serie", "turma", "unidade", "disciplinas"];
-    const example = ["Ana Souza", "ana@colegio.com", "123456", "ALUNO", "8º ano", "B", "Unidade Centro", "Matemática, Português"];
+    const example = ["Ana Souza", "ana@colegio.com", "123456", "ALUNO", "8º ano", "Manhã", defaultUnidade, "Matemática, Português"];
     const worksheet = XLSX.utils.aoa_to_sheet([header, example]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "usuarios");
@@ -232,15 +251,27 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <label className="text-sm text-slate-600">
               Série
-              <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={serie} onChange={(e) => setSerie(e.target.value)} />
+              <select className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={serie} onChange={(e) => setSerie(e.target.value)}>
+                <option value="">Selecione</option>
+                {seriesOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
             </label>
             <label className="text-sm text-slate-600">
               Turma
-              <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={turma} onChange={(e) => setTurma(e.target.value)} />
+              <select className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={turma} onChange={(e) => setTurma(e.target.value)}>
+                <option value="">Selecione</option>
+                {turmaOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
             </label>
             <label className="text-sm text-slate-600">
               Unidade
-              <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={unidade} onChange={(e) => setUnidade(e.target.value)} />
+              <select className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={unidade} onChange={(e) => setUnidade(e.target.value)}>
+                <option value={defaultUnidade}>{defaultUnidade}</option>
+              </select>
             </label>
           </div>
         )}

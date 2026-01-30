@@ -34,7 +34,7 @@ describe("AdminSubjectsClient", () => {
     render(<AdminSubjectsClient subjects={[]} />);
 
     await userEvent.type(screen.getByPlaceholderText("Nome da disciplina"), "Biologia");
-    const priceInput = screen.getByPlaceholderText("Preço");
+    const priceInput = screen.getByPlaceholderText("Valor");
     await userEvent.clear(priceInput);
     await userEvent.type(priceInput, "2500");
     await userEvent.click(screen.getByRole("button", { name: "Criar" }));

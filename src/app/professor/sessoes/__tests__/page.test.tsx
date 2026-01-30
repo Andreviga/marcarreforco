@@ -50,7 +50,7 @@ describe("ProfessorSessoesPage", () => {
     render(await ProfessorSessoesPage());
 
     expect(requireRoleMock).toHaveBeenCalledWith(["PROFESSOR"]);
-    expect(AppShellMock).toHaveBeenCalledWith(expect.objectContaining({ title: "Sessões da semana", role: "PROFESSOR" }));
+    expect(AppShellMock).toHaveBeenCalledWith(expect.objectContaining({ title: "Sessões", role: "PROFESSOR" }));
     expect(screen.getByText("Matemática")).toBeInTheDocument();
   });
 });

@@ -6,6 +6,8 @@ import { requireApiRole } from "@/lib/api-auth";
 import { userCreateSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
 
+const defaultUnidade = "Colégio Raízes";
+
 const importSchema = z.object({
   users: z.array(z.unknown())
 });
@@ -69,7 +71,7 @@ export async function POST(request: Request) {
             create: {
               serie: user.serie ?? "",
               turma: user.turma ?? "",
-              unidade: user.unidade ?? ""
+              unidade: user.unidade?.trim() ? user.unidade : defaultUnidade
             }
           } : undefined,
           teacherProfile: user.role === "PROFESSOR" ? { create: {} } : undefined

@@ -6,6 +6,8 @@ import { requireApiRole } from "@/lib/api-auth";
 import { userCreateSchema, userUpdateSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
 
+const defaultUnidade = "Colégio Raízes";
+
 export async function GET() {
   const { response } = await requireApiRole(["ADMIN"]);
   if (response) return response;
@@ -24,7 +26,10 @@ export async function POST(request: Request) {
   const body = await request.json();
   const parsed = userCreateSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
+    return NextResponse.json(
+      { message: "Dados inválidos", issues: parsed.error.flatten() },
+      { status: 400 }
+    );
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
@@ -41,7 +46,7 @@ export async function POST(request: Request) {
           create: {
             serie: parsed.data.serie ?? "",
             turma: parsed.data.turma ?? "",
-            unidade: parsed.data.unidade ?? ""
+            unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade
           }
         } : undefined,
         teacherProfile: parsed.data.role === "PROFESSOR" ? { create: {} } : undefined
@@ -105,13 +110,13 @@ export async function PATCH(request: Request) {
       update: {
         serie: parsed.data.serie ?? "",
         turma: parsed.data.turma ?? "",
-        unidade: parsed.data.unidade ?? ""
+        unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade
       },
       create: {
         userId: updated.id,
         serie: parsed.data.serie ?? "",
         turma: parsed.data.turma ?? "",
-        unidade: parsed.data.unidade ?? ""
+        unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade
       }
     });
   }

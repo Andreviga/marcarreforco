@@ -1,5 +1,33 @@
 import { z } from "zod";
 
+const serieOptions = [
+  "1º ano",
+  "2º ano",
+  "3º ano",
+  "4º ano",
+  "5º ano",
+  "6º ano",
+  "7º ano",
+  "8º ano",
+  "9º ano",
+  "1ª série",
+  "2ª série",
+  "3ª série"
+] as const;
+
+const turmaOptions = ["Manhã", "Tarde"] as const;
+const unidadeOptions = ["Colégio Raízes"] as const;
+
+const optionalEnum = <T extends [string, ...string[]]>(values: T) =>
+  z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.enum(values).optional()
+  );
+
+export const serieSchema = optionalEnum(serieOptions);
+export const turmaSchema = optionalEnum(turmaOptions);
+export const unidadeSchema = optionalEnum(unidadeOptions);
+
 export const sessionCreateSchema = z.object({
   subjectId: z.string().min(1),
   teacherId: z.string().min(1),
@@ -34,9 +62,9 @@ export const userCreateSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   role: z.enum(["ALUNO", "PROFESSOR", "ADMIN"]),
-  serie: z.string().optional(),
-  turma: z.string().optional(),
-  unidade: z.string().optional(),
+  serie: serieSchema,
+  turma: turmaSchema,
+  unidade: unidadeSchema,
   subjectIds: z.array(z.string()).optional()
 });
 

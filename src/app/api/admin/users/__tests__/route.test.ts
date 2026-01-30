@@ -79,9 +79,9 @@ describe("admin users route", () => {
         email: "aluno@example.com",
         password: "senha123",
         role: "ALUNO",
-        serie: "9",
-        turma: "A",
-        unidade: "Centro"
+        serie: "9º ano",
+        turma: "Manhã",
+        unidade: "Colégio Raízes"
       })
     });
 
