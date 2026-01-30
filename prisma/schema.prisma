@@ -197,3 +197,14 @@ model AuditLog {
 
   actor User @relation("ActorAuditLogs", fields: [actorUserId], references: [id])
 }
+
+model AdminBootstrapToken {
+  id          String   @id @default(cuid())
+  email       String
+  tokenHash   String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([email])
+}

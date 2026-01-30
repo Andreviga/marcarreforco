@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
-  const [adminAccessCode, setAdminAccessCode] = useState("");
+  const [adminToken, setAdminToken] = useState("");
   const [showAdminBootstrap, setShowAdminBootstrap] = useState(false);
   const [serie, setSerie] = useState("");
   const [turma, setTurma] = useState("");
@@ -69,6 +69,31 @@ export default function LoginPage() {
     setMode("login");
   }
 
+  async function handleRequestAdminToken() {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    const response = await fetch("/api/auth/bootstrap-admin", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: adminEmail })
+    });
+
+    setLoading(false);
+    if (!response.ok) {
+      const message = response.status === 409
+        ? "Admin já existe."
+        : response.status === 403
+          ? "E-mail não autorizado."
+          : "Não foi possível enviar o token.";
+      setError(message);
+      return;
+    }
+
+    setSuccess("Token enviado para o e-mail informado.");
+  }
+
   async function handleBootstrapAdmin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
@@ -82,7 +107,7 @@ export default function LoginPage() {
         name: adminName,
         email: adminEmail,
         password: adminPassword,
-        accessCode: adminAccessCode
+        token: adminToken
       })
     });
 
@@ -91,7 +116,7 @@ export default function LoginPage() {
       const message = response.status === 409
         ? "Admin já existe ou e-mail já cadastrado."
         : response.status === 403
-          ? "Código inválido."
+          ? "Token inválido ou expirado."
           : "Não foi possível criar o admin.";
       setError(message);
       return;
@@ -292,6 +317,14 @@ export default function LoginPage() {
                     required
                   />
                 </div>
+                <button
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs text-slate-700 hover:border-slate-300"
+                  type="button"
+                  onClick={handleRequestAdminToken}
+                  disabled={loading}
+                >
+                  {loading ? "Enviando..." : "Enviar token por e-mail"}
+                </button>
                 <div>
                   <label className="text-xs font-medium text-slate-600">Senha</label>
                   <input
@@ -303,11 +336,11 @@ export default function LoginPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-600">Código de admin</label>
+                  <label className="text-xs font-medium text-slate-600">Token recebido por e-mail</label>
                   <input
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    value={adminAccessCode}
-                    onChange={(event) => setAdminAccessCode(event.target.value)}
+                    value={adminToken}
+                    onChange={(event) => setAdminToken(event.target.value)}
                     required
                   />
                 </div>
