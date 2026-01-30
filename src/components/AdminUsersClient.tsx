@@ -154,7 +154,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
         });
 
         return acc;
-      }, [] as Array<{ name: string; email: string; password: string; role: string; serie?: string; turma?: string; unidade?: string; subjectIds?: string[] }>);
+      }, [] as Array<{ _rowNumber: number; name: string; email: string; password: string; role: string; serie?: string; turma?: string; unidade?: string; subjectIds?: string[] }>);
 
       if (!payload.length) {
         throw new Error("Nenhum usuário válido foi encontrado");
