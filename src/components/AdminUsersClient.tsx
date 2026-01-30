@@ -56,7 +56,11 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
       const fieldErrors = data?.issues?.fieldErrors
         ? Object.entries(data.issues.fieldErrors)
             .filter(([, messages]) => Array.isArray(messages) && messages.length)
-            .map(([field, messages]) => `${field}: ${messages.join(", ")}`)
+            .map(([field, messages]) => {
+              if (!Array.isArray(messages)) return null;
+              return `${field}: ${messages.join(", ")}`;
+            })
+            .filter((item): item is string => Boolean(item))
             .join(" | ")
         : null;
       setFormError(fieldErrors ?? data?.message ?? "Não foi possível criar o usuário.");
