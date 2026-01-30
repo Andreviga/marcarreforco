@@ -121,17 +121,26 @@ export default function LoginPage() {
                 {mode === "login" ? "Entre com seu e-mail e senha." : "Cadastre um aluno rapidamente."}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setError(null);
-                setSuccess(null);
-                setMode((prev) => (prev === "login" ? "register" : "login"));
-              }}
-              className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-slate-300"
-            >
-              {mode === "login" ? "Criar usuário" : "Já tenho conta"}
-            </button>
+            <div className="flex flex-col items-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setSuccess(null);
+                  setMode((prev) => (prev === "login" ? "register" : "login"));
+                }}
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-slate-300"
+              >
+                {mode === "login" ? "Criar usuário" : "Já tenho conta"}
+              </button>
+              <button
+                type="button"
+                onClick={() => window.open(window.location.href, "_blank", "noopener,noreferrer")}
+                className="text-xs text-slate-500 hover:text-slate-700"
+              >
+                Abrir em outra aba
+              </button>
+            </div>
           </div>
 
           {mode === "login" ? (
@@ -196,8 +205,10 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  minLength={6}
                   required
                 />
+                <p className="mt-1 text-xs text-slate-500">Mínimo 6 caracteres.</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">Código de acesso</label>
