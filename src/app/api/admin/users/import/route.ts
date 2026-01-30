@@ -35,7 +35,11 @@ export async function POST(request: Request) {
   for (const rawUser of parsed.data.users) {
     const parsedUser = userImportSchema.safeParse(rawUser);
     if (!parsedUser.success) {
-      invalidRows.push(`Linha ${rawUser?._rowNumber ?? "?"}: dados inválidos`);
+      const rowNumber =
+        typeof rawUser === "object" && rawUser && "_rowNumber" in rawUser
+          ? (rawUser as { _rowNumber?: number })._rowNumber
+          : undefined;
+      invalidRows.push(`Linha ${rowNumber ?? "?"}: dados inválidos`);
       continue;
     }
 
