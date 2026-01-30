@@ -53,7 +53,13 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setFormError(data?.message ?? "Não foi possível criar o usuário.");
+      const fieldErrors = data?.issues?.fieldErrors
+        ? Object.entries(data.issues.fieldErrors)
+            .filter(([, messages]) => Array.isArray(messages) && messages.length)
+            .map(([field, messages]) => `${field}: ${messages.join(", ")}`)
+            .join(" | ")
+        : null;
+      setFormError(fieldErrors ?? data?.message ?? "Não foi possível criar o usuário.");
       return;
     }
     setFormSuccess("Usuário criado com sucesso.");
@@ -206,6 +212,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
           <label className="text-sm text-slate-600">
             Senha
             <input type="password" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <span className="mt-1 block text-xs text-slate-400">Mínimo 6 caracteres.</span>
           </label>
           <label className="text-sm text-slate-600">
             Perfil
