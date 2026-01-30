@@ -9,6 +9,11 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accessCode, setAccessCode] = useState("");
+  const [adminName, setAdminName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [adminAccessCode, setAdminAccessCode] = useState("");
+  const [showAdminBootstrap, setShowAdminBootstrap] = useState(false);
   const [serie, setSerie] = useState("");
   const [turma, setTurma] = useState("");
   const [unidade, setUnidade] = useState("");
@@ -62,6 +67,38 @@ export default function LoginPage() {
 
     setSuccess("Usuário criado. Faça login para continuar.");
     setMode("login");
+  }
+
+  async function handleBootstrapAdmin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    const response = await fetch("/api/auth/bootstrap-admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: adminName,
+        email: adminEmail,
+        password: adminPassword,
+        accessCode: adminAccessCode
+      })
+    });
+
+    setLoading(false);
+    if (!response.ok) {
+      const message = response.status === 409
+        ? "Admin já existe ou e-mail já cadastrado."
+        : response.status === 403
+          ? "Código inválido."
+          : "Não foi possível criar o admin.";
+      setError(message);
+      return;
+    }
+
+    setSuccess("Admin criado. Faça login para continuar.");
+    setShowAdminBootstrap(false);
   }
 
   return (
@@ -230,6 +267,66 @@ export default function LoginPage() {
             <p>Admin: admin@colegio.com / 123456</p>
             <p>Professor: professor@colegio.com / 123456</p>
             <p>Aluno: aluno@colegio.com / 123456</p>
+          </div>
+
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => setShowAdminBootstrap((prev) => !prev)}
+              className="text-xs font-medium text-slate-500 hover:text-slate-700"
+            >
+              {showAdminBootstrap ? "Ocultar criação de admin" : "Criar admin inicial"}
+            </button>
+
+            {showAdminBootstrap && (
+              <form onSubmit={handleBootstrapAdmin} className="mt-3 space-y-3 rounded-2xl border border-slate-100 p-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-600">Nome</label>
+                  <input
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    value={adminName}
+                    onChange={(event) => setAdminName(event.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600">E-mail</label>
+                  <input
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    type="email"
+                    value={adminEmail}
+                    onChange={(event) => setAdminEmail(event.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600">Senha</label>
+                  <input
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    type="password"
+                    value={adminPassword}
+                    onChange={(event) => setAdminPassword(event.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600">Código de admin</label>
+                  <input
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    value={adminAccessCode}
+                    onChange={(event) => setAdminAccessCode(event.target.value)}
+                    required
+                  />
+                </div>
+                <button
+                  className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800"
+                  type="submit"
+                  disabled={loading}
+                >
+                  {loading ? "Criando..." : "Criar admin"}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </div>
