@@ -48,6 +48,11 @@ export async function POST(request: Request) {
       }
     });
   } catch (error) {
+    console.error("CREATE_USER_FAILED", {
+      email: parsed.data.email?.toLowerCase(),
+      role: parsed.data.role,
+      error: error instanceof Error ? error.message : error
+    });
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ message: "E-mail já cadastrado" }, { status: 409 });
     }
