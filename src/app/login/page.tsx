@@ -262,13 +262,6 @@ export default function LoginPage() {
             </form>
           )}
 
-          <div className="mt-6 rounded-2xl bg-amber-50 p-3 text-xs text-amber-900/70">
-            <p>Seeds padrão:</p>
-            <p>Admin: admin@colegio.com / 123456</p>
-            <p>Professor: professor@colegio.com / 123456</p>
-            <p>Aluno: aluno@colegio.com / 123456</p>
-          </div>
-
           <div className="mt-4">
             <button
               type="button"
