@@ -1,7 +1,7 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -9,12 +9,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accessCode, setAccessCode] = useState("");
-  const [adminName, setAdminName] = useState("");
-  const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [adminToken, setAdminToken] = useState("");
-  const [showAdminBootstrap, setShowAdminBootstrap] = useState(false);
-  const [adminExists, setAdminExists] = useState<boolean | null>(null);
   const [serie, setSerie] = useState("");
   const [turma, setTurma] = useState("");
   const [unidade, setUnidade] = useState("");
@@ -70,70 +64,7 @@ export default function LoginPage() {
     setMode("login");
   }
 
-  useEffect(() => {
-    if (typeof fetch !== "function") return;
-    fetch("/api/public/admin-exists")
-      .then((response) => response.json())
-      .then((data) => setAdminExists(Boolean(data?.exists)))
-      .catch(() => setAdminExists(false));
-  }, []);
 
-  async function handleRequestAdminToken() {
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-
-    const response = await fetch("/api/auth/bootstrap-admin", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: adminEmail })
-    });
-
-    setLoading(false);
-    if (!response.ok) {
-      const message = response.status === 409
-        ? "Admin já existe."
-        : response.status === 403
-          ? "E-mail não autorizado."
-          : "Não foi possível enviar o token.";
-      setError(message);
-      return;
-    }
-
-    setSuccess("Token enviado para o e-mail informado.");
-  }
-
-  async function handleBootstrapAdmin(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-
-    const response = await fetch("/api/auth/bootstrap-admin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: adminName,
-        email: adminEmail,
-        password: adminPassword,
-        token: adminToken
-      })
-    });
-
-    setLoading(false);
-    if (!response.ok) {
-      const message = response.status === 409
-        ? "Admin já existe ou e-mail já cadastrado."
-        : response.status === 403
-          ? "Token inválido ou expirado."
-          : "Não foi possível criar o admin.";
-      setError(message);
-      return;
-    }
-
-    setSuccess("Admin criado. Faça login para continuar.");
-    setShowAdminBootstrap(false);
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 px-4 py-10">
@@ -296,75 +227,6 @@ export default function LoginPage() {
             </form>
           )}
 
-          {adminExists === false && (
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => setShowAdminBootstrap((prev) => !prev)}
-                className="text-xs font-medium text-slate-500 hover:text-slate-700"
-              >
-                {showAdminBootstrap ? "Ocultar criação de admin" : "Criar admin inicial"}
-              </button>
-
-              {showAdminBootstrap && (
-                <form onSubmit={handleBootstrapAdmin} className="mt-3 space-y-3 rounded-2xl border border-slate-100 p-4">
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">Nome</label>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      value={adminName}
-                      onChange={(event) => setAdminName(event.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">E-mail</label>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      type="email"
-                      value={adminEmail}
-                      onChange={(event) => setAdminEmail(event.target.value)}
-                      required
-                    />
-                  </div>
-                  <button
-                    className="rounded-lg border border-slate-200 px-4 py-2 text-xs text-slate-700 hover:border-slate-300"
-                    type="button"
-                    onClick={handleRequestAdminToken}
-                    disabled={loading}
-                  >
-                    {loading ? "Enviando..." : "Enviar token por e-mail"}
-                  </button>
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">Senha</label>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      type="password"
-                      value={adminPassword}
-                      onChange={(event) => setAdminPassword(event.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-slate-600">Token recebido por e-mail</label>
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                      value={adminToken}
-                      onChange={(event) => setAdminToken(event.target.value)}
-                      required
-                    />
-                  </div>
-                  <button
-                    className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800"
-                    type="submit"
-                    disabled={loading}
-                  >
-                    {loading ? "Criando..." : "Criar admin"}
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>
