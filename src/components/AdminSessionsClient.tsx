@@ -39,8 +39,8 @@ export default function AdminSessionsClient({
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
   const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("14:00");
-  const [endTime, setEndTime] = useState("15:30");
+  const [startTime, setStartTime] = useState("12:30");
+  const [endTime, setEndTime] = useState("13:30");
   const [location, setLocation] = useState("Sala 1");
   const [modality, setModality] = useState("PRESENCIAL");
   const [price, setPrice] = useState(subjects[0]?.defaultPriceCents ?? 5000);

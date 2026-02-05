@@ -226,41 +226,48 @@ export default function LoginPage() {
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
                   <label className="text-sm font-medium text-slate-700">Série</label>
-                  <select
+                  <input
+                    list="serie-options"
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                     value={serie}
                     onChange={(event) => setSerie(event.target.value)}
-                  >
-                    <option value="">Selecione</option>
-                    {seriesOptions.map((item) => (
-                      <option key={item} value={item}>{item}</option>
-                    ))}
-                  </select>
+                    placeholder="Ex.: 8º ano"
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700">Turma</label>
-                  <select
+                  <input
+                    list="turma-options"
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                     value={turma}
                     onChange={(event) => setTurma(event.target.value)}
-                  >
-                    <option value="">Selecione</option>
-                    {turmaOptions.map((item) => (
-                      <option key={item} value={item}>{item}</option>
-                    ))}
-                  </select>
+                    placeholder="Ex.: Manhã"
+                  />
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700">Unidade</label>
-                  <select
+                  <input
+                    list="unidade-options"
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                     value={unidade}
                     onChange={(event) => setUnidade(event.target.value)}
-                  >
-                    <option value={defaultUnidade}>{defaultUnidade}</option>
-                  </select>
+                    placeholder="Ex.: Colégio Raízes"
+                  />
                 </div>
               </div>
+              <datalist id="serie-options">
+                {seriesOptions.map((item) => (
+                  <option key={item} value={item} />
+                ))}
+              </datalist>
+              <datalist id="turma-options">
+                {turmaOptions.map((item) => (
+                  <option key={item} value={item} />
+                ))}
+              </datalist>
+              <datalist id="unidade-options">
+                <option value={defaultUnidade} />
+              </datalist>
               {error && <p className="text-sm text-red-600">{error}</p>}
               {success && <p className="text-sm text-emerald-600">{success}</p>}
               <button

@@ -18,18 +18,6 @@ async function main() {
     }
   });
 
-  const teacher = await prisma.user.upsert({
-    where: { email: "professor@colegio.com" },
-    update: {},
-    create: {
-      name: "Prof. Marcos",
-      email: "professor@colegio.com",
-      passwordHash,
-      role: Role.PROFESSOR,
-      teacherProfile: { create: {} }
-    }
-  });
-
   const student = await prisma.user.upsert({
     where: { email: "aluno@colegio.com" },
     update: {},
@@ -48,75 +36,60 @@ async function main() {
     }
   });
 
-  const math = await prisma.subject.upsert({
-    where: { name: "Matemática" },
-    update: {},
-    create: { name: "Matemática", defaultPriceCents: 5000 }
-  });
-
-  const portuguese = await prisma.subject.upsert({
-    where: { name: "Português" },
-    update: {},
-    create: { name: "Português", defaultPriceCents: 4500 }
-  });
-
-  await prisma.teacherSubject.createMany({
-    data: [
-      { teacherId: teacher.id, subjectId: math.id },
-      { teacherId: teacher.id, subjectId: portuguese.id }
-    ],
-    skipDuplicates: true
-  });
-
-  const baseWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const sessions = [
-    {
-      subjectId: math.id,
-      teacherId: teacher.id,
-      startsAt: setMinutes(setHours(addDays(baseWeek, 1), 14), 0),
-      endsAt: setMinutes(setHours(addDays(baseWeek, 1), 15), 30),
-      location: "Sala 12",
-      modality: Modality.PRESENCIAL,
-      priceCents: 5000,
-      status: SessionStatus.ATIVA
-    },
-    {
-      subjectId: math.id,
-      teacherId: teacher.id,
-      startsAt: setMinutes(setHours(addDays(baseWeek, 3), 14), 0),
-      endsAt: setMinutes(setHours(addDays(baseWeek, 3), 15), 30),
-      location: "Sala 12",
-      modality: Modality.PRESENCIAL,
-      priceCents: 5000,
-      status: SessionStatus.ATIVA
-    },
-    {
-      subjectId: portuguese.id,
-      teacherId: teacher.id,
-      startsAt: setMinutes(setHours(addDays(baseWeek, 2), 10), 0),
-      endsAt: setMinutes(setHours(addDays(baseWeek, 2), 11), 30),
-      location: "Online",
-      modality: Modality.ONLINE,
-      priceCents: 4500,
-      status: SessionStatus.ATIVA
-    },
-    {
-      subjectId: portuguese.id,
-      teacherId: teacher.id,
-      startsAt: setMinutes(setHours(addDays(baseWeek, 4), 10), 0),
-      endsAt: setMinutes(setHours(addDays(baseWeek, 4), 11), 30),
-      location: "Sala 9",
-      modality: Modality.PRESENCIAL,
-      priceCents: 4500,
-      status: SessionStatus.ATIVA
-    }
+  const subjectDefinitions = [
+    { name: "Matemática", defaultPriceCents: 5000, teacherName: "Prof. Marcos", teacherEmail: "marcos@colegio.com" },
+    { name: "Português", defaultPriceCents: 4500, teacherName: "Profª Ana", teacherEmail: "ana.prof@colegio.com" },
+    { name: "Ciências", defaultPriceCents: 4800, teacherName: "Prof. Lucas", teacherEmail: "lucas.prof@colegio.com" },
+    { name: "História", defaultPriceCents: 4200, teacherName: "Profª Julia", teacherEmail: "julia.prof@colegio.com" },
+    { name: "Geografia", defaultPriceCents: 4200, teacherName: "Prof. Daniel", teacherEmail: "daniel.prof@colegio.com" }
   ];
 
-  for (const session of sessions) {
-    await prisma.session.create({ data: session });
+  const subjects = [] as Array<{ id: string; defaultPriceCents: number; teacherId: string }>;
+
+  for (const subjectDef of subjectDefinitions) {
+    const subject = await prisma.subject.upsert({
+      where: { name: subjectDef.name },
+      update: { defaultPriceCents: subjectDef.defaultPriceCents },
+      create: { name: subjectDef.name, defaultPriceCents: subjectDef.defaultPriceCents }
+    });
+
+    const teacher = await prisma.user.upsert({
+      where: { email: subjectDef.teacherEmail },
+      update: { name: subjectDef.teacherName },
+      create: {
+        name: subjectDef.teacherName,
+        email: subjectDef.teacherEmail,
+        passwordHash,
+        role: Role.PROFESSOR,
+        teacherProfile: { create: {} }
+      }
+    });
+
+    await prisma.teacherSubject.createMany({
+      data: [{ teacherId: teacher.id, subjectId: subject.id }],
+      skipDuplicates: true
+    });
+
+    subjects.push({ id: subject.id, defaultPriceCents: subject.defaultPriceCents, teacherId: teacher.id });
   }
 
-  console.log("Seed completed:", { admin: admin.email, teacher: teacher.email, student: student.email });
+  const baseWeek = startOfWeek(addDays(new Date(), 7), { weekStartsOn: 1 });
+  const sessions = subjects.flatMap((subject) =>
+    [1, 2, 3, 4, 5].map((weekday) => ({
+      subjectId: subject.id,
+      teacherId: subject.teacherId,
+      startsAt: setMinutes(setHours(addDays(baseWeek, weekday), 12), 30),
+      endsAt: setMinutes(setHours(addDays(baseWeek, weekday), 13), 30),
+      location: "Sala 1",
+      modality: Modality.PRESENCIAL,
+      priceCents: subject.defaultPriceCents,
+      status: SessionStatus.ATIVA
+    }))
+  );
+
+  await prisma.session.createMany({ data: sessions });
+
+  console.log("Seed completed:", { admin: admin.email, student: student.email, subjects: subjects.length, sessions: sessions.length });
 }
 
 main()

@@ -30,6 +30,7 @@ export default function AgendaClient({
   enrollments: EnrollmentItem[];
 }) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [filterSubject, setFilterSubject] = useState("");
   const [filterTeacher, setFilterTeacher] = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -38,12 +39,24 @@ export default function AgendaClient({
 
   async function handleEnroll(sessionId: string) {
     setLoadingId(sessionId);
-    await fetch("/api/enroll", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId })
-    });
-    window.location.reload();
+    setErrorMessage(null);
+    try {
+      const response = await fetch("/api/enroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setErrorMessage(data?.message ?? "Não foi possível agendar a sessão.");
+        setLoadingId(null);
+        return;
+      }
+      window.location.reload();
+    } catch (error) {
+      setErrorMessage("Falha de conexão ao agendar. Tente novamente.");
+      setLoadingId(null);
+    }
   }
 
   const filtered = sessions.filter((session) => {
@@ -92,6 +105,9 @@ export default function AgendaClient({
             onChange={(event) => setFilterLocation(event.target.value)}
           />
         </div>
+        {errorMessage && (
+          <p className="mt-3 text-sm text-red-600">{errorMessage}</p>
+        )}
       </div>
       <div className="grid gap-4">
         {filtered.map((session) => {
