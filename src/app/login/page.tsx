@@ -149,6 +149,14 @@ export default function LoginPage() {
 
           {mode === "login" ? (
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              <div className="flex items-center justify-end">
+                <a
+                  href="/login/esqueci"
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                >
+                  Esqueci minha senha
+                </a>
+              </div>
               <div>
                 <label htmlFor="login-email" className="text-sm font-medium text-slate-700">E-mail</label>
                 <input

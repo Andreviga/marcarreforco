@@ -8,7 +8,9 @@ interface UserRow {
   name: string;
   email: string;
   role: string;
+  createdAt: string;
   studentProfile?: { serie: string; turma: string; unidade: string } | null;
+  teacherProfile?: { subjects: { id: string; name: string }[] } | null;
 }
 
 interface Subject {
@@ -99,6 +101,12 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
       .toLowerCase()
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "");
+  }
+
+  function formatDate(value: string) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString("pt-BR");
   }
 
   function parseRole(raw: string) {
@@ -373,12 +381,26 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
           {users.map((user) => (
             <div key={user.id} className="rounded-lg border border-slate-100 p-3 text-sm">
               <p className="font-semibold text-slate-900">{user.name}</p>
-              <p className="text-xs text-slate-500">{user.email} • {user.role}</p>
-              {user.studentProfile && (
-                <p className="text-xs text-slate-500">
-                  {user.studentProfile.serie} • {user.studentProfile.turma} • {user.studentProfile.unidade}
-                </p>
-              )}
+              <div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
+                <p>E-mail: {user.email}</p>
+                <p>Perfil: {user.role}</p>
+                <p>ID: {user.id}</p>
+                <p>Cadastrado em: {formatDate(user.createdAt)}</p>
+                {user.studentProfile ? (
+                  <p>
+                    Aluno: {user.studentProfile.serie} • {user.studentProfile.turma} • {user.studentProfile.unidade}
+                  </p>
+                ) : (
+                  <p>Aluno: -</p>
+                )}
+                {user.teacherProfile ? (
+                  <p>
+                    Disciplinas: {user.teacherProfile.subjects.length ? user.teacherProfile.subjects.map((subject) => subject.name).join(", ") : "-"}
+                  </p>
+                ) : (
+                  <p>Disciplinas: -</p>
+                )}
+              </div>
             </div>
           ))}
         </div>
