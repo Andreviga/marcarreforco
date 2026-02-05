@@ -134,7 +134,7 @@ export default function LoginPage() {
                 {mode === "login" ? "Criar usuário" : "Já tenho conta"}
               </button>
               <a
-                href={window.location.href}
+                href="/login"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-700 shadow-sm hover:border-amber-300 hover:bg-amber-100"
