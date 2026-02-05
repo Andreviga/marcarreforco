@@ -248,51 +248,53 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
         </div>
 
         {role === "ALUNO" && (
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <label className="text-sm text-slate-600">
-              Série
-              <input
-                list="admin-serie-options"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                value={serie}
-                onChange={(e) => setSerie(e.target.value)}
-                placeholder="Ex.: 8º ano"
-              />
-            </label>
-            <label className="text-sm text-slate-600">
-              Turma
-              <input
-                list="admin-turma-options"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                value={turma}
-                onChange={(e) => setTurma(e.target.value)}
-                placeholder="Ex.: Manhã"
-              />
-            </label>
-            <label className="text-sm text-slate-600">
-              Unidade
-              <input
-                list="admin-unidade-options"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-                value={unidade}
-                onChange={(e) => setUnidade(e.target.value)}
-                placeholder="Ex.: Colégio Raízes"
-              />
-            </label>
-          </div>
-          <datalist id="admin-serie-options">
-            {seriesOptions.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
-          <datalist id="admin-turma-options">
-            {turmaOptions.map((item) => (
-              <option key={item} value={item} />
-            ))}
-          </datalist>
-          <datalist id="admin-unidade-options">
-            <option value={defaultUnidade} />
-          </datalist>
+          <>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <label className="text-sm text-slate-600">
+                Série
+                <input
+                  list="admin-serie-options"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={serie}
+                  onChange={(e) => setSerie(e.target.value)}
+                  placeholder="Ex.: 8º ano"
+                />
+              </label>
+              <label className="text-sm text-slate-600">
+                Turma
+                <input
+                  list="admin-turma-options"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={turma}
+                  onChange={(e) => setTurma(e.target.value)}
+                  placeholder="Ex.: Manhã"
+                />
+              </label>
+              <label className="text-sm text-slate-600">
+                Unidade
+                <input
+                  list="admin-unidade-options"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={unidade}
+                  onChange={(e) => setUnidade(e.target.value)}
+                  placeholder="Ex.: Colégio Raízes"
+                />
+              </label>
+            </div>
+            <datalist id="admin-serie-options">
+              {seriesOptions.map((item) => (
+                <option key={item} value={item} />
+              ))}
+            </datalist>
+            <datalist id="admin-turma-options">
+              {turmaOptions.map((item) => (
+                <option key={item} value={item} />
+              ))}
+            </datalist>
+            <datalist id="admin-unidade-options">
+              <option value={defaultUnidade} />
+            </datalist>
+          </>
         )}
 
         {role === "PROFESSOR" && (
