@@ -121,7 +121,7 @@ export default function LoginPage() {
                 {mode === "login" ? "Entre com seu e-mail e senha." : "Cadastre um aluno rapidamente."}
               </p>
             </div>
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-col items-end gap-2 text-right">
               <button
                 type="button"
                 onClick={() => {
@@ -133,13 +133,17 @@ export default function LoginPage() {
               >
                 {mode === "login" ? "Criar usuário" : "Já tenho conta"}
               </button>
-              <button
-                type="button"
-                onClick={() => window.open(window.location.href, "_blank", "noopener,noreferrer")}
-                className="text-xs text-slate-500 hover:text-slate-700"
+              <a
+                href={window.location.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-700 shadow-sm hover:border-amber-300 hover:bg-amber-100"
               >
                 Abrir em outra aba
-              </button>
+              </a>
+              <p className="max-w-[180px] text-[11px] text-amber-700/80">
+                Se não conseguir abrir aqui, use “Abrir em outra aba”.
+              </p>
             </div>
           </div>
 

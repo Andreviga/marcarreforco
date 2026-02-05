@@ -6,6 +6,35 @@
   color-scheme: light;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .backdrop-blur {
+    background-color: rgba(255, 255, 255, 0.95);
+  }
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+textarea {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
 body {
   @apply bg-slate-50 text-slate-900;
 }
