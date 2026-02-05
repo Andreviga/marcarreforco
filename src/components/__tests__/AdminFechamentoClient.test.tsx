@@ -23,17 +23,32 @@ const invoices = [
     id: "inv1",
     month: 1,
     year: 2024,
-    status: "PENDENTE",
+    status: "ABERTA",
     totalCents: 5500,
     student: { name: "Joana" }
   }
 ];
+
+const students = [{ id: "stu-1", name: "Joana" }];
+
+const filters = {
+  month: 1,
+  year: 2024,
+  status: "TODAS",
+  studentId: "",
+  page: 1,
+  pageSize: 10,
+  total: 1
+};
 
 describe("AdminFechamentoClient", () => {
   let consoleErrorMock: jest.SpyInstance;
 
   beforeEach(() => {
     consoleErrorMock = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ count: 1 }) });
+    // @ts-expect-error - override fetch for test
+    global.fetch = fetchMock;
   });
 
   afterEach(() => {
@@ -41,7 +56,14 @@ describe("AdminFechamentoClient", () => {
   });
 
   it("renders invoices and report sections", () => {
-    render(<AdminFechamentoClient invoices={invoices} reports={reports} />);
+    render(
+      <AdminFechamentoClient
+        invoices={invoices}
+        reports={reports}
+        students={students}
+        filters={filters}
+      />
+    );
 
     expect(screen.getAllByText("Joana").length).toBeGreaterThan(0);
     expect(screen.getByText("Matemática")).toBeInTheDocument();
@@ -51,11 +73,18 @@ describe("AdminFechamentoClient", () => {
   });
 
   it("generates invoices", async () => {
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ count: 1 }) });
     // @ts-expect-error - override fetch for test
     global.fetch = fetchMock;
 
-    render(<AdminFechamentoClient invoices={invoices} reports={reports} />);
+    render(
+      <AdminFechamentoClient
+        invoices={invoices}
+        reports={reports}
+        students={students}
+        filters={filters}
+      />
+    );
 
     const monthInput = screen.getByLabelText("Mês");
     const yearInput = screen.getByLabelText("Ano");

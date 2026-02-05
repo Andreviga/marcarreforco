@@ -39,7 +39,7 @@ describe("AdminUsuariosPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     requireRoleMock.mockResolvedValue({ user: { id: "admin-1" } });
-    userRepo.findMany.mockResolvedValue([{ id: "u1" }]);
+    userRepo.findMany.mockResolvedValue([{ id: "u1", createdAt: new Date("2024-01-01T00:00:00.000Z") }]);
     subjectRepo.findMany.mockResolvedValue([{ id: "sub1" }]);
   });
 
@@ -49,7 +49,10 @@ describe("AdminUsuariosPage", () => {
     expect(requireRoleMock).toHaveBeenCalledWith(["ADMIN"]);
     expect(AppShellMock).toHaveBeenCalledWith(expect.objectContaining({ title: "Usuários", role: "ADMIN" }));
     expect(AdminUsersClientMock).toHaveBeenCalledWith(
-      expect.objectContaining({ users: [{ id: "u1" }], subjects: [{ id: "sub1" }] })
+      expect.objectContaining({
+        users: [expect.objectContaining({ id: "u1", createdAt: expect.any(String) })],
+        subjects: [{ id: "sub1" }]
+      })
     );
   });
 });

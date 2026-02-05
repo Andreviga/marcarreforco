@@ -1,6 +1,5 @@
 "use client";
 
-import { format } from "date-fns";
 import { useState } from "react";
 
 interface EnrollmentView {
@@ -38,7 +37,13 @@ export default function InscricoesClient({ enrollments }: { enrollments: Enrollm
                 {enrollment.session.subject.name}
               </h3>
               <p className="text-sm text-slate-500">
-                {enrollment.session.teacher.name} • {format(new Date(enrollment.session.startsAt), "dd/MM HH:mm")} - {format(new Date(enrollment.session.endsAt), "HH:mm")}
+                {enrollment.session.teacher.name} • {new Date(enrollment.session.startsAt).toLocaleDateString("pt-BR", {
+                  weekday: "short",
+                  day: "2-digit",
+                  month: "2-digit"
+                })}{" "}
+                {new Date(enrollment.session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
+                {new Date(enrollment.session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </p>
               <p className="text-xs text-slate-400">Status: {enrollment.status}</p>
             </div>

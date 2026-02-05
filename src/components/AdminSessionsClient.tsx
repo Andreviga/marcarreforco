@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
 import { formatCurrency } from "@/lib/format";
 
 interface Subject {
@@ -328,7 +327,13 @@ export default function AdminSessionsClient({
               <div className="flex flex-col gap-1">
                 <p className="text-sm font-semibold text-slate-900">{session.subject.name}</p>
                 <p className="text-xs text-slate-500">
-                  {format(new Date(session.startsAt), "dd/MM HH:mm")} - {format(new Date(session.endsAt), "HH:mm")}
+                  {new Date(session.startsAt).toLocaleDateString("pt-BR", {
+                    weekday: "short",
+                    day: "2-digit",
+                    month: "2-digit"
+                  })}{" "}
+                  {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
+                  {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                 </p>
                 <p className="text-xs text-slate-500">{session.teacher.name}</p>
                 <p className="text-xs text-slate-500">Valor: {formatCurrency(session.priceCents)}</p>

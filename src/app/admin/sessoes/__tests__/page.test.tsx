@@ -41,9 +41,19 @@ describe("AdminSessoesPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     requireRoleMock.mockResolvedValue({ user: { id: "admin-1" } });
-    sessionRepo.findMany.mockResolvedValue([{ id: "sess1" }]);
-    subjectRepo.findMany.mockResolvedValue([{ id: "sub1" }]);
-    userRepo.findMany.mockResolvedValue([{ id: "t1" }]);
+    sessionRepo.findMany.mockResolvedValue([
+      {
+        id: "sess1",
+        startsAt: new Date("2024-01-10T10:00:00.000Z"),
+        endsAt: new Date("2024-01-10T11:00:00.000Z"),
+        priceCents: 2000,
+        status: "ATIVA",
+        subject: { name: "Matemática" },
+        teacher: { name: "Ana" }
+      }
+    ]);
+    subjectRepo.findMany.mockResolvedValue([{ id: "sub1", name: "Matemática" }]);
+    userRepo.findMany.mockResolvedValue([{ id: "t1", name: "Ana" }]);
   });
 
   it("renders sessions management", async () => {
@@ -52,7 +62,11 @@ describe("AdminSessoesPage", () => {
     expect(requireRoleMock).toHaveBeenCalledWith(["ADMIN"]);
     expect(AppShellMock).toHaveBeenCalledWith(expect.objectContaining({ title: "Sessões", role: "ADMIN" }));
     expect(AdminSessionsClientMock).toHaveBeenCalledWith(
-      expect.objectContaining({ sessions: [{ id: "sess1" }], subjects: [{ id: "sub1" }], teachers: [{ id: "t1" }] })
+      expect.objectContaining({
+        sessions: expect.arrayContaining([expect.objectContaining({ id: "sess1" })]),
+        subjects: expect.arrayContaining([expect.objectContaining({ id: "sub1" })]),
+        teachers: expect.arrayContaining([expect.objectContaining({ id: "t1" })])
+      })
     );
   });
 });

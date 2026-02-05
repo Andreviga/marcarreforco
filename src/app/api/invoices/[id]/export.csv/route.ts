@@ -4,7 +4,7 @@ import { requireApiRole } from "@/lib/api-auth";
 import { formatCurrency } from "@/lib/format";
 
 export async function GET(_: Request, { params }: { params: { id: string } }) {
-  const { response } = await requireApiRole(["ADMIN"]);
+  const { session, response } = await requireApiRole(["ADMIN", "ALUNO"]);
   if (response) return response;
 
   const invoice = await prisma.invoice.findUnique({
@@ -14,6 +14,10 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 
   if (!invoice) {
     return NextResponse.json({ message: "Fatura não encontrada" }, { status: 404 });
+  }
+
+  if (session?.user.role === "ALUNO" && invoice.studentId !== session.user.id) {
+    return NextResponse.json({ message: "Sem permissão" }, { status: 403 });
   }
 
   const header = ["Data", "Sessão", "Disciplina", "Professor", "Status", "Valor"];

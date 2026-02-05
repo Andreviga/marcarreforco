@@ -120,7 +120,13 @@ export default function AgendaClient({
                     {session.subject.name}
                   </h3>
                   <p className="text-sm text-slate-500">
-                    {session.teacher.name} • {format(new Date(session.startsAt), "dd/MM HH:mm")} - {format(new Date(session.endsAt), "HH:mm")}
+                    {session.teacher.name} • {new Date(session.startsAt).toLocaleDateString("pt-BR", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "2-digit"
+                    })}{" "}
+                    {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
+                    {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                   <p className="text-sm text-slate-500">
                     {session.modality === "ONLINE" ? "Online" : session.location}

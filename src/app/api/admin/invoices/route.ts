@@ -10,12 +10,29 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const month = searchParams.get("month");
   const year = searchParams.get("year");
+  const status = searchParams.get("status");
+  const studentId = searchParams.get("studentId");
+  const countOnly = searchParams.get("countOnly") === "true";
+
+  const allowedStatuses = ["ABERTA", "EMITIDA", "PAGA"] as const;
+  const statusFilter = status && allowedStatuses.includes(status as (typeof allowedStatuses)[number])
+    ? (status as (typeof allowedStatuses)[number])
+    : undefined;
+
+  const where = {
+    month: month ? Number(month) : undefined,
+    year: year ? Number(year) : undefined,
+    status: statusFilter,
+    studentId: studentId || undefined
+  };
+
+  if (countOnly) {
+    const count = await prisma.invoice.count({ where });
+    return NextResponse.json({ count });
+  }
 
   const invoices = await prisma.invoice.findMany({
-    where: {
-      month: month ? Number(month) : undefined,
-      year: year ? Number(year) : undefined
-    },
+    where,
     include: { student: true, items: true },
     orderBy: { createdAt: "desc" }
   });

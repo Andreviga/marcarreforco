@@ -11,7 +11,7 @@ jest.mock("@/lib/api-auth", () => ({
 jest.mock("@/lib/prisma", () => ({
   prisma: {
     invoice: {
-      findUnique: jest.fn()
+      findMany: jest.fn()
     }
   }
 }));
@@ -39,52 +39,42 @@ jest.mock("pdfkit", () => {
         handlers.data?.forEach((cb) => cb(chunk));
       }
     };
-    return {
-      ...doc
-    };
+    return { ...doc };
   });
 });
 
-describe("invoice export pdf route", () => {
+describe("export month pdf route", () => {
   const requireApiRoleMock = requireApiRole as jest.Mock;
-  const invoiceRepo = prisma.invoice as unknown as { findUnique: jest.Mock };
+  const invoiceRepo = prisma.invoice as unknown as { findMany: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    requireApiRoleMock.mockResolvedValue({ response: null });
+    requireApiRoleMock.mockResolvedValue({
+      session: { user: { role: "ALUNO", id: "stu1" } },
+      response: null
+    });
   });
 
-  it("returns 404 when invoice missing", async () => {
-    invoiceRepo.findUnique.mockResolvedValue(null);
-
-    const response = await GET(new Request("http://localhost/api/invoices/1/export.pdf"), {
-      params: { id: "1" }
-    });
-
-    expect(response.status).toBe(404);
+  it("returns 400 for invalid month", async () => {
+    const response = await GET(new Request("http://localhost/api/invoices/export-month.pdf?month=0&year=2024"));
+    expect(response.status).toBe(400);
   });
 
   it("returns pdf content", async () => {
-    invoiceRepo.findUnique.mockResolvedValue({
-      id: "inv1",
-      student: { name: "Ana" },
-      month: 1,
-      year: 2024,
-      status: "ABERTA",
-      totalCents: 2000,
-      items: [
-        {
-          occurredAt: new Date("2024-01-10T10:00:00.000Z"),
-          session: { subject: { name: "Matemática" }, teacher: { name: "Ana" } },
-          attendance: { status: "PRESENTE" },
-          amountCents: 2000
-        }
-      ]
-    });
+    invoiceRepo.findMany.mockResolvedValue([
+      {
+        id: "inv1",
+        studentId: "stu1",
+        student: { name: "Ana" },
+        month: 1,
+        year: 2024,
+        status: "ABERTA",
+        totalCents: 2000,
+        items: []
+      }
+    ]);
 
-    const response = await GET(new Request("http://localhost/api/invoices/inv1/export.pdf"), {
-      params: { id: "inv1" }
-    });
+    const response = await GET(new Request("http://localhost/api/invoices/export-month.pdf?month=1&year=2024"));
     const buffer = Buffer.from(await response.arrayBuffer());
 
     expect(response.status).toBe(200);

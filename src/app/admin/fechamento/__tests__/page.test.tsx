@@ -13,8 +13,9 @@ jest.mock("@/lib/rbac", () => ({
 
 jest.mock("@/lib/prisma", () => ({
   prisma: {
-    invoice: { findMany: jest.fn() },
-    attendance: { findMany: jest.fn() }
+    invoice: { findMany: jest.fn(), count: jest.fn() },
+    attendance: { findMany: jest.fn() },
+    user: { findMany: jest.fn() }
   }
 }));
 
@@ -33,13 +34,15 @@ jest.mock("@/components/AdminFechamentoClient", () => ({
 
 describe("AdminFechamentoPage", () => {
   const requireRoleMock = requireRole as jest.Mock;
-  const invoiceRepo = prisma.invoice as unknown as { findMany: jest.Mock };
+  const invoiceRepo = prisma.invoice as unknown as { findMany: jest.Mock; count: jest.Mock };
   const attendanceRepo = prisma.attendance as unknown as { findMany: jest.Mock };
+  const userRepo = prisma.user as unknown as { findMany: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
     requireRoleMock.mockResolvedValue({ user: { id: "admin-1" } });
     invoiceRepo.findMany.mockResolvedValue([{ id: "inv1" }]);
+    invoiceRepo.count.mockResolvedValue(1);
     attendanceRepo.findMany.mockResolvedValue([
       {
         id: "att1",
@@ -55,10 +58,11 @@ describe("AdminFechamentoPage", () => {
         }
       }
     ]);
+    userRepo.findMany.mockResolvedValue([{ id: "stu-1", name: "Aluno" }]);
   });
 
   it("builds reports and renders fechamento", async () => {
-    render(await AdminFechamentoPage());
+    render(await AdminFechamentoPage({ searchParams: {} }));
 
     expect(requireRoleMock).toHaveBeenCalledWith(["ADMIN"]);
     expect(AppShellMock).toHaveBeenCalledWith(expect.objectContaining({ title: "Fechamento do mês", role: "ADMIN" }));
@@ -71,7 +75,9 @@ describe("AdminFechamentoPage", () => {
           totalByTeacher: expect.any(Array),
           totalByMonth: expect.any(Array),
           presenceRanking: expect.any(Array)
-        })
+        }),
+        students: expect.any(Array),
+        filters: expect.any(Object)
       })
     );
   });

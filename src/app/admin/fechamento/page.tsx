@@ -3,12 +3,49 @@ import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
 import AdminFechamentoClient from "@/components/AdminFechamentoClient";
 
-export default async function AdminFechamentoPage() {
+const allowedInvoiceStatuses = new Set(["ABERTA", "EMITIDA", "PAGA"]);
+
+export default async function AdminFechamentoPage({
+  searchParams
+}: {
+  searchParams?: { month?: string; year?: string; status?: string; studentId?: string; page?: string };
+}) {
   await requireRole(["ADMIN"]);
 
-  const invoices = await prisma.invoice.findMany({
-    include: { student: true },
-    orderBy: { createdAt: "desc" }
+  const now = new Date();
+  const monthParam = Number(searchParams?.month);
+  const yearParam = Number(searchParams?.year);
+  const month = monthParam >= 1 && monthParam <= 12 ? monthParam : now.getMonth() + 1;
+  const year = yearParam >= 2020 ? yearParam : now.getFullYear();
+  const statusFilter =
+    typeof searchParams?.status === "string" && allowedInvoiceStatuses.has(searchParams.status)
+      ? searchParams.status
+      : "TODAS";
+  const studentId = typeof searchParams?.studentId === "string" ? searchParams.studentId : "";
+  const page = Number(searchParams?.page) || 1;
+  const pageSize = 10;
+
+  const invoiceFilters = {
+    ...(month ? { month } : {}),
+    ...(year ? { year } : {}),
+    ...(statusFilter !== "TODAS" ? { status: statusFilter } : {}),
+    ...(studentId ? { studentId } : {})
+  };
+
+  const [invoices, invoiceCount] = await Promise.all([
+    prisma.invoice.findMany({
+      where: invoiceFilters,
+      include: { student: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize
+    }),
+    prisma.invoice.count({ where: invoiceFilters })
+  ]);
+
+  const students = await prisma.user.findMany({
+    where: { role: "ALUNO" },
+    orderBy: { name: "asc" }
   });
 
   const attendances = await prisma.attendance.findMany({
@@ -74,6 +111,16 @@ export default async function AdminFechamentoPage() {
     <AppShell title="Fechamento do mês" subtitle="Gere faturas e acompanhe o faturamento" role="ADMIN">
       <AdminFechamentoClient
         invoices={invoices}
+        students={students.map((student) => ({ id: student.id, name: student.name }))}
+        filters={{
+          month,
+          year,
+          status: statusFilter,
+          studentId,
+          page,
+          pageSize,
+          total: invoiceCount
+        }}
         reports={{
           totalByStudent: Array.from(reports.totalByStudent.values()),
           totalBySubject: Array.from(reports.totalBySubject.values()),
