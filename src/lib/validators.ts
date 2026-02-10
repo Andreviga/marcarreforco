@@ -96,3 +96,13 @@ export const ticketStatusSchema = z.object({
   id: z.string().min(1),
   status: z.enum(["ABERTO", "EM_ANDAMENTO", "RESOLVIDO", "FECHADO"])
 });
+
+export const onboardingStudentSchema = z.object({
+  serie: z.string().min(1).max(60),
+  turma: z.string().min(1).max(60),
+  unidade: z.string().min(1).max(60)
+});
+
+export const onboardingTeacherSchema = z.object({
+  subjectIds: z.array(z.string().min(1)).min(1)
+});

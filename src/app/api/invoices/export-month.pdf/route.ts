@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/prisma";
+import { InvoiceStatus } from "@prisma/client";
 import { requireApiRole } from "@/lib/api-auth";
 import { formatCurrency } from "@/lib/format";
 
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
   const year = Number(url.searchParams.get("year"));
   const status = url.searchParams.get("status");
   const studentIdParam = url.searchParams.get("studentId");
-  const allowedStatuses = new Set(["ABERTA", "EMITIDA", "PAGA"]);
+  const allowedStatuses = new Set<InvoiceStatus>(["ABERTA", "EMITIDA", "PAGA"]);
 
   if (!month || month < 1 || month > 12 || !year) {
     return new Response("Mes ou ano invalido", { status: 400 });
@@ -29,7 +30,8 @@ export async function GET(request: Request) {
     return new Response("studentId obrigatorio", { status: 400 });
   }
 
-  const statusFilter = status && allowedStatuses.has(status) ? status : undefined;
+  const statusFilter =
+    status && allowedStatuses.has(status as InvoiceStatus) ? (status as InvoiceStatus) : undefined;
 
   const invoices = await prisma.invoice.findMany({
     where: {

@@ -1,9 +1,10 @@
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { InvoiceStatus, Prisma } from "@prisma/client";
 import AppShell from "@/components/AppShell";
 import AdminFechamentoClient from "@/components/AdminFechamentoClient";
 
-const allowedInvoiceStatuses = new Set(["ABERTA", "EMITIDA", "PAGA"]);
+const allowedInvoiceStatuses = new Set<InvoiceStatus>(["ABERTA", "EMITIDA", "PAGA"]);
 
 export default async function AdminFechamentoPage({
   searchParams
@@ -18,14 +19,14 @@ export default async function AdminFechamentoPage({
   const month = monthParam >= 1 && monthParam <= 12 ? monthParam : now.getMonth() + 1;
   const year = yearParam >= 2020 ? yearParam : now.getFullYear();
   const statusFilter =
-    typeof searchParams?.status === "string" && allowedInvoiceStatuses.has(searchParams.status)
-      ? searchParams.status
+    typeof searchParams?.status === "string" && allowedInvoiceStatuses.has(searchParams.status as InvoiceStatus)
+      ? (searchParams.status as InvoiceStatus)
       : "TODAS";
   const studentId = typeof searchParams?.studentId === "string" ? searchParams.studentId : "";
   const page = Number(searchParams?.page) || 1;
   const pageSize = 10;
 
-  const invoiceFilters = {
+  const invoiceFilters: Prisma.InvoiceWhereInput = {
     ...(month ? { month } : {}),
     ...(year ? { year } : {}),
     ...(statusFilter !== "TODAS" ? { status: statusFilter } : {}),

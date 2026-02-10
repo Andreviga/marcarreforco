@@ -20,6 +20,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     return new Response("Sem permissão", { status: 403 });
   }
 
+  const invoiceData = invoice;
   const doc = new PDFDocument({ margin: 40, bufferPages: true });
   const chunks: Uint8Array[] = [];
 
@@ -28,9 +29,9 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   function renderHeader() {
     doc.fontSize(18).text("Fatura de Reforço", { align: "left" });
     doc.moveDown(0.5);
-    doc.fontSize(12).text(`Aluno: ${invoice.student.name}`);
-    doc.text(`Competência: ${invoice.month}/${invoice.year}`);
-    doc.text(`Status: ${invoice.status}`);
+    doc.fontSize(12).text(`Aluno: ${invoiceData.student.name}`);
+    doc.text(`Competência: ${invoiceData.month}/${invoiceData.year}`);
+    doc.text(`Status: ${invoiceData.status}`);
     doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`);
     doc.moveDown();
   }
@@ -47,7 +48,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   doc.fontSize(11).text("Itens:");
   doc.moveDown(0.5);
 
-  invoice.items.forEach((item) => {
+  invoiceData.items.forEach((item) => {
     ensureSpace(14);
     doc
       .fontSize(10)
@@ -57,12 +58,12 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   });
 
   doc.moveDown();
-  doc.fontSize(12).text(`Total: ${formatCurrency(invoice.totalCents)}`);
+  doc.fontSize(12).text(`Total: ${formatCurrency(invoiceData.totalCents)}`);
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i += 1) {
     doc.switchToPage(i);
     const footerY = doc.page.height - doc.page.margins.bottom + 10;
-    doc.fontSize(9).text(`Fatura ${invoice.month}/${invoice.year} - ${invoice.student.name}`, 0, footerY, { align: "left" });
+    doc.fontSize(9).text(`Fatura ${invoiceData.month}/${invoiceData.year} - ${invoiceData.student.name}`, 0, footerY, { align: "left" });
     doc.fontSize(9).text(
       `Pagina ${i + 1} de ${range.count}`,
       0,
@@ -77,7 +78,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   return new Response(buffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename=invoice-${invoice.id}.pdf`
+      "Content-Disposition": `attachment; filename=invoice-${invoiceData.id}.pdf`
     }
   });
 }

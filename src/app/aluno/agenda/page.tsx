@@ -1,18 +1,19 @@
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { InvoiceStatus } from "@prisma/client";
 import AppShell from "@/components/AppShell";
 import AgendaClient from "@/components/AgendaClient";
 import MonthlyCalendarClient from "@/components/MonthlyCalendarClient";
 import { formatCurrency } from "@/lib/format";
 import Link from "next/link";
 
-const allowedInvoiceStatuses = new Set(["ABERTA", "EMITIDA", "PAGA"]);
+const allowedInvoiceStatuses = new Set<InvoiceStatus>(["ABERTA", "EMITIDA", "PAGA"]);
 
 export default async function AlunoAgendaPage({
   searchParams
 }: {
   searchParams?: { status?: string; exportMonth?: string; exportYear?: string };
-} = {}) {
+}) {
   const session = await requireRole(["ALUNO"]);
 
   const now = new Date();
@@ -41,8 +42,8 @@ export default async function AlunoAgendaPage({
   });
 
   const statusFilter =
-    typeof searchParams?.status === "string" && allowedInvoiceStatuses.has(searchParams.status)
-      ? searchParams.status
+    typeof searchParams?.status === "string" && allowedInvoiceStatuses.has(searchParams.status as InvoiceStatus)
+      ? (searchParams.status as InvoiceStatus)
       : undefined;
 
   const exportMonth = Number(searchParams?.exportMonth) || month;
