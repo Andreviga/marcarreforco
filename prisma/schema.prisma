@@ -40,6 +40,18 @@ enum InvoiceStatus {
   PAGA
 }
 
+enum TicketCategory {
+  MELHORIA
+  DUVIDA
+}
+
+enum TicketStatus {
+  ABERTO
+  EM_ANDAMENTO
+  RESOLVIDO
+  FECHADO
+}
+
 model User {
   id           String          @id @default(cuid())
   name         String
@@ -58,6 +70,10 @@ model User {
   invoices      Invoice[]      @relation("StudentInvoices")
   auditLogs     AuditLog[]     @relation("ActorAuditLogs")
   passwordResetTokens PasswordResetToken[]
+  createdTickets Ticket[]      @relation("CreatedTickets")
+  studentTickets Ticket[]      @relation("StudentTickets")
+  teacherTickets Ticket[]      @relation("TeacherTickets")
+  ticketMessages TicketMessage[] @relation("TicketMessages")
 }
 
 model StudentProfile {
@@ -185,6 +201,41 @@ model InvoiceItem {
   invoice    Invoice   @relation(fields: [invoiceId], references: [id])
   session    Session   @relation(fields: [sessionId], references: [id])
   attendance Attendance @relation(fields: [attendanceId], references: [id])
+}
+
+model Ticket {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  category    TicketCategory
+  status      TicketStatus   @default(ABERTO)
+  createdById String
+  studentId   String
+  teacherId   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  createdBy User @relation("CreatedTickets", fields: [createdById], references: [id])
+  student   User @relation("StudentTickets", fields: [studentId], references: [id])
+  teacher   User @relation("TeacherTickets", fields: [teacherId], references: [id])
+  messages  TicketMessage[]
+
+  @@index([status])
+  @@index([studentId])
+  @@index([teacherId])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  message   String
+  createdAt DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+  author User   @relation("TicketMessages", fields: [authorId], references: [id])
+
+  @@index([ticketId])
 }
 
 model AuditLog {

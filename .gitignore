@@ -37,3 +37,6 @@ coverage/
 # IDE
 .vscode/
 .idea/
+
+# local data files
+usuarios_template_preenchido_updated_preserved.xlsx

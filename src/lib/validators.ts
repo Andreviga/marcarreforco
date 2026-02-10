@@ -78,3 +78,21 @@ export const invoiceGenerateSchema = z.object({
   month: z.number().int().min(1).max(12),
   year: z.number().int().min(2020).max(2100)
 });
+
+export const ticketCreateSchema = z.object({
+  title: z.string().min(3).max(80),
+  description: z.string().min(5).max(1000),
+  category: z.enum(["MELHORIA", "DUVIDA"]),
+  studentId: z.string().min(1).optional(),
+  teacherId: z.string().min(1).optional()
+});
+
+export const ticketMessageSchema = z.object({
+  ticketId: z.string().min(1),
+  message: z.string().min(2).max(800)
+});
+
+export const ticketStatusSchema = z.object({
+  id: z.string().min(1),
+  status: z.enum(["ABERTO", "EM_ANDAMENTO", "RESOLVIDO", "FECHADO"])
+});

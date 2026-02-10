@@ -12,17 +12,20 @@ interface AppShellProps {
 const navByRole: Record<string, { href: string; label: string }[]> = {
   ALUNO: [
     { href: "/aluno/agenda", label: "Agenda" },
-    { href: "/aluno/minhas-inscricoes", label: "Minhas inscrições" }
+    { href: "/aluno/minhas-inscricoes", label: "Minhas inscrições" },
+    { href: "/aluno/tickets", label: "Tickets" }
   ],
   PROFESSOR: [
-    { href: "/professor/sessoes", label: "Sessões" }
+    { href: "/professor/sessoes", label: "Sessões" },
+    { href: "/professor/tickets", label: "Tickets" }
   ],
   ADMIN: [
     { href: "/admin/sessoes", label: "Sessões" },
     { href: "/admin/usuarios", label: "Usuários" },
     { href: "/admin/disciplinas", label: "Disciplinas" },
     { href: "/admin/pacotes", label: "Pacotes" },
-    { href: "/admin/fechamento", label: "Fechamento" }
+    { href: "/admin/fechamento", label: "Fechamento" },
+    { href: "/admin/tickets", label: "Tickets" }
   ]
 };
 
