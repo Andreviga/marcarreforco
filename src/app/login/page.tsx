@@ -2,6 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import RulesBanner from "@/components/RulesBanner";
 
 const seriesOptions = [
   "1º ano",
@@ -12,10 +13,7 @@ const seriesOptions = [
   "6º ano",
   "7º ano",
   "8º ano",
-  "9º ano",
-  "1ª série",
-  "2ª série",
-  "3ª série"
+  "9º ano"
 ];
 
 const turmaOptions = ["Manhã", "Tarde"];
@@ -87,6 +85,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 px-4 py-10">
+      <div className="mx-auto w-full max-w-5xl">
+        <RulesBanner />
+      </div>
+
       <div className="mx-auto grid w-full max-w-5xl gap-8 md:grid-cols-[1.1fr_1fr]">
         <div className="flex flex-col justify-center rounded-3xl bg-white/70 p-8 shadow-sm ring-1 ring-slate-100 backdrop-blur">
           <span className="inline-flex w-fit items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">

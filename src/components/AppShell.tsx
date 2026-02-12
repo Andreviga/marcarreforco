@@ -13,6 +13,7 @@ const navByRole: Record<string, { href: string; label: string }[]> = {
   ALUNO: [
     { href: "/aluno/agenda", label: "Agenda" },
     { href: "/aluno/minhas-inscricoes", label: "Minhas inscrições" },
+    { href: "/aluno/pagamentos", label: "Pagamentos" },
     { href: "/aluno/tickets", label: "Tickets" }
   ],
   PROFESSOR: [
@@ -24,7 +25,7 @@ const navByRole: Record<string, { href: string; label: string }[]> = {
     { href: "/admin/usuarios", label: "Usuários" },
     { href: "/admin/disciplinas", label: "Disciplinas" },
     { href: "/admin/pacotes", label: "Pacotes" },
-    { href: "/admin/fechamento", label: "Fechamento" },
+    { href: "/admin/pagamentos", label: "Pagamentos" },
     { href: "/admin/tickets", label: "Tickets" }
   ]
 };

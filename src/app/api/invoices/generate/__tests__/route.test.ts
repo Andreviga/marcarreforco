@@ -44,23 +44,7 @@ describe("invoice generate route", () => {
     });
   });
 
-  it("generates invoices for attendances", async () => {
-    attendanceRepo.findMany.mockResolvedValue([
-      {
-        id: "att1",
-        studentId: "stu-1",
-        sessionId: "sess1",
-        session: {
-          subject: { name: "Matemática" },
-          teacher: { name: "Ana" },
-          startsAt: new Date("2024-01-10T10:00:00.000Z"),
-          priceCents: 2000
-        }
-      }
-    ]);
-    invoiceRepo.findUnique.mockResolvedValue(null);
-    invoiceRepo.upsert.mockResolvedValue({ id: "inv1" });
-
+  it("returns 410 when fechamento is disabled", async () => {
     const request = new Request("http://localhost/api/invoices/generate", {
       method: "POST",
       body: JSON.stringify({ month: 1, year: 2024 })
@@ -69,10 +53,7 @@ describe("invoice generate route", () => {
     const response = await POST(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.invoices).toEqual(["inv1"]);
-    expect(invoiceItemRepo.deleteMany).toHaveBeenCalledWith({ where: { invoiceId: "inv1" } });
-    expect(invoiceItemRepo.createMany).toHaveBeenCalled();
-    expect(logAuditMock).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE_INVOICE" }));
+    expect(response.status).toBe(410);
+    expect(data.message).toBe("Fechamento desativado. Utilize pagamentos via Asaas.");
   });
 });

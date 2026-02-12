@@ -6,7 +6,31 @@ const optionalText = () =>
     z.string().trim().min(1).max(60).optional()
   );
 
-export const serieSchema = optionalText();
+const normalizeSerie = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[ºª]/g, "o")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const isAllowedSerie = (value: string) => {
+  const normalized = normalizeSerie(value);
+  return /^[1-9]\s*o?\s*ano$/.test(normalized);
+};
+
+const requiredSerieSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(60)
+  .refine(isAllowedSerie, { message: "Serie nao atendida pelo plantao." });
+
+export const serieSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  requiredSerieSchema.optional()
+);
 export const turmaSchema = optionalText();
 export const unidadeSchema = optionalText();
 
@@ -67,11 +91,23 @@ export const packageSchema = z.object({
   name: z.string().min(2),
   sessionCount: z.number().int().min(1),
   priceCents: z.number().int().min(0),
-  active: z.boolean().optional()
+  active: z.boolean().optional(),
+  billingType: z.enum(["PACKAGE", "SUBSCRIPTION"]).optional(),
+  billingCycle: z.enum(["MONTHLY", "WEEKLY"]).optional(),
+  subjectId: z.string().min(1).optional()
 });
 
 export const packageUpdateSchema = packageSchema.partial().extend({
   id: z.string().min(1)
+});
+
+export const paymentCheckoutSchema = z.object({
+  packageId: z.string().min(1),
+  billingType: z.enum(["PIX", "BOLETO"]).optional()
+});
+
+export const profileDocumentSchema = z.object({
+  document: z.string().min(11).max(18)
 });
 
 export const invoiceGenerateSchema = z.object({
@@ -98,7 +134,7 @@ export const ticketStatusSchema = z.object({
 });
 
 export const onboardingStudentSchema = z.object({
-  serie: z.string().min(1).max(60),
+  serie: requiredSerieSchema,
   turma: z.string().min(1).max(60),
   unidade: z.string().min(1).max(60)
 });

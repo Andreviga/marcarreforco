@@ -1,6 +1,6 @@
 # Agendamento de Reforço (MVP)
 
-Sistema web para agendamento de aulas de reforço com cobrança mensal por presença.
+Sistema web para agendamento de aulas de reforço com pagamento antecipado via Asaas.
 
 ## Stack
 - Next.js (App Router) + TypeScript + Tailwind
@@ -39,6 +39,11 @@ Sistema web para agendamento de aulas de reforço com cobrança mensal por prese
 - RBAC (Aluno/Professor/Admin)
 - Agendamento de sessões
 - Chamada com presença (PRESENTE, AUSENTE, ATRASADO)
-- Fechamento mensal e faturas
-- Exportação CSV/PDF
+- Pagamento antecipado com pacotes e assinaturas (Asaas)
+- Saldo de créditos por disciplina
 - Auditoria de ações críticas
+
+## Variáveis Asaas
+- `ASAAS_API_KEY` (sandbox ou produção)
+- `ASAAS_ENV` (`sandbox` ou `production`)
+- `ASAAS_WEBHOOK_TOKEN` (opcional, usado para validar webhook)

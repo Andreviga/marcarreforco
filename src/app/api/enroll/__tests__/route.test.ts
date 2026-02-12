@@ -15,8 +15,17 @@ jest.mock("@/lib/prisma", () => ({
       findUnique: jest.fn()
     },
     enrollment: {
+      findUnique: jest.fn(),
       upsert: jest.fn()
-    }
+    },
+    studentCreditBalance: {
+      findUnique: jest.fn(),
+      update: jest.fn()
+    },
+    studentCreditLedger: {
+      create: jest.fn()
+    },
+    $transaction: jest.fn()
   }
 }));
 
@@ -28,10 +37,27 @@ describe("enroll route", () => {
   const requireApiRoleMock = requireApiRole as jest.Mock;
   const logAuditMock = logAudit as jest.Mock;
   const sessionRepo = prisma.session as unknown as { findUnique: jest.Mock };
-  const enrollmentRepo = prisma.enrollment as unknown as { upsert: jest.Mock };
+  const enrollmentRepo = prisma.enrollment as unknown as { findUnique: jest.Mock; upsert: jest.Mock };
+  const transactionMock = prisma.$transaction as jest.Mock;
+
+  const txMock = {
+    enrollment: {
+      upsert: jest.fn()
+    },
+    studentCreditBalance: {
+      findUnique: jest.fn(),
+      update: jest.fn()
+    },
+    studentCreditLedger: {
+      create: jest.fn()
+    }
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    transactionMock.mockImplementation(async (callback: (tx: typeof txMock) => Promise<unknown>) =>
+      callback(txMock)
+    );
     requireApiRoleMock.mockResolvedValue({
       session: { user: { id: "student-1" } },
       response: null
@@ -58,10 +84,15 @@ describe("enroll route", () => {
       id: "s1",
       status: "ATIVA",
       startsAt: new Date(Date.now() + 86400000),
+      subjectId: "sub1",
       subject: { name: "Matemática" },
       teacher: { name: "Ana" }
     });
-    enrollmentRepo.upsert.mockResolvedValue({ id: "e1", sessionId: "s1" });
+    enrollmentRepo.findUnique.mockResolvedValue(null);
+    txMock.studentCreditBalance.findUnique.mockResolvedValue({ studentId: "student-1", subjectId: "sub1", balance: 1 });
+    txMock.enrollment.upsert.mockResolvedValue({ id: "e1", sessionId: "s1" });
+    txMock.studentCreditBalance.update.mockResolvedValue({ studentId: "student-1", subjectId: "sub1", balance: 0 });
+    txMock.studentCreditLedger.create.mockResolvedValue({ id: "ledger1" });
 
     const request = new Request("http://localhost/api/enroll", {
       method: "POST",

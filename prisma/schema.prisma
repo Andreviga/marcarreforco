@@ -40,6 +40,38 @@ enum InvoiceStatus {
   PAGA
 }
 
+enum PackageBillingType {
+  PACKAGE
+  SUBSCRIPTION
+}
+
+enum PackageBillingCycle {
+  MONTHLY
+  WEEKLY
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  OVERDUE
+  CANCELED
+  REFUNDED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELED
+  OVERDUE
+}
+
+enum CreditReason {
+  PAYMENT_CREDIT
+  ENROLL_RESERVE
+  ENROLL_RELEASE
+  ADMIN_ADJUST
+}
+
 enum TicketCategory {
   MELHORIA
   DUVIDA
@@ -74,6 +106,12 @@ model User {
   studentTickets Ticket[]      @relation("StudentTickets")
   teacherTickets Ticket[]      @relation("TeacherTickets")
   ticketMessages TicketMessage[] @relation("TicketMessages")
+
+  asaasCustomer AsaasCustomer?
+  asaasSubscriptions AsaasSubscription[]
+  asaasPayments AsaasPayment[]
+  creditBalances StudentCreditBalance[] @relation("StudentCredits")
+  creditLedger StudentCreditLedger[] @relation("StudentCreditLedger")
 }
 
 model StudentProfile {
@@ -81,6 +119,7 @@ model StudentProfile {
   serie   String
   turma   String
   unidade String
+  document String?
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -98,6 +137,9 @@ model Subject {
   defaultPriceCents Int  @default(0)
   teachers TeacherSubject[]
   sessions Session[]
+  packages SessionPackage[]
+  creditBalances StudentCreditBalance[]
+  creditLedger StudentCreditLedger[]
   createdAt DateTime @default(now())
 }
 
@@ -107,7 +149,14 @@ model SessionPackage {
   sessionCount Int
   priceCents   Int
   active       Boolean  @default(true)
+  billingType  PackageBillingType @default(PACKAGE)
+  billingCycle PackageBillingCycle?
+  subjectId    String?
   createdAt    DateTime @default(now())
+
+  subject      Subject? @relation(fields: [subjectId], references: [id])
+  subscriptions AsaasSubscription[]
+  payments     AsaasPayment[]
 
   @@unique([name])
 }
@@ -146,11 +195,13 @@ model Enrollment {
   sessionId  String
   studentId  String
   status     EnrollmentStatus @default(AGENDADO)
+  creditsReserved Int          @default(0)
   createdAt  DateTime         @default(now())
 
   session   Session @relation(fields: [sessionId], references: [id])
   student   User    @relation("StudentEnrollments", fields: [studentId], references: [id])
   attendance Attendance?
+  creditLedger StudentCreditLedger[]
 
   @@unique([sessionId, studentId])
 }
@@ -201,6 +252,81 @@ model InvoiceItem {
   invoice    Invoice   @relation(fields: [invoiceId], references: [id])
   session    Session   @relation(fields: [sessionId], references: [id])
   attendance Attendance @relation(fields: [attendanceId], references: [id])
+}
+
+model AsaasCustomer {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  asaasId   String   @unique
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model AsaasSubscription {
+  id          String             @id @default(cuid())
+  userId      String
+  packageId   String
+  asaasId     String             @unique
+  status      SubscriptionStatus
+  nextDueDate DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  user       User           @relation(fields: [userId], references: [id])
+  package    SessionPackage @relation(fields: [packageId], references: [id])
+  payments   AsaasPayment[]
+}
+
+model AsaasPayment {
+  id             String        @id @default(cuid())
+  userId         String
+  packageId      String
+  subscriptionId String?
+  asaasId        String        @unique
+  status         PaymentStatus
+  amountCents    Int
+  billingType    String
+  dueDate        DateTime?
+  paidAt         DateTime?
+  payload        Json?
+  createdAt      DateTime      @default(now())
+
+  user         User             @relation(fields: [userId], references: [id])
+  package      SessionPackage   @relation(fields: [packageId], references: [id])
+  subscription AsaasSubscription? @relation(fields: [subscriptionId], references: [id])
+  creditLedger StudentCreditLedger[]
+}
+
+model StudentCreditBalance {
+  id        String   @id @default(cuid())
+  studentId String
+  subjectId String
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  student User    @relation("StudentCredits", fields: [studentId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@unique([studentId, subjectId])
+}
+
+model StudentCreditLedger {
+  id           String       @id @default(cuid())
+  studentId    String
+  subjectId    String
+  delta        Int
+  reason       CreditReason
+  enrollmentId String?
+  paymentId    String?
+  createdAt    DateTime     @default(now())
+
+  student    User           @relation("StudentCreditLedger", fields: [studentId], references: [id])
+  subject    Subject        @relation(fields: [subjectId], references: [id])
+  enrollment Enrollment?    @relation(fields: [enrollmentId], references: [id])
+  payment    AsaasPayment?  @relation(fields: [paymentId], references: [id])
+
+  @@index([studentId, subjectId])
 }
 
 model Ticket {

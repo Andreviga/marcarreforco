@@ -27,20 +27,78 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Sessão fora do prazo" }, { status: 400 });
   }
 
-  const enrollment = await prisma.enrollment.upsert({
+  const existingEnrollment = await prisma.enrollment.findUnique({
     where: {
       sessionId_studentId: {
         sessionId: parsed.data.sessionId,
         studentId: session.user.id
       }
-    },
-    update: { status: "AGENDADO" },
-    create: {
-      sessionId: parsed.data.sessionId,
-      studentId: session.user.id,
-      status: "AGENDADO"
     }
   });
+
+  if (existingEnrollment?.status === "AGENDADO") {
+    return NextResponse.json({ enrollment: existingEnrollment });
+  }
+
+  if (!sessionRecord.subjectId) {
+    return NextResponse.json({ message: "Disciplina inválida" }, { status: 400 });
+  }
+
+  let enrollment;
+
+  try {
+    enrollment = await prisma.$transaction(async (tx) => {
+      const balance = await tx.studentCreditBalance.findUnique({
+        where: {
+          studentId_subjectId: { studentId: session.user.id, subjectId: sessionRecord.subjectId }
+        }
+      });
+
+      if (!balance || balance.balance < 1) {
+        throw new Error("SEM_CREDITO");
+      }
+
+      const updated = await tx.enrollment.upsert({
+        where: {
+          sessionId_studentId: {
+            sessionId: parsed.data.sessionId,
+            studentId: session.user.id
+          }
+        },
+        update: { status: "AGENDADO", creditsReserved: 1 },
+        create: {
+          sessionId: parsed.data.sessionId,
+          studentId: session.user.id,
+          status: "AGENDADO",
+          creditsReserved: 1
+        }
+      });
+
+      await tx.studentCreditBalance.update({
+        where: {
+          studentId_subjectId: { studentId: session.user.id, subjectId: sessionRecord.subjectId }
+        },
+        data: { balance: { decrement: 1 } }
+      });
+
+      await tx.studentCreditLedger.create({
+        data: {
+          studentId: session.user.id,
+          subjectId: sessionRecord.subjectId,
+          delta: -1,
+          reason: "ENROLL_RESERVE",
+          enrollmentId: updated.id
+        }
+      });
+
+      return updated;
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "SEM_CREDITO") {
+      return NextResponse.json({ message: "Saldo insuficiente para agendar." }, { status: 400 });
+    }
+    throw error;
+  }
 
   await logAudit({
     actorUserId: session.user.id,

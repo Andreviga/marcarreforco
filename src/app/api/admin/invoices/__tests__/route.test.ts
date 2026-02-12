@@ -35,18 +35,16 @@ describe("admin invoices route", () => {
     });
   });
 
-  it("returns invoices list with filters", async () => {
-    invoiceRepo.findMany.mockResolvedValue([{ id: "inv1" }]);
-
+  it("returns 410 when fechamento is disabled", async () => {
     const request = new Request("http://localhost/api/admin/invoices?month=1&year=2024");
     const response = await GET(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.invoices).toEqual([{ id: "inv1" }]);
+    expect(response.status).toBe(410);
+    expect(data.message).toBe("Fechamento desativado. Utilize pagamentos via Asaas.");
   });
 
-  it("validates patch payload", async () => {
+  it("returns 410 for patch when fechamento is disabled", async () => {
     const request = new Request("http://localhost/api/admin/invoices", {
       method: "PATCH",
       body: JSON.stringify({ id: "inv1", status: "INVALIDO" })
@@ -55,13 +53,11 @@ describe("admin invoices route", () => {
     const response = await PATCH(request);
     const data = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(data.message).toBe("Dados inválidos");
+    expect(response.status).toBe(410);
+    expect(data.message).toBe("Fechamento desativado. Utilize pagamentos via Asaas.");
   });
 
-  it("updates invoice status", async () => {
-    invoiceRepo.update.mockResolvedValue({ id: "inv1", status: "PAGA" });
-
+  it("returns 410 for updates when fechamento is disabled", async () => {
     const request = new Request("http://localhost/api/admin/invoices", {
       method: "PATCH",
       body: JSON.stringify({ id: "inv1", status: "PAGA" })
@@ -70,8 +66,7 @@ describe("admin invoices route", () => {
     const response = await PATCH(request);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.invoice).toEqual({ id: "inv1", status: "PAGA" });
-    expect(logAuditMock).toHaveBeenCalledWith(expect.objectContaining({ action: "UPDATE_INVOICE_STATUS" }));
+    expect(response.status).toBe(410);
+    expect(data.message).toBe("Fechamento desativado. Utilize pagamentos via Asaas.");
   });
 });

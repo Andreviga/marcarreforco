@@ -27,9 +27,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Sessão cancelada" }, { status: 400 });
   }
 
-  const updated = await prisma.enrollment.update({
-    where: { id: enrollment.id },
-    data: { status: "DESMARCADO" }
+  const updated = await prisma.$transaction(async (tx) => {
+    const record = await tx.enrollment.update({
+      where: { id: enrollment.id },
+      data: { status: "DESMARCADO" }
+    });
+
+    const shouldRefund =
+      record.creditsReserved > 0 && enrollment.session.startsAt > new Date() && enrollment.session.subjectId;
+
+    if (shouldRefund) {
+      await tx.studentCreditBalance.upsert({
+        where: {
+          studentId_subjectId: { studentId: enrollment.studentId, subjectId: enrollment.session.subjectId }
+        },
+        update: { balance: { increment: 1 } },
+        create: { studentId: enrollment.studentId, subjectId: enrollment.session.subjectId, balance: 1 }
+      });
+
+      await tx.studentCreditLedger.create({
+        data: {
+          studentId: enrollment.studentId,
+          subjectId: enrollment.session.subjectId,
+          delta: 1,
+          reason: "ENROLL_RELEASE",
+          enrollmentId: enrollment.id
+        }
+      });
+
+      await tx.enrollment.update({
+        where: { id: enrollment.id },
+        data: { creditsReserved: 0 }
+      });
+    }
+
+    return record;
   });
 
   await logAudit({

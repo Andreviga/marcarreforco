@@ -6,11 +6,17 @@ import AdminPackagesClient from "@/components/AdminPackagesClient";
 export default async function AdminPacotesPage() {
   await requireRole(["ADMIN"]);
 
-  const packages = await prisma.sessionPackage.findMany({ orderBy: { createdAt: "desc" } });
+  const [packages, subjects] = await Promise.all([
+    prisma.sessionPackage.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.subject.findMany({ orderBy: { name: "asc" } })
+  ]);
 
   return (
     <AppShell title="Pacotes" subtitle="Gerencie pacotes e preços" role="ADMIN">
-      <AdminPackagesClient packages={packages} />
+      <AdminPackagesClient
+        packages={packages}
+        subjects={subjects.map((subject) => ({ id: subject.id, name: subject.name }))}
+      />
     </AppShell>
   );
 }

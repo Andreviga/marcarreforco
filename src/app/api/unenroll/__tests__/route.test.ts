@@ -14,7 +14,14 @@ jest.mock("@/lib/prisma", () => ({
     enrollment: {
       findUnique: jest.fn(),
       update: jest.fn()
-    }
+    },
+    studentCreditBalance: {
+      upsert: jest.fn()
+    },
+    studentCreditLedger: {
+      create: jest.fn()
+    },
+    $transaction: jest.fn()
   }
 }));
 
@@ -26,9 +33,25 @@ describe("unenroll route", () => {
   const requireApiRoleMock = requireApiRole as jest.Mock;
   const enrollmentRepo = prisma.enrollment as unknown as { findUnique: jest.Mock; update: jest.Mock };
   const logAuditMock = logAudit as jest.Mock;
+  const transactionMock = prisma.$transaction as jest.Mock;
+
+  const txMock = {
+    enrollment: {
+      update: jest.fn()
+    },
+    studentCreditBalance: {
+      upsert: jest.fn()
+    },
+    studentCreditLedger: {
+      create: jest.fn()
+    }
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    transactionMock.mockImplementation(async (callback: (tx: typeof txMock) => Promise<unknown>) =>
+      callback(txMock)
+    );
     requireApiRoleMock.mockResolvedValue({
       session: { user: { id: "student-1" } },
       response: null
@@ -39,7 +62,7 @@ describe("unenroll route", () => {
     enrollmentRepo.findUnique.mockResolvedValue({
       id: "e1",
       studentId: "other",
-      session: { status: "ATIVA" }
+      session: { status: "ATIVA", startsAt: new Date(Date.now() + 86400000), subjectId: "sub1" }
     });
 
     const request = new Request("http://localhost/api/unenroll", {
@@ -59,9 +82,12 @@ describe("unenroll route", () => {
       id: "e1",
       studentId: "student-1",
       sessionId: "sess1",
-      session: { status: "ATIVA" }
+      creditsReserved: 1,
+      session: { status: "ATIVA", startsAt: new Date(Date.now() + 86400000), subjectId: "sub1" }
     });
-    enrollmentRepo.update.mockResolvedValue({ id: "e1", status: "DESMARCADO", sessionId: "sess1" });
+    txMock.enrollment.update.mockResolvedValue({ id: "e1", status: "DESMARCADO", sessionId: "sess1", creditsReserved: 1 });
+    txMock.studentCreditBalance.upsert.mockResolvedValue({ id: "balance1" });
+    txMock.studentCreditLedger.create.mockResolvedValue({ id: "ledger1" });
 
     const request = new Request("http://localhost/api/unenroll", {
       method: "POST",
@@ -72,7 +98,7 @@ describe("unenroll route", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.enrollment).toEqual({ id: "e1", status: "DESMARCADO", sessionId: "sess1" });
+    expect(data.enrollment).toEqual({ id: "e1", status: "DESMARCADO", sessionId: "sess1", creditsReserved: 1 });
     expect(logAuditMock).toHaveBeenCalledWith(expect.objectContaining({ action: "UNENROLL" }));
   });
 });

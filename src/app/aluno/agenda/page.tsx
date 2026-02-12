@@ -6,6 +6,7 @@ import AgendaClient from "@/components/AgendaClient";
 import MonthlyCalendarClient from "@/components/MonthlyCalendarClient";
 import { formatCurrency } from "@/lib/format";
 import Link from "next/link";
+import RulesBanner from "@/components/RulesBanner";
 
 const allowedInvoiceStatuses = new Set<InvoiceStatus>(["ABERTA", "EMITIDA", "PAGA"]);
 
@@ -102,6 +103,7 @@ export default async function AlunoAgendaPage({
       role="ALUNO"
     >
       <div className="space-y-6">
+        <RulesBanner variant="compact" collapsible />
         <div className="grid gap-4">
           <div className="rounded-xl bg-white p-4 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Fatura do mes</h2>
