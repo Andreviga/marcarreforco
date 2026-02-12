@@ -136,8 +136,9 @@ export async function createPixCob(params: {
   payerName: string;
   payerDocument: string;
   description: string;
+  pixKey?: string;
 }) {
-  const pixKey = getEnv("INTER_PIX_KEY");
+  const pixKey = params.pixKey ?? getEnv("INTER_PIX_KEY");
   const expiresIn = Number(process.env.INTER_PIX_EXPIRES_IN ?? 3600);
   const document = normalizeDocument(params.payerDocument);
   const devedor = document.length === 14 ? { cnpj: document, nome: params.payerName } : { cpf: document, nome: params.payerName };

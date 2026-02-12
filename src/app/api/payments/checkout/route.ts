@@ -33,6 +33,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Informe CPF/CNPJ antes do pagamento." }, { status: 400 });
   }
 
+  if (!studentProfile.serie) {
+    return NextResponse.json({ message: "Serie do aluno nao definida." }, { status: 400 });
+  }
+
+  const serieNumber = Number(String(studentProfile.serie).match(/\d+/)?.[0]);
+  if (!Number.isFinite(serieNumber)) {
+    return NextResponse.json({ message: "Serie do aluno invalida." }, { status: 400 });
+  }
+
+  const pixKey = serieNumber <= 5 ? process.env.INTER_PIX_KEY_A : process.env.INTER_PIX_KEY_B;
+  if (!pixKey) {
+    return NextResponse.json({ message: "PIX key nao configurada para a serie." }, { status: 500 });
+  }
+
   if (packageRecord.billingType === "SUBSCRIPTION") {
     return NextResponse.json({ message: "Assinaturas desativadas. Use pacotes avulsos." }, { status: 400 });
   }
@@ -41,7 +55,8 @@ export async function POST(request: Request) {
     amountCents: packageRecord.priceCents,
     payerName: session.user.name ?? "Aluno",
     payerDocument: studentProfile.document,
-    description: `${packageRecord.name} (${packageRecord.subject?.name ?? "Disciplina"})`
+    description: `${packageRecord.name} (${packageRecord.subject?.name ?? "Disciplina"})`,
+    pixKey
   });
 
   const createdPayment = await prisma.asaasPayment.create({
