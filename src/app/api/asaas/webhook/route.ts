@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { addCredits } from "@/lib/credits";
 
@@ -60,10 +61,11 @@ export async function POST(request: Request) {
     const paymentData = payload.payment;
     const status = paymentStatusMap[paymentData.status ?? "PENDING"] ?? "PENDING";
 
-    let payment = await prisma.asaasPayment.findUnique({
+    let payment: Prisma.AsaasPaymentGetPayload<{ include: { package: true } }> | null =
+      await prisma.asaasPayment.findUnique({
       where: { asaasId: paymentData.id },
       include: { package: true }
-    });
+      });
 
     if (!payment) {
       let userId: string | null = null;
@@ -88,7 +90,7 @@ export async function POST(request: Request) {
       }
 
       if (userId && packageId) {
-        payment = await prisma.asaasPayment.create({
+        payment = (await prisma.asaasPayment.create({
           data: {
             userId,
             packageId,
@@ -102,7 +104,7 @@ export async function POST(request: Request) {
             payload: paymentData as unknown as Record<string, unknown>
           },
           include: { package: true }
-        });
+        })) as Prisma.AsaasPaymentGetPayload<{ include: { package: true } }>;
       }
     } else {
       payment = await prisma.asaasPayment.update({
