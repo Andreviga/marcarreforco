@@ -28,7 +28,7 @@ export default async function AdminSessoesPage() {
     endsAt: item.endsAt,
     title: item.subject.name,
     subtitle: item.teacher.name,
-    meta: `${formatCurrency(item.priceCents)} • ${item.status}`,
+    meta: item.priceCents > 0 ? `${formatCurrency(item.priceCents)} • ${item.status}` : `${item.status}`,
     status: item.status
   }));
 
