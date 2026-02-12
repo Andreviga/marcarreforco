@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   await logAudit({
     actorUserId: session.user.id,
     action: "ALLOCATE_CREDITS",
-    entityType: "AsaasPayment",
+    entityType: "InterPayment",
     entityId: payment.id,
     payload: { subjectId: subject.id }
   });

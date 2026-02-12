@@ -119,11 +119,6 @@ export const creditAllocationSchema = z.object({
   subjectId: z.string().min(1)
 });
 
-export const invoiceGenerateSchema = z.object({
-  month: z.number().int().min(1).max(12),
-  year: z.number().int().min(2020).max(2100)
-});
-
 export const ticketCreateSchema = z.object({
   title: z.string().min(3).max(80),
   description: z.string().min(5).max(1000),

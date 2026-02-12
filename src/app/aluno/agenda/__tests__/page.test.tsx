@@ -15,8 +15,7 @@ jest.mock("@/lib/rbac", () => ({
 jest.mock("@/lib/prisma", () => ({
   prisma: {
     session: { findMany: jest.fn() },
-    enrollment: { findMany: jest.fn() },
-    invoice: { findUnique: jest.fn(), findMany: jest.fn(), groupBy: jest.fn() }
+    enrollment: { findMany: jest.fn() }
   }
 }));
 
@@ -41,11 +40,6 @@ describe("AlunoAgendaPage", () => {
   const requireRoleMock = requireRole as jest.Mock;
   const sessionRepo = prisma.session as unknown as { findMany: jest.Mock };
   const enrollmentRepo = prisma.enrollment as unknown as { findMany: jest.Mock };
-  const invoiceRepo = prisma.invoice as unknown as {
-    findUnique: jest.Mock;
-    findMany: jest.Mock;
-    groupBy: jest.Mock;
-  };
   const balancesRepo = getBalancesForStudent as jest.Mock;
 
   beforeEach(() => {
@@ -65,14 +59,11 @@ describe("AlunoAgendaPage", () => {
       }
     ]);
     enrollmentRepo.findMany.mockResolvedValue([{ id: "enr1" }]);
-    invoiceRepo.findUnique.mockResolvedValue(null);
-    invoiceRepo.findMany.mockResolvedValue([]);
-    invoiceRepo.groupBy.mockResolvedValue([]);
     balancesRepo.mockResolvedValue([]);
   });
 
   it("renders agenda with sessions and enrollments", async () => {
-    render(await AlunoAgendaPage({ searchParams: {} }));
+    render(await AlunoAgendaPage());
 
     expect(requireRoleMock).toHaveBeenCalledWith(["ALUNO"]);
     expect(AppShellMock).toHaveBeenCalledWith(expect.objectContaining({ title: "Agenda de reforços", role: "ALUNO" }));

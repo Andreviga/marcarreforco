@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 
 interface SubjectOption {
@@ -13,21 +13,12 @@ interface PackageItem {
   name: string;
   sessionCount: number;
   priceCents: number;
-  billingType: "PACKAGE" | "SUBSCRIPTION";
-  billingCycle: "MONTHLY" | "WEEKLY" | null;
   subject: SubjectOption | null;
 }
 
 interface BalanceItem {
   subject: SubjectOption;
   balance: number;
-}
-
-interface SubscriptionItem {
-  id: string;
-  status: string;
-  nextDueDate: string | null;
-  package: PackageItem;
 }
 
 interface PendingCreditItem {
@@ -39,14 +30,12 @@ interface PendingCreditItem {
 export default function StudentPaymentsClient({
   packages,
   balances,
-  subscriptions,
   subjects,
   pendingCredits,
   document
 }: {
   packages: PackageItem[];
   balances: BalanceItem[];
-  subscriptions: SubscriptionItem[];
   subjects: SubjectOption[];
   pendingCredits: PendingCreditItem[];
   document: string | null;
@@ -56,13 +45,11 @@ export default function StudentPaymentsClient({
   const [docError, setDocError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [hasDocument, setHasDocument] = useState(Boolean(document));
+  const [pixCopyPaste, setPixCopyPaste] = useState<string | null>(null);
+  const [pixQrCode, setPixQrCode] = useState<string | null>(null);
   const [allocationId, setAllocationId] = useState<string | null>(null);
   const [allocationMessage, setAllocationMessage] = useState<string | null>(null);
   const [allocationSubject, setAllocationSubject] = useState<Record<string, string>>({});
-
-  const subscriptionMap = useMemo(() => {
-    return new Map(subscriptions.map((sub) => [sub.package.id, sub]));
-  }, [subscriptions]);
 
   async function handleDocumentSave() {
     setDocError(null);
@@ -85,6 +72,8 @@ export default function StudentPaymentsClient({
   async function handleCheckout(packageId: string) {
     setLoadingId(packageId);
     setMessage(null);
+    setPixCopyPaste(null);
+    setPixQrCode(null);
 
     const response = await fetch("/api/payments/checkout", {
       method: "POST",
@@ -102,13 +91,14 @@ export default function StudentPaymentsClient({
     const data = await response.json();
     setLoadingId(null);
 
-    if (data?.paymentUrl) {
-      window.open(data.paymentUrl, "_blank");
-      setMessage("Pagamento criado. Finalize na nova aba.");
+    if (data?.pixCopyPaste) {
+      setPixCopyPaste(data.pixCopyPaste);
+      setPixQrCode(data.qrCodeImage ?? null);
+      setMessage("PIX criado. Copie o codigo ou use o QR Code.");
       return;
     }
 
-    setMessage("Assinatura criada. Aguarde a cobranca.");
+    setMessage("Pagamento criado. Aguarde a confirmacao.");
   }
 
   async function handleAllocate(paymentId: string) {
@@ -143,7 +133,7 @@ export default function StudentPaymentsClient({
       {!hasDocument && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <h2 className="text-lg font-semibold text-amber-900">Complete seu CPF/CNPJ</h2>
-          <p className="text-sm text-amber-700">Precisamos do documento para criar a cobranca no Asaas.</p>
+          <p className="text-sm text-amber-700">Precisamos do documento para criar a cobrança no Inter.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <input
               className="min-w-[240px] flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"
@@ -164,6 +154,38 @@ export default function StudentPaymentsClient({
       )}
 
       {message && <p className="text-sm text-slate-600">{message}</p>}
+
+      {pixCopyPaste && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-emerald-900">PIX para pagamento</h2>
+              <p className="text-sm text-emerald-700">Use o QR Code ou copie o código abaixo.</p>
+            </div>
+            <button
+              type="button"
+              className="rounded-lg bg-emerald-700 px-3 py-2 text-xs text-white hover:bg-emerald-800"
+              onClick={() => navigator.clipboard.writeText(pixCopyPaste)}
+            >
+              Copiar código
+            </button>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-[160px_1fr] md:items-center">
+            {pixQrCode && (
+              <img
+                src={`data:image/png;base64,${pixQrCode}`}
+                alt="QR Code PIX"
+                className="h-36 w-36 rounded-lg border border-emerald-200 bg-white p-2"
+              />
+            )}
+            <textarea
+              readOnly
+              className="min-h-[96px] w-full rounded-lg border border-emerald-200 bg-white p-2 text-xs text-slate-700"
+              value={pixCopyPaste}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Saldo de aulas</h2>
@@ -231,7 +253,7 @@ export default function StudentPaymentsClient({
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-900">Planos e pacotes</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Pacotes</h2>
           <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
             Pagamento via PIX
           </span>
@@ -239,7 +261,6 @@ export default function StudentPaymentsClient({
 
         <div className="mt-4 grid gap-3">
           {packages.map((item) => {
-            const subscription = subscriptionMap.get(item.id);
             return (
               <div key={item.id} className="rounded-lg border border-slate-100 p-3">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -247,35 +268,21 @@ export default function StudentPaymentsClient({
                     <p className="text-sm text-slate-500">{item.subject?.name ?? "Disciplina"}</p>
                     <p className="text-lg font-semibold text-slate-900">{item.name}</p>
                     <p className="text-xs text-slate-500">
-                      {item.billingType === "SUBSCRIPTION" ? "Assinatura" : "Pacote"} • {item.sessionCount} aula(s)
-                      {item.billingType === "SUBSCRIPTION" && item.billingCycle
-                        ? ` / ${item.billingCycle === "MONTHLY" ? "mes" : "semana"}`
-                        : ""}
+                      Pacote • {item.sessionCount} aula(s)
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-slate-700">{formatCurrency(item.priceCents)}</span>
-                    {subscription && item.billingType === "SUBSCRIPTION" ? (
-                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">
-                        {subscription.status === "ACTIVE" ? "Assinatura ativa" : "Assinatura pendente"}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleCheckout(item.id)}
-                        disabled={loadingId === item.id || !hasDocument}
-                        className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-white hover:bg-slate-800 disabled:opacity-60"
-                      >
-                        {loadingId === item.id ? "Processando..." : "Contratar"}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleCheckout(item.id)}
+                      disabled={loadingId === item.id || !hasDocument}
+                      className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-white hover:bg-slate-800 disabled:opacity-60"
+                    >
+                      {loadingId === item.id ? "Processando..." : "Comprar"}
+                    </button>
                   </div>
                 </div>
-                {subscription?.nextDueDate && (
-                  <p className="mt-2 text-xs text-slate-500">
-                    Proxima cobranca: {new Date(subscription.nextDueDate).toLocaleDateString("pt-BR")}
-                  </p>
-                )}
               </div>
             );
           })}

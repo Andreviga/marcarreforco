@@ -7,7 +7,10 @@ export default async function AdminPacotesPage() {
   await requireRole(["ADMIN"]);
 
   const [packages, subjects] = await Promise.all([
-    prisma.sessionPackage.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.sessionPackage.findMany({
+      where: { billingType: "PACKAGE" },
+      orderBy: { createdAt: "desc" }
+    }),
     prisma.subject.findMany({ orderBy: { name: "asc" } })
   ]);
 
