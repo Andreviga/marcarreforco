@@ -74,6 +74,11 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
   const [editPassword, setEditPassword] = useState("");
   const [editPasswordMessage, setEditPasswordMessage] = useState<string | null>(null);
+  const [creditSubjectId, setCreditSubjectId] = useState("");
+  const [creditAmount, setCreditAmount] = useState(1);
+  const [creditMessage, setCreditMessage] = useState<string | null>(null);
+  const [creditError, setCreditError] = useState<string | null>(null);
+  const [creditLoading, setCreditLoading] = useState(false);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -124,6 +129,11 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     setEditSubjectIds(user.teacherProfile?.subjects.map((subject) => subject.id) ?? []);
     setEditPassword("");
     setEditPasswordMessage(null);
+    setCreditSubjectId("");
+    setCreditAmount(1);
+    setCreditMessage(null);
+    setCreditError(null);
+    setCreditLoading(false);
   }
 
   function cancelEdit() {
@@ -132,6 +142,11 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     setEditSuccess(null);
     setEditPassword("");
     setEditPasswordMessage(null);
+    setCreditSubjectId("");
+    setCreditAmount(1);
+    setCreditMessage(null);
+    setCreditError(null);
+    setCreditLoading(false);
   }
 
   async function handleUpdate() {
@@ -190,6 +205,42 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     if (navigator.clipboard?.writeText) {
       navigator.clipboard.writeText(result).catch(() => null);
     }
+  }
+
+  async function handleCreditAdjust() {
+    if (!editingId) return;
+    if (!creditSubjectId) {
+      setCreditError("Selecione uma disciplina.");
+      return;
+    }
+    if (!creditAmount || creditAmount < 1) {
+      setCreditError("Informe a quantidade de créditos.");
+      return;
+    }
+
+    setCreditError(null);
+    setCreditMessage(null);
+    setCreditLoading(true);
+
+    const response = await fetch("/api/admin/credits/adjust", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: editingId,
+        subjectId: creditSubjectId,
+        amount: creditAmount
+      })
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setCreditError(data?.message ?? "Nao foi possivel adicionar creditos.");
+      setCreditLoading(false);
+      return;
+    }
+
+    setCreditMessage("Creditos adicionados com sucesso.");
+    setCreditLoading(false);
   }
 
   async function handleDelete(user: UserRow) {
@@ -657,6 +708,53 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                           placeholder="Ex.: Colégio Raízes"
                         />
                       </label>
+                    </div>
+                  )}
+
+                  {editRole === "ALUNO" && (
+                    <div className="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold text-slate-700">Credito manual</p>
+                      <div className="mt-2 grid gap-2 md:grid-cols-[2fr_1fr_auto]">
+                        <label className="text-xs text-slate-600">
+                          Disciplina
+                          <select
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                            value={creditSubjectId}
+                            onChange={(e) => setCreditSubjectId(e.target.value)}
+                          >
+                            <option value="">Selecione</option>
+                            {subjects.map((subject) => (
+                              <option key={subject.id} value={subject.id}>
+                                {subject.name}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="mt-1 block text-[11px] text-slate-400">Disciplina que recebera os creditos.</span>
+                        </label>
+                        <label className="text-xs text-slate-600">
+                          Quantidade
+                          <input
+                            type="number"
+                            min={1}
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                            value={creditAmount}
+                            onChange={(e) => setCreditAmount(Number(e.target.value))}
+                          />
+                          <span className="mt-1 block text-[11px] text-slate-400">Numero de aulas/creditos.</span>
+                        </label>
+                        <div className="flex items-end">
+                          <button
+                            type="button"
+                            onClick={handleCreditAdjust}
+                            disabled={creditLoading}
+                            className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-white hover:bg-slate-800 disabled:opacity-60"
+                          >
+                            {creditLoading ? "Salvando..." : "Adicionar"}
+                          </button>
+                        </div>
+                      </div>
+                      {creditError && <p className="mt-2 text-xs text-rose-600">{creditError}</p>}
+                      {creditMessage && <p className="mt-2 text-xs text-emerald-600">{creditMessage}</p>}
                     </div>
                   )}
 

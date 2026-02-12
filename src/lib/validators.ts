@@ -119,6 +119,12 @@ export const creditAllocationSchema = z.object({
   subjectId: z.string().min(1)
 });
 
+export const adminCreditAdjustSchema = z.object({
+  userId: z.string().min(1),
+  subjectId: z.string().min(1),
+  amount: z.number().int().min(1)
+});
+
 export const ticketCreateSchema = z.object({
   title: z.string().min(3).max(80),
   description: z.string().min(5).max(1000),
