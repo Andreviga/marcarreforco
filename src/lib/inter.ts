@@ -1,4 +1,4 @@
-import { Agent } from "undici";
+import { Agent, fetch as undiciFetch } from "undici";
 import { readFile } from "fs/promises";
 
 type InterRequestOptions = Omit<RequestInit, "body"> & { body?: Record<string, unknown> };
@@ -81,7 +81,7 @@ async function getAccessToken() {
     scope: process.env.INTER_SCOPES ?? DEFAULT_SCOPES
   }).toString();
 
-  const response = await fetch(`${getBaseUrl()}/oauth/v2/token`, {
+  const response = await undiciFetch(`${getBaseUrl()}/oauth/v2/token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded"
@@ -108,7 +108,7 @@ async function getAccessToken() {
 export async function interFetch<T>(path: string, options: InterRequestOptions = {}): Promise<T> {
   const token = await getAccessToken();
   const agent = await getAgent();
-  const response = await fetch(`${getBaseUrl()}${path}`, {
+  const response = await undiciFetch(`${getBaseUrl()}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
