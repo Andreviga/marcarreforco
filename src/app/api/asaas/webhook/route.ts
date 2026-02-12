@@ -101,7 +101,7 @@ export async function POST(request: Request) {
             billingType: paymentData.billingType ?? "PIX",
             dueDate: paymentData.dueDate ? new Date(paymentData.dueDate) : null,
             paidAt: paymentData.paymentDate ? new Date(paymentData.paymentDate) : null,
-            payload: paymentData as unknown as Record<string, unknown>
+            payload: paymentData as unknown as Prisma.InputJsonValue
           },
           include: { package: true }
         })) as Prisma.AsaasPaymentGetPayload<{ include: { package: true } }>;
