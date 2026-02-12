@@ -69,10 +69,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: "Ciclo obrigatório para assinaturas" }, { status: 400 });
   }
 
+  const sessionCount = parsed.data.sessionCount ?? 0;
   const requiresGeneralSubject =
     parsed.data.billingType === "SUBSCRIPTION" &&
-    ((parsed.data.billingCycle === "WEEKLY" && parsed.data.sessionCount > 1) ||
-      (parsed.data.billingCycle === "MONTHLY" && parsed.data.sessionCount > 4));
+    ((parsed.data.billingCycle === "WEEKLY" && sessionCount > 1) ||
+      (parsed.data.billingCycle === "MONTHLY" && sessionCount > 4));
 
   const updated = await prisma.sessionPackage.update({
     where: { id: parsed.data.id },
