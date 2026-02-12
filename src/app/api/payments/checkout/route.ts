@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import { paymentCheckoutSchema } from "@/lib/validators";
@@ -115,7 +116,7 @@ export async function POST(request: Request) {
           amountCents: Math.round(payment.value * 100),
           billingType: payment.billingType,
           dueDate: payment.dueDate ? new Date(payment.dueDate) : null,
-          payload: payment as unknown as Record<string, unknown>
+          payload: payment as unknown as Prisma.InputJsonValue
         }
       });
     }
@@ -158,7 +159,7 @@ export async function POST(request: Request) {
       amountCents: Math.round(payment.value * 100),
       billingType: payment.billingType,
       dueDate: payment.dueDate ? new Date(payment.dueDate) : null,
-      payload: payment as unknown as Record<string, unknown>
+      payload: payment as unknown as Prisma.InputJsonValue
     }
   });
 
