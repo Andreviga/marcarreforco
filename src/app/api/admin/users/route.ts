@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
-import { userCreateSchema, userUpdateSchema } from "@/lib/validators";
+import { userCreateSchema, userDeleteSchema, userUpdateSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
 
 const defaultUnidade = "Colégio Raízes";
@@ -121,6 +121,10 @@ export async function PATCH(request: Request) {
     });
   }
 
+  if (parsed.data.role !== "ALUNO") {
+    await prisma.studentProfile.deleteMany({ where: { userId: updated.id } });
+  }
+
   if (parsed.data.role === "PROFESSOR") {
     await prisma.teacherProfile.upsert({
       where: { userId: updated.id },
@@ -141,6 +145,11 @@ export async function PATCH(request: Request) {
     }
   }
 
+  if (parsed.data.role !== "PROFESSOR") {
+    await prisma.teacherSubject.deleteMany({ where: { teacherId: updated.id } });
+    await prisma.teacherProfile.deleteMany({ where: { userId: updated.id } });
+  }
+
   await logAudit({
     actorUserId: session.user.id,
     action: "UPDATE_USER",
@@ -150,4 +159,69 @@ export async function PATCH(request: Request) {
   });
 
   return NextResponse.json({ user: updated });
+}
+
+export async function DELETE(request: Request) {
+  const { session, response } = await requireApiRole(["ADMIN"]);
+  if (response) return response;
+
+  const body = await request.json().catch(() => null);
+  const parsed = userDeleteSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
+  }
+
+  const usage = await prisma.user.findUnique({
+    where: { id: parsed.data.id },
+    select: {
+      id: true,
+      _count: {
+        select: {
+          enrollments: true,
+          sessions: true,
+          invoices: true,
+          attendances: true,
+          studentAttendances: true,
+          asaasPayments: true,
+          asaasSubscriptions: true,
+          creditBalances: true,
+          creditLedger: true,
+          createdTickets: true,
+          studentTickets: true,
+          teacherTickets: true,
+          ticketMessages: true
+        }
+      }
+    }
+  });
+
+  if (!usage) {
+    return NextResponse.json({ message: "Usuário não encontrado" }, { status: 404 });
+  }
+
+  const counts = Object.values(usage._count ?? {}).filter((value) => value > 0);
+  if (counts.length) {
+    return NextResponse.json(
+      { message: "Não foi possível excluir: o usuário possui vínculos no sistema." },
+      { status: 409 }
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.teacherSubject.deleteMany({ where: { teacherId: parsed.data.id } }),
+    prisma.teacherProfile.deleteMany({ where: { userId: parsed.data.id } }),
+    prisma.studentProfile.deleteMany({ where: { userId: parsed.data.id } }),
+    prisma.asaasCustomer.deleteMany({ where: { userId: parsed.data.id } }),
+    prisma.user.delete({ where: { id: parsed.data.id } })
+  ]);
+
+  await logAudit({
+    actorUserId: session.user.id,
+    action: "DELETE_USER",
+    entityType: "User",
+    entityId: parsed.data.id,
+    payload: { id: parsed.data.id }
+  });
+
+  return NextResponse.json({ ok: true });
 }

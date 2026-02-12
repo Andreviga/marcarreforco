@@ -62,6 +62,16 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
   const [importError, setImportError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState("ALUNO");
+  const [editSerie, setEditSerie] = useState("");
+  const [editTurma, setEditTurma] = useState("");
+  const [editUnidade, setEditUnidade] = useState(defaultUnidade);
+  const [editSubjectIds, setEditSubjectIds] = useState<string[]>([]);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSuccess, setEditSuccess] = useState<string | null>(null);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,6 +103,90 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
 
   function toggleSubject(id: string) {
     setSubjectIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  }
+
+  function toggleEditSubject(id: string) {
+    setEditSubjectIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  }
+
+  function startEdit(user: UserRow) {
+    setEditError(null);
+    setEditSuccess(null);
+    setEditingId(user.id);
+    setEditName(user.name);
+    setEditEmail(user.email);
+    setEditRole(user.role);
+    setEditSerie(user.studentProfile?.serie ?? "");
+    setEditTurma(user.studentProfile?.turma ?? "");
+    setEditUnidade(user.studentProfile?.unidade ?? defaultUnidade);
+    setEditSubjectIds(user.teacherProfile?.subjects.map((subject) => subject.id) ?? []);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditError(null);
+    setEditSuccess(null);
+  }
+
+  async function handleUpdate() {
+    if (!editingId) return;
+    setEditError(null);
+    setEditSuccess(null);
+
+    const response = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: editingId,
+        name: editName,
+        email: editEmail,
+        role: editRole,
+        serie: editRole === "ALUNO" ? editSerie : undefined,
+        turma: editRole === "ALUNO" ? editTurma : undefined,
+        unidade: editRole === "ALUNO" ? editUnidade : undefined,
+        subjectIds: editRole === "PROFESSOR" ? editSubjectIds : undefined
+      })
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      const fieldErrors = data?.issues?.fieldErrors
+        ? Object.entries(data.issues.fieldErrors)
+            .filter(([, messages]) => Array.isArray(messages) && messages.length)
+            .map(([field, messages]) => {
+              if (!Array.isArray(messages)) return null;
+              return `${field}: ${messages.join(", ")}`;
+            })
+            .filter((item): item is string => Boolean(item))
+            .join(" | ")
+        : null;
+      setEditError(fieldErrors ?? data?.message ?? "Não foi possível atualizar o usuário.");
+      return;
+    }
+
+    setEditSuccess("Usuário atualizado com sucesso.");
+    window.location.reload();
+  }
+
+  async function handleDelete(user: UserRow) {
+    const confirmed = window.confirm(`Excluir o usuário ${user.name}? Essa ação não pode ser desfeita.`);
+    if (!confirmed) return;
+    setEditError(null);
+    setEditSuccess(null);
+
+    const response = await fetch("/api/admin/users", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: user.id })
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setEditError(data?.message ?? "Não foi possível excluir o usuário.");
+      return;
+    }
+
+    window.location.reload();
   }
 
   function normalize(value: string) {
@@ -380,7 +474,25 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
         <div className="mt-3 grid gap-2">
           {users.map((user) => (
             <div key={user.id} className="rounded-lg border border-slate-100 p-3 text-sm">
-              <p className="font-semibold text-slate-900">{user.name}</p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <p className="font-semibold text-slate-900">{user.name}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => startEdit(user)}
+                    className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:border-slate-300"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(user)}
+                    className="rounded-full border border-rose-200 px-3 py-1 text-xs text-rose-600 hover:border-rose-300"
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </div>
               <div className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
                 <p>E-mail: {user.email}</p>
                 <p>Perfil: {user.role}</p>
@@ -401,6 +513,111 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                   <p>Disciplinas: -</p>
                 )}
               </div>
+
+              {editingId === user.id && (
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="text-xs text-slate-600">
+                      Nome
+                      <input
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                      />
+                    </label>
+                    <label className="text-xs text-slate-600">
+                      E-mail
+                      <input
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                      />
+                    </label>
+                    <label className="text-xs text-slate-600">
+                      Perfil
+                      <select
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        value={editRole}
+                        onChange={(e) => setEditRole(e.target.value)}
+                      >
+                        <option value="ALUNO">Aluno</option>
+                        <option value="PROFESSOR">Professor</option>
+                        <option value="ADMIN">Secretaria/Admin</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  {editRole === "ALUNO" && (
+                    <div className="mt-3 grid gap-3 md:grid-cols-3">
+                      <label className="text-xs text-slate-600">
+                        Série
+                        <input
+                          list="admin-serie-options"
+                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                          value={editSerie}
+                          onChange={(e) => setEditSerie(e.target.value)}
+                        />
+                      </label>
+                      <label className="text-xs text-slate-600">
+                        Turma
+                        <input
+                          list="admin-turma-options"
+                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                          value={editTurma}
+                          onChange={(e) => setEditTurma(e.target.value)}
+                        />
+                      </label>
+                      <label className="text-xs text-slate-600">
+                        Unidade
+                        <input
+                          list="admin-unidade-options"
+                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                          value={editUnidade}
+                          onChange={(e) => setEditUnidade(e.target.value)}
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {editRole === "PROFESSOR" && (
+                    <div className="mt-3">
+                      <p className="text-xs text-slate-600">Disciplinas</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {subjects.map((subject) => (
+                          <button
+                            type="button"
+                            key={subject.id}
+                            onClick={() => toggleEditSubject(subject.id)}
+                            className={`rounded-full border px-3 py-1 text-xs ${editSubjectIds.includes(subject.id) ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600"}`}
+                          >
+                            {subject.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {editError && <p className="mt-3 text-xs text-red-600">{editError}</p>}
+                  {editSuccess && <p className="mt-3 text-xs text-emerald-600">{editSuccess}</p>}
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleUpdate}
+                      className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs text-white hover:bg-slate-800"
+                    >
+                      Salvar alterações
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEdit}
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

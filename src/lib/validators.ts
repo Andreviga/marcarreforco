@@ -78,6 +78,10 @@ export const userUpdateSchema = userCreateSchema.partial().extend({
   id: z.string().min(1)
 });
 
+export const userDeleteSchema = z.object({
+  id: z.string().min(1)
+});
+
 export const subjectSchema = z.object({
   name: z.string().min(2),
   defaultPriceCents: z.number().int().min(0).optional()
