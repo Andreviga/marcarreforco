@@ -188,26 +188,104 @@ async function main() {
 
   await prisma.session.createMany({ data: sessions });
 
-  const plantaoPackages = [
-    { name: "Plantao por materia - 2o ao 5o (1h/sem)", sessionCount: 4, priceCents: 4900 },
-    { name: "Plantao por materia - 6o ao EM (1h/sem)", sessionCount: 4, priceCents: 5900 },
-    { name: "Plantao - 2 materias - 2o ao 5o", sessionCount: 8, priceCents: 9000 },
-    { name: "Plantao - 2 materias - 6o ao EM", sessionCount: 8, priceCents: 11000 },
-    { name: "Plantao - 3 materias - 2o ao 5o", sessionCount: 12, priceCents: 12000 },
-    { name: "Plantao - 3 materias - 6o ao EM", sessionCount: 12, priceCents: 15000 },
-    { name: "Plantao avulso - 2o ao 5o (1h)", sessionCount: 1, priceCents: 1600 },
-    { name: "Plantao avulso - 6o ao EM (1h)", sessionCount: 1, priceCents: 2000 }
+  const daysToSessions = (days: number) => days * 4;
+  const createPackage = async (params: {
+    name: string;
+    sessionCount: number;
+    priceCents: number;
+    subjectId?: string | null;
+    billingType?: "PACKAGE" | "SUBSCRIPTION";
+    billingCycle?: "MONTHLY" | "WEEKLY" | null;
+  }) =>
+    prisma.sessionPackage.upsert({
+      where: { name: params.name },
+      update: {
+        sessionCount: params.sessionCount,
+        priceCents: params.priceCents,
+        active: true,
+        subjectId: params.subjectId ?? null,
+        billingType: params.billingType ?? "PACKAGE",
+        billingCycle: params.billingType === "SUBSCRIPTION" ? params.billingCycle ?? "MONTHLY" : null
+      },
+      create: {
+        name: params.name,
+        sessionCount: params.sessionCount,
+        priceCents: params.priceCents,
+        active: true,
+        subjectId: params.subjectId ?? null,
+        billingType: params.billingType ?? "PACKAGE",
+        billingCycle: params.billingType === "SUBSCRIPTION" ? params.billingCycle ?? "MONTHLY" : null
+      }
+    });
+
+  const packagesBase = [
+    {
+      label: "1o ao 3o",
+      monthly: [
+        { days: 1, priceCents: 2200 },
+        { days: 2, priceCents: 3900 },
+        { days: 5, priceCents: 8900, name: "Pacote especial 5 dias/semana" }
+      ],
+      avulsoPriceCents: 700
+    },
+    {
+      label: "4o ao 9o",
+      monthly: [
+        { days: 1, priceCents: 2700 },
+        { days: 2, priceCents: 4800 },
+        { days: 3, priceCents: 6600 },
+        { days: 4, priceCents: 8100 },
+        { days: 5, priceCents: 9500 }
+      ],
+      avulsoPriceCents: 900
+    }
   ];
 
-  await Promise.all(
-    plantaoPackages.map((item) =>
-      prisma.sessionPackage.upsert({
-        where: { name: item.name },
-        update: { sessionCount: item.sessionCount, priceCents: item.priceCents, active: true },
-        create: { ...item, active: true }
-      })
-    )
-  );
+  const subjectsForPackages = await prisma.subject.findMany();
+
+  for (const base of packagesBase) {
+    for (const monthly of base.monthly) {
+      const displayName = monthly.name ?? `${monthly.days} dia/semana`;
+
+      await createPackage({
+        name: `${displayName} - ${base.label} (sem disciplina)`,
+        sessionCount: daysToSessions(monthly.days),
+        priceCents: monthly.priceCents,
+        subjectId: null,
+        billingType: "SUBSCRIPTION",
+        billingCycle: "MONTHLY"
+      });
+
+      for (const subject of subjectsForPackages) {
+        await createPackage({
+          name: `${displayName} - ${base.label} - ${subject.name}`,
+          sessionCount: daysToSessions(monthly.days),
+          priceCents: monthly.priceCents,
+          subjectId: subject.id,
+          billingType: "SUBSCRIPTION",
+          billingCycle: "MONTHLY"
+        });
+      }
+    }
+
+    await createPackage({
+      name: `Avulso (1h) - ${base.label} (sem disciplina)`,
+      sessionCount: 1,
+      priceCents: base.avulsoPriceCents,
+      subjectId: null,
+      billingType: "PACKAGE"
+    });
+
+    for (const subject of subjectsForPackages) {
+      await createPackage({
+        name: `Avulso (1h) - ${base.label} - ${subject.name}`,
+        sessionCount: 1,
+        priceCents: base.avulsoPriceCents,
+        subjectId: subject.id,
+        billingType: "PACKAGE"
+      });
+    }
+  }
 
   console.log("Seed completed:", {
     admin: admin.email,
