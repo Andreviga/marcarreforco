@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       endsAt: new Date(parsed.data.endsAt),
       location: parsed.data.location,
       modality: parsed.data.modality,
-      priceCents: parsed.data.priceCents,
+      priceCents: parsed.data.priceCents ?? 0,
       status: parsed.data.status ?? "ATIVA"
     }
   });

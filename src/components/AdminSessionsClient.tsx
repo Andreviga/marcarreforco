@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { formatCurrency } from "@/lib/format";
 
 interface Subject {
   id: string;
@@ -42,7 +41,6 @@ export default function AdminSessionsClient({
   const [endTime, setEndTime] = useState("13:30");
   const [location, setLocation] = useState("Sala 1");
   const [modality, setModality] = useState("PRESENCIAL");
-  const [price, setPrice] = useState(subjects[0]?.defaultPriceCents ?? 5000);
   const [repeatWeeks, setRepeatWeeks] = useState(1);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -60,8 +58,7 @@ export default function AdminSessionsClient({
       subjectId,
       teacherId,
       location,
-      modality,
-      priceCents: Number(price)
+      modality
     };
 
     const requests = Array.from({ length: repeatWeeks }).map((_, index) => {
@@ -127,8 +124,7 @@ export default function AdminSessionsClient({
       subjectId,
       teacherId,
       location,
-      modality,
-      priceCents: Number(price)
+      modality
     };
 
     const requests = dates.map((date) => {
@@ -167,10 +163,6 @@ export default function AdminSessionsClient({
               onChange={(event) => {
                 const nextId = event.target.value;
                 setSubjectId(nextId);
-                const subject = subjects.find((item) => item.id === nextId);
-                if (subject?.defaultPriceCents) {
-                  setPrice(subject.defaultPriceCents);
-                }
               }}
             >
               {subjects.map((subject) => (
@@ -248,17 +240,6 @@ export default function AdminSessionsClient({
               <option value="ONLINE">Online</option>
             </select>
             <span className="mt-1 block text-xs text-slate-400">Presencial ou online.</span>
-          </label>
-          <label className="text-sm text-slate-600">
-            Valor (centavos)
-            <input
-              type="number"
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-              value={price}
-              onChange={(event) => setPrice(Number(event.target.value))}
-              placeholder="Ex.: 5000"
-            />
-            <span className="mt-1 block text-xs text-slate-400">$5000 = R$ 50,00.</span>
           </label>
           <label className="text-sm text-slate-600">
             Repetir por (semanas)
@@ -369,7 +350,9 @@ export default function AdminSessionsClient({
                   {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                 </p>
                 <p className="text-xs text-slate-500">{session.teacher.name}</p>
-                <p className="text-xs text-slate-500">Valor: {formatCurrency(session.priceCents)}</p>
+                {session.priceCents > 0 && (
+                  <p className="text-xs text-slate-500">Valor: R$ {Number(session.priceCents / 100).toFixed(2)}</p>
+                )}
                 <p className="text-xs text-slate-400">Status: {session.status}</p>
               </div>
               <div className="mt-2 flex flex-wrap gap-2">

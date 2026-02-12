@@ -41,7 +41,7 @@ export const sessionCreateSchema = z.object({
   endsAt: z.string().datetime(),
   location: z.string().min(1),
   modality: z.enum(["PRESENCIAL", "ONLINE"]),
-  priceCents: z.number().int().min(0),
+  priceCents: z.number().int().min(0).optional(),
   status: z.enum(["ATIVA", "CANCELADA"]).optional()
 });
 
