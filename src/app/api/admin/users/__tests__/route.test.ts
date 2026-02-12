@@ -22,7 +22,8 @@ jest.mock("@/lib/prisma", () => ({
       deleteMany: jest.fn()
     },
     studentProfile: {
-      upsert: jest.fn()
+      upsert: jest.fn(),
+      deleteMany: jest.fn()
     },
     teacherProfile: {
       upsert: jest.fn()

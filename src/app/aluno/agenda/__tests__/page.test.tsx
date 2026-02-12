@@ -3,6 +3,7 @@ import { render } from "@testing-library/react";
 import AlunoAgendaPage from "@/app/aluno/agenda/page";
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { getBalancesForStudent } from "@/lib/credits";
 
 const AppShellMock = jest.fn(({ children }: { children: React.ReactNode }) => <div>{children}</div>);
 const AgendaClientMock = jest.fn(() => null);
@@ -17,6 +18,10 @@ jest.mock("@/lib/prisma", () => ({
     enrollment: { findMany: jest.fn() },
     invoice: { findUnique: jest.fn(), findMany: jest.fn(), groupBy: jest.fn() }
   }
+}));
+
+jest.mock("@/lib/credits", () => ({
+  getBalancesForStudent: jest.fn()
 }));
 
 jest.mock("@/components/AppShell", () => ({
@@ -41,6 +46,7 @@ describe("AlunoAgendaPage", () => {
     findMany: jest.Mock;
     groupBy: jest.Mock;
   };
+  const balancesRepo = getBalancesForStudent as jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -62,6 +68,7 @@ describe("AlunoAgendaPage", () => {
     invoiceRepo.findUnique.mockResolvedValue(null);
     invoiceRepo.findMany.mockResolvedValue([]);
     invoiceRepo.groupBy.mockResolvedValue([]);
+    balancesRepo.mockResolvedValue([]);
   });
 
   it("renders agenda with sessions and enrollments", async () => {
