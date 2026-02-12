@@ -30,15 +30,25 @@ interface SubscriptionItem {
   package: PackageItem;
 }
 
+interface PendingCreditItem {
+  id: string;
+  createdAt: string;
+  package: { name: string; sessionCount: number };
+}
+
 export default function StudentPaymentsClient({
   packages,
   balances,
   subscriptions,
+  subjects,
+  pendingCredits,
   document
 }: {
   packages: PackageItem[];
   balances: BalanceItem[];
   subscriptions: SubscriptionItem[];
+  subjects: SubjectOption[];
+  pendingCredits: PendingCreditItem[];
   document: string | null;
 }) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -47,6 +57,9 @@ export default function StudentPaymentsClient({
   const [docError, setDocError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [hasDocument, setHasDocument] = useState(Boolean(document));
+  const [allocationId, setAllocationId] = useState<string | null>(null);
+  const [allocationMessage, setAllocationMessage] = useState<string | null>(null);
+  const [allocationSubject, setAllocationSubject] = useState<Record<string, string>>({});
 
   const subscriptionMap = useMemo(() => {
     return new Map(subscriptions.map((sub) => [sub.package.id, sub]));
@@ -99,6 +112,33 @@ export default function StudentPaymentsClient({
     setMessage("Assinatura criada. Aguarde a cobranca.");
   }
 
+  async function handleAllocate(paymentId: string) {
+    const subjectId = allocationSubject[paymentId];
+    if (!subjectId) {
+      setAllocationMessage("Selecione a disciplina antes de aplicar.");
+      return;
+    }
+
+    setAllocationMessage(null);
+    setAllocationId(paymentId);
+    const response = await fetch("/api/credits/allocate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paymentId, subjectId })
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setAllocationMessage(data?.message ?? "Não foi possível aplicar o crédito.");
+      setAllocationId(null);
+      return;
+    }
+
+    setAllocationMessage("Crédito aplicado com sucesso.");
+    setAllocationId(null);
+    window.location.reload();
+  }
+
   return (
     <div className="space-y-6">
       {!hasDocument && (
@@ -141,6 +181,54 @@ export default function StudentPaymentsClient({
           )}
         </div>
       </div>
+
+      {pendingCredits.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <h2 className="text-lg font-semibold text-amber-900">Definir disciplina</h2>
+          <p className="text-sm text-amber-700">
+            Você tem pagamentos confirmados sem disciplina. Escolha para liberar os créditos.
+          </p>
+          <div className="mt-4 space-y-3">
+            {pendingCredits.map((item) => (
+              <div key={item.id} className="rounded-lg border border-amber-200 bg-white p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900">{item.package.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {item.package.sessionCount} aula(s) • Pago em {new Date(item.createdAt).toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      className="rounded-lg border border-amber-200 px-2 py-1 text-xs"
+                      value={allocationSubject[item.id] ?? ""}
+                      onChange={(event) =>
+                        setAllocationSubject((prev) => ({ ...prev, [item.id]: event.target.value }))
+                      }
+                    >
+                      <option value="">Selecione a disciplina</option>
+                      {subjects.map((subject) => (
+                        <option key={subject.id} value={subject.id}>
+                          {subject.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => handleAllocate(item.id)}
+                      disabled={allocationId === item.id}
+                      className="rounded-lg bg-amber-700 px-3 py-2 text-xs text-white hover:bg-amber-800 disabled:opacity-60"
+                    >
+                      {allocationId === item.id ? "Aplicando..." : "Aplicar créditos"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          {allocationMessage && <p className="mt-3 text-sm text-amber-700">{allocationMessage}</p>}
+        </div>
+      )}
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     include: { subject: true }
   });
 
-  if (!packageRecord || !packageRecord.active || !packageRecord.subjectId) {
+  if (!packageRecord || !packageRecord.active) {
     return NextResponse.json({ message: "Pacote indisponível" }, { status: 400 });
   }
 

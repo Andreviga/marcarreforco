@@ -7,6 +7,7 @@ import MonthlyCalendarClient from "@/components/MonthlyCalendarClient";
 import { formatCurrency } from "@/lib/format";
 import Link from "next/link";
 import RulesBanner from "@/components/RulesBanner";
+import { getBalancesForStudent } from "@/lib/credits";
 
 const allowedInvoiceStatuses = new Set<InvoiceStatus>(["ABERTA", "EMITIDA", "PAGA"]);
 
@@ -26,6 +27,8 @@ export default async function AlunoAgendaPage({
     include: { subject: true, teacher: true },
     orderBy: { startsAt: "asc" }
   });
+
+  const balances = await getBalancesForStudent(session.user.id);
 
   const enrollments = await prisma.enrollment.findMany({
     where: { studentId: session.user.id },
@@ -105,6 +108,34 @@ export default async function AlunoAgendaPage({
       <div className="space-y-6">
         <RulesBanner variant="compact" collapsible />
         <div className="grid gap-4">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-emerald-900">Comprar aulas</h2>
+                <p className="text-sm text-emerald-700">Garanta créditos antes de agendar.</p>
+              </div>
+              <Link
+                href="/aluno/pagamentos"
+                className="rounded-full bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-800"
+              >
+                Ver pacotes
+              </Link>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-emerald-700">
+              {balances.length === 0 ? (
+                <span className="rounded-full border border-emerald-200 bg-white px-3 py-1">Sem créditos ativos.</span>
+              ) : (
+                balances.map((item) => (
+                  <span
+                    key={item.subject.id}
+                    className="rounded-full border border-emerald-200 bg-white px-3 py-1"
+                  >
+                    {item.subject.name}: {item.balance}
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
           <div className="rounded-xl bg-white p-4 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Fatura do mes</h2>
             <p className="text-sm text-slate-500">{month}/{year}</p>

@@ -7,7 +7,7 @@ import StudentPaymentsClient from "@/components/StudentPaymentsClient";
 export default async function AlunoPagamentosPage() {
   const session = await requireRole(["ALUNO"]);
 
-  const [packages, balances, subscriptions, profile] = await Promise.all([
+  const [packages, balances, subscriptions, profile, subjects, pendingPayments] = await Promise.all([
     prisma.sessionPackage.findMany({
       where: { active: true },
       include: { subject: true },
@@ -19,7 +19,18 @@ export default async function AlunoPagamentosPage() {
       include: { package: { include: { subject: true } } },
       orderBy: { createdAt: "desc" }
     }),
-    prisma.studentProfile.findUnique({ where: { userId: session.user.id } })
+    prisma.studentProfile.findUnique({ where: { userId: session.user.id } }),
+    prisma.subject.findMany({ orderBy: { name: "asc" } }),
+    prisma.asaasPayment.findMany({
+      where: {
+        userId: session.user.id,
+        status: "CONFIRMED",
+        package: { subjectId: null },
+        creditLedger: { none: { reason: "PAYMENT_CREDIT" } }
+      },
+      include: { package: true },
+      orderBy: { createdAt: "desc" }
+    })
   ]);
 
   return (
@@ -42,6 +53,15 @@ export default async function AlunoPagamentosPage() {
             billingType: item.package.billingType,
             billingCycle: item.package.billingCycle,
             subject: item.package.subject ? { id: item.package.subject.id, name: item.package.subject.name } : null
+          }
+        }))}
+        subjects={subjects.map((subject) => ({ id: subject.id, name: subject.name }))}
+        pendingCredits={pendingPayments.map((payment) => ({
+          id: payment.id,
+          createdAt: payment.createdAt.toISOString(),
+          package: {
+            name: payment.package.name,
+            sessionCount: payment.package.sessionCount
           }
         }))}
         document={profile?.document ?? null}

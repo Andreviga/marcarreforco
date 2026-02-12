@@ -114,6 +114,11 @@ export const profileDocumentSchema = z.object({
   document: z.string().min(11).max(18)
 });
 
+export const creditAllocationSchema = z.object({
+  paymentId: z.string().min(1),
+  subjectId: z.string().min(1)
+});
+
 export const invoiceGenerateSchema = z.object({
   month: z.number().int().min(1).max(12),
   year: z.number().int().min(2020).max(2100)
