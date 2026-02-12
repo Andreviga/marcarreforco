@@ -107,16 +107,16 @@ export async function POST(request: Request) {
         })) as Prisma.AsaasPaymentGetPayload<{ include: { package: true } }>;
       }
     } else {
-      payment = await prisma.asaasPayment.update({
+      payment = (await prisma.asaasPayment.update({
         where: { id: payment.id },
         data: {
           status,
           dueDate: paymentData.dueDate ? new Date(paymentData.dueDate) : payment.dueDate,
           paidAt: paymentData.paymentDate ? new Date(paymentData.paymentDate) : payment.paidAt,
-          payload: paymentData as unknown as Record<string, unknown>
+          payload: paymentData as unknown as Prisma.InputJsonValue
         },
         include: { package: true }
-      });
+      })) as Prisma.AsaasPaymentGetPayload<{ include: { package: true } }>;
     }
 
     if (payment && status === "CONFIRMED") {
