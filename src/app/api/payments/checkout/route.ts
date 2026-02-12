@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
   }
 
-  const billingType = parsed.data.billingType ?? "PIX";
+  const billingType = "PIX";
 
   const packageRecord = await prisma.sessionPackage.findUnique({
     where: { id: parsed.data.packageId },

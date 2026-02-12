@@ -52,7 +52,6 @@ export default function StudentPaymentsClient({
   document: string | null;
 }) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"PIX" | "BOLETO">("PIX");
   const [docValue, setDocValue] = useState(document ?? "");
   const [docError, setDocError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -90,7 +89,7 @@ export default function StudentPaymentsClient({
     const response = await fetch("/api/payments/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ packageId, billingType: paymentMethod })
+      body: JSON.stringify({ packageId })
     });
 
     if (!response.ok) {
@@ -233,17 +232,9 @@ export default function StudentPaymentsClient({
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-slate-900">Planos e pacotes</h2>
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <span>Forma de pagamento</span>
-            <select
-              className="rounded-lg border border-slate-200 px-2 py-1"
-              value={paymentMethod}
-              onChange={(event) => setPaymentMethod(event.target.value as "PIX" | "BOLETO")}
-            >
-              <option value="PIX">PIX</option>
-              <option value="BOLETO">Boleto</option>
-            </select>
-          </div>
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            Pagamento via PIX
+          </span>
         </div>
 
         <div className="mt-4 grid gap-3">

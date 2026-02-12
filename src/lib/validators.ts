@@ -107,7 +107,7 @@ export const packageUpdateSchema = packageSchema.partial().extend({
 
 export const paymentCheckoutSchema = z.object({
   packageId: z.string().min(1),
-  billingType: z.enum(["PIX", "BOLETO"]).optional()
+  billingType: z.enum(["PIX"]).optional()
 });
 
 export const profileDocumentSchema = z.object({
