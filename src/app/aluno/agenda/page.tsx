@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
 import AgendaClient from "@/components/AgendaClient";
 import MonthlyCalendarClient from "@/components/MonthlyCalendarClient";
-import { formatCurrency } from "@/lib/format";
 import Link from "next/link";
 import RulesBanner from "@/components/RulesBanner";
 import { getBalancesForStudent } from "@/lib/credits";
@@ -35,7 +34,7 @@ export default async function AlunoAgendaPage() {
     endsAt: item.endsAt,
     title: item.subject.name,
     subtitle: `${item.teacher.name} • ${item.modality === "ONLINE" ? "Online" : item.location}`,
-    meta: `Valor: ${formatCurrency(item.priceCents)}`,
+    meta: "1 crédito",
     status: item.status
   }));
 

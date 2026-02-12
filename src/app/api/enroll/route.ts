@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import { enrollSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
-import { reserveCredit } from "@/lib/credits";
+import { addPaymentCredits, getBalance, reserveCredit } from "@/lib/credits";
 
 export async function POST(request: Request) {
   const { session, response } = await requireApiRole(["ALUNO"]);
@@ -43,6 +43,29 @@ export async function POST(request: Request) {
 
   if (!sessionRecord.subjectId) {
     return NextResponse.json({ message: "Disciplina inválida" }, { status: 400 });
+  }
+
+  const currentBalance = await getBalance(session.user.id, sessionRecord.subjectId);
+  if (currentBalance <= 0) {
+    const pendingPayment = await prisma.asaasPayment.findFirst({
+      where: {
+        userId: session.user.id,
+        status: "CONFIRMED",
+        package: { subjectId: null },
+        creditLedger: { none: { reason: "PAYMENT_CREDIT" } }
+      },
+      include: { package: true }
+    });
+
+    if (pendingPayment) {
+      await addPaymentCredits({
+        studentId: session.user.id,
+        subjectId: sessionRecord.subjectId,
+        amount: pendingPayment.package.sessionCount,
+        paymentId: pendingPayment.id,
+        paidAt: pendingPayment.paidAt
+      });
+    }
   }
 
   let enrollment;

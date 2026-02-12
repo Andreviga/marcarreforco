@@ -4,7 +4,7 @@ import { POST } from "../route";
 import { requireApiRole } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
-import { reserveCredit } from "@/lib/credits";
+import { addPaymentCredits, getBalance, reserveCredit } from "@/lib/credits";
 
 jest.mock("@/lib/api-auth", () => ({
   requireApiRole: jest.fn()
@@ -14,6 +14,9 @@ jest.mock("@/lib/prisma", () => ({
   prisma: {
     session: {
       findUnique: jest.fn()
+    },
+    asaasPayment: {
+      findFirst: jest.fn()
     },
     enrollment: {
       findUnique: jest.fn(),
@@ -28,14 +31,19 @@ jest.mock("@/lib/audit", () => ({
 }));
 
 jest.mock("@/lib/credits", () => ({
-  reserveCredit: jest.fn()
+  reserveCredit: jest.fn(),
+  getBalance: jest.fn(),
+  addPaymentCredits: jest.fn()
 }));
 
 describe("enroll route", () => {
   const requireApiRoleMock = requireApiRole as jest.Mock;
   const logAuditMock = logAudit as jest.Mock;
   const reserveCreditMock = reserveCredit as jest.Mock;
+  const getBalanceMock = getBalance as jest.Mock;
+  const addPaymentCreditsMock = addPaymentCredits as jest.Mock;
   const sessionRepo = prisma.session as unknown as { findUnique: jest.Mock };
+  const paymentRepo = prisma.asaasPayment as unknown as { findFirst: jest.Mock };
   const enrollmentRepo = prisma.enrollment as unknown as { findUnique: jest.Mock; upsert: jest.Mock };
   const transactionMock = prisma.$transaction as jest.Mock;
 
@@ -81,6 +89,8 @@ describe("enroll route", () => {
       teacher: { name: "Ana" }
     });
     enrollmentRepo.findUnique.mockResolvedValue(null);
+    getBalanceMock.mockResolvedValue(1);
+    paymentRepo.findFirst.mockResolvedValue(null);
     txMock.enrollment.upsert.mockResolvedValue({ id: "e1", sessionId: "s1" });
     reserveCreditMock.mockResolvedValue(undefined);
 
@@ -95,6 +105,7 @@ describe("enroll route", () => {
     expect(response.status).toBe(200);
     expect(data.enrollment).toEqual({ id: "e1", sessionId: "s1" });
     expect(reserveCreditMock).toHaveBeenCalled();
+    expect(addPaymentCreditsMock).not.toHaveBeenCalled();
     expect(logAuditMock).toHaveBeenCalledWith(
       expect.objectContaining({
         actorUserId: "student-1",
@@ -103,5 +114,45 @@ describe("enroll route", () => {
         entityId: "e1"
       })
     );
+  });
+
+  it("allocates credits from pending payment when balance is zero", async () => {
+    sessionRepo.findUnique.mockResolvedValue({
+      id: "s1",
+      status: "ATIVA",
+      startsAt: new Date(Date.now() + 86400000),
+      subjectId: "sub1",
+      subject: { name: "Matemática" },
+      teacher: { name: "Ana" }
+    });
+    enrollmentRepo.findUnique.mockResolvedValue(null);
+    getBalanceMock.mockResolvedValue(0);
+    paymentRepo.findFirst.mockResolvedValue({
+      id: "p1",
+      paidAt: new Date(),
+      package: { sessionCount: 4 }
+    });
+    txMock.enrollment.upsert.mockResolvedValue({ id: "e1", sessionId: "s1" });
+    reserveCreditMock.mockResolvedValue(undefined);
+
+    const request = new Request("http://localhost/api/enroll", {
+      method: "POST",
+      body: JSON.stringify({ sessionId: "s1" })
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.enrollment).toEqual({ id: "e1", sessionId: "s1" });
+    expect(addPaymentCreditsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        studentId: "student-1",
+        subjectId: "sub1",
+        amount: 4,
+        paymentId: "p1"
+      })
+    );
+    expect(reserveCreditMock).toHaveBeenCalled();
   });
 });

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { formatCurrency } from "@/lib/format";
 
 interface SessionItem {
   id: string;
@@ -133,9 +132,7 @@ export default function AgendaClient({
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-slate-700">
-                    Valor: {formatCurrency(session.priceCents)}
-                  </span>
+                  <span className="text-sm font-semibold text-slate-700">1 crédito</span>
                   {enrollment?.status === "AGENDADO" ? (
                     <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">
                       Agendado
