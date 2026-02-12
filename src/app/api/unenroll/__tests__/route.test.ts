@@ -4,6 +4,7 @@ import { POST } from "../route";
 import { requireApiRole } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { releaseCredit } from "@/lib/credits";
 
 jest.mock("@/lib/api-auth", () => ({
   requireApiRole: jest.fn()
@@ -15,12 +16,6 @@ jest.mock("@/lib/prisma", () => ({
       findUnique: jest.fn(),
       update: jest.fn()
     },
-    studentCreditBalance: {
-      upsert: jest.fn()
-    },
-    studentCreditLedger: {
-      create: jest.fn()
-    },
     $transaction: jest.fn()
   }
 }));
@@ -29,21 +24,20 @@ jest.mock("@/lib/audit", () => ({
   logAudit: jest.fn()
 }));
 
+jest.mock("@/lib/credits", () => ({
+  releaseCredit: jest.fn()
+}));
+
 describe("unenroll route", () => {
   const requireApiRoleMock = requireApiRole as jest.Mock;
   const enrollmentRepo = prisma.enrollment as unknown as { findUnique: jest.Mock; update: jest.Mock };
   const logAuditMock = logAudit as jest.Mock;
+  const releaseCreditMock = releaseCredit as jest.Mock;
   const transactionMock = prisma.$transaction as jest.Mock;
 
   const txMock = {
     enrollment: {
       update: jest.fn()
-    },
-    studentCreditBalance: {
-      upsert: jest.fn()
-    },
-    studentCreditLedger: {
-      create: jest.fn()
     }
   };
 
@@ -86,8 +80,7 @@ describe("unenroll route", () => {
       session: { status: "ATIVA", startsAt: new Date(Date.now() + 86400000), subjectId: "sub1" }
     });
     txMock.enrollment.update.mockResolvedValue({ id: "e1", status: "DESMARCADO", sessionId: "sess1", creditsReserved: 1 });
-    txMock.studentCreditBalance.upsert.mockResolvedValue({ id: "balance1" });
-    txMock.studentCreditLedger.create.mockResolvedValue({ id: "ledger1" });
+    releaseCreditMock.mockResolvedValue(true);
 
     const request = new Request("http://localhost/api/unenroll", {
       method: "POST",
@@ -99,6 +92,7 @@ describe("unenroll route", () => {
 
     expect(response.status).toBe(200);
     expect(data.enrollment).toEqual({ id: "e1", status: "DESMARCADO", sessionId: "sess1", creditsReserved: 1 });
+    expect(releaseCreditMock).toHaveBeenCalled();
     expect(logAuditMock).toHaveBeenCalledWith(expect.objectContaining({ action: "UNENROLL" }));
   });
 });

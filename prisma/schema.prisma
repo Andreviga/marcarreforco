@@ -112,6 +112,7 @@ model User {
   asaasPayments AsaasPayment[]
   creditBalances StudentCreditBalance[] @relation("StudentCredits")
   creditLedger StudentCreditLedger[] @relation("StudentCreditLedger")
+  creditLots StudentCreditLot[] @relation("StudentCreditLots")
 }
 
 model StudentProfile {
@@ -140,6 +141,7 @@ model Subject {
   packages SessionPackage[]
   creditBalances StudentCreditBalance[]
   creditLedger StudentCreditLedger[]
+  creditLots StudentCreditLot[]
   createdAt DateTime @default(now())
 }
 
@@ -296,6 +298,7 @@ model AsaasPayment {
   package      SessionPackage   @relation(fields: [packageId], references: [id])
   subscription AsaasSubscription? @relation(fields: [subscriptionId], references: [id])
   creditLedger StudentCreditLedger[]
+  creditLots StudentCreditLot[]
 }
 
 model StudentCreditBalance {
@@ -311,6 +314,25 @@ model StudentCreditBalance {
   @@unique([studentId, subjectId])
 }
 
+model StudentCreditLot {
+  id        String   @id @default(cuid())
+  studentId String
+  subjectId String
+  paymentId String?
+  total     Int
+  remaining Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  student User @relation("StudentCreditLots", fields: [studentId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+  payment AsaasPayment? @relation(fields: [paymentId], references: [id])
+  ledgerEntries StudentCreditLedger[]
+
+  @@index([studentId, subjectId])
+  @@index([expiresAt])
+}
+
 model StudentCreditLedger {
   id           String       @id @default(cuid())
   studentId    String
@@ -319,12 +341,14 @@ model StudentCreditLedger {
   reason       CreditReason
   enrollmentId String?
   paymentId    String?
+  creditLotId  String?
   createdAt    DateTime     @default(now())
 
   student    User           @relation("StudentCreditLedger", fields: [studentId], references: [id])
   subject    Subject        @relation(fields: [subjectId], references: [id])
   enrollment Enrollment?    @relation(fields: [enrollmentId], references: [id])
   payment    AsaasPayment?  @relation(fields: [paymentId], references: [id])
+  creditLot  StudentCreditLot? @relation(fields: [creditLotId], references: [id])
 
   @@index([studentId, subjectId])
 }

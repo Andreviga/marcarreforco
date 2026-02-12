@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { addCredits } from "@/lib/credits";
+import { addPaymentCredits, adjustCredits } from "@/lib/credits";
 
 const paymentStatusMap: Record<string, "PENDING" | "CONFIRMED" | "OVERDUE" | "CANCELED" | "REFUNDED"> = {
   PENDING: "PENDING",
@@ -125,12 +125,12 @@ export async function POST(request: Request) {
       });
 
       if (!alreadyCredited && payment.package.subjectId) {
-        await addCredits({
+        await addPaymentCredits({
           studentId: payment.userId,
           subjectId: payment.package.subjectId,
-          delta: payment.package.sessionCount,
-          reason: "PAYMENT_CREDIT",
-          paymentId: payment.id
+          amount: payment.package.sessionCount,
+          paymentId: payment.id,
+          paidAt: payment.paidAt
         });
       }
     }
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
       });
 
       if (credited && !reversed && payment.package.subjectId) {
-        await addCredits({
+        await adjustCredits({
           studentId: payment.userId,
           subjectId: payment.package.subjectId,
           delta: -payment.package.sessionCount,

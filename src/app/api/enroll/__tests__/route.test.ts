@@ -4,6 +4,7 @@ import { POST } from "../route";
 import { requireApiRole } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { reserveCredit } from "@/lib/credits";
 
 jest.mock("@/lib/api-auth", () => ({
   requireApiRole: jest.fn()
@@ -18,13 +19,6 @@ jest.mock("@/lib/prisma", () => ({
       findUnique: jest.fn(),
       upsert: jest.fn()
     },
-    studentCreditBalance: {
-      findUnique: jest.fn(),
-      update: jest.fn()
-    },
-    studentCreditLedger: {
-      create: jest.fn()
-    },
     $transaction: jest.fn()
   }
 }));
@@ -33,9 +27,14 @@ jest.mock("@/lib/audit", () => ({
   logAudit: jest.fn()
 }));
 
+jest.mock("@/lib/credits", () => ({
+  reserveCredit: jest.fn()
+}));
+
 describe("enroll route", () => {
   const requireApiRoleMock = requireApiRole as jest.Mock;
   const logAuditMock = logAudit as jest.Mock;
+  const reserveCreditMock = reserveCredit as jest.Mock;
   const sessionRepo = prisma.session as unknown as { findUnique: jest.Mock };
   const enrollmentRepo = prisma.enrollment as unknown as { findUnique: jest.Mock; upsert: jest.Mock };
   const transactionMock = prisma.$transaction as jest.Mock;
@@ -43,13 +42,6 @@ describe("enroll route", () => {
   const txMock = {
     enrollment: {
       upsert: jest.fn()
-    },
-    studentCreditBalance: {
-      findUnique: jest.fn(),
-      update: jest.fn()
-    },
-    studentCreditLedger: {
-      create: jest.fn()
     }
   };
 
@@ -89,10 +81,8 @@ describe("enroll route", () => {
       teacher: { name: "Ana" }
     });
     enrollmentRepo.findUnique.mockResolvedValue(null);
-    txMock.studentCreditBalance.findUnique.mockResolvedValue({ studentId: "student-1", subjectId: "sub1", balance: 1 });
     txMock.enrollment.upsert.mockResolvedValue({ id: "e1", sessionId: "s1" });
-    txMock.studentCreditBalance.update.mockResolvedValue({ studentId: "student-1", subjectId: "sub1", balance: 0 });
-    txMock.studentCreditLedger.create.mockResolvedValue({ id: "ledger1" });
+    reserveCreditMock.mockResolvedValue(undefined);
 
     const request = new Request("http://localhost/api/enroll", {
       method: "POST",
@@ -104,6 +94,7 @@ describe("enroll route", () => {
 
     expect(response.status).toBe(200);
     expect(data.enrollment).toEqual({ id: "e1", sessionId: "s1" });
+    expect(reserveCreditMock).toHaveBeenCalled();
     expect(logAuditMock).toHaveBeenCalledWith(
       expect.objectContaining({
         actorUserId: "student-1",

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import { unenrollSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
+import { releaseCredit } from "@/lib/credits";
 
 export async function POST(request: Request) {
   const { session, response } = await requireApiRole(["ALUNO"]);
@@ -37,43 +38,15 @@ export async function POST(request: Request) {
       record.creditsReserved > 0 && enrollment.session.startsAt > new Date() && enrollment.session.subjectId;
 
     if (shouldRefund) {
-      const now = new Date();
-      const existing = await tx.studentCreditBalance.findUnique({
-        where: {
-          studentId_subjectId: { studentId: enrollment.studentId, subjectId: enrollment.session.subjectId }
-        }
+      await releaseCredit({
+        tx,
+        studentId: enrollment.studentId,
+        subjectId: enrollment.session.subjectId,
+        enrollmentId: enrollment.id
       });
-      if (existing) {
-        const sameMonth =
-          existing.updatedAt.getFullYear() === now.getFullYear() &&
-          existing.updatedAt.getMonth() === now.getMonth();
-        if (!sameMonth) {
-          await tx.studentCreditBalance.update({
-            where: {
-              studentId_subjectId: { studentId: enrollment.studentId, subjectId: enrollment.session.subjectId }
-            },
-            data: { balance: 0 }
-          });
-        }
-      }
-      await tx.studentCreditBalance.upsert({
-        where: {
-          studentId_subjectId: { studentId: enrollment.studentId, subjectId: enrollment.session.subjectId }
-        },
-        update: { balance: { increment: 1 } },
-        create: { studentId: enrollment.studentId, subjectId: enrollment.session.subjectId, balance: 1 }
-      });
+    }
 
-      await tx.studentCreditLedger.create({
-        data: {
-          studentId: enrollment.studentId,
-          subjectId: enrollment.session.subjectId,
-          delta: 1,
-          reason: "ENROLL_RELEASE",
-          enrollmentId: enrollment.id
-        }
-      });
-
+    if (record.creditsReserved > 0) {
       await tx.enrollment.update({
         where: { id: enrollment.id },
         data: { creditsReserved: 0 }
