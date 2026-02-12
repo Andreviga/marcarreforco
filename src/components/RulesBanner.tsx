@@ -6,15 +6,21 @@ type RulesBannerProps = {
   variant?: "full" | "compact";
   collapsible?: boolean;
   storageKey?: string;
+  defaultOpen?: boolean;
 };
 
 export default function RulesBanner({
   variant = "full",
   collapsible = false,
-  storageKey = "rulesBannerCollapsed"
+  storageKey = "rulesBannerCollapsed",
+  defaultOpen
 }: RulesBannerProps) {
   const isCompact = variant === "compact";
-  const [isOpen, setIsOpen] = useState(!isCompact || !collapsible);
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof defaultOpen === "boolean") return defaultOpen;
+    if (collapsible) return !isCompact;
+    return true;
+  });
   const wrapperClass = isCompact
     ? "rounded-3xl border border-emerald-200/70 bg-white/90 p-5 shadow-sm"
     : "rounded-3xl border border-amber-200/70 bg-white/80 p-6 shadow-sm backdrop-blur";
@@ -51,13 +57,13 @@ export default function RulesBanner({
           <div className={`rounded-2xl px-4 py-3 text-xs font-semibold ${isCompact ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
             IMPORTANTE
           </div>
-          {collapsible && isCompact && (
+          {collapsible && (
             <button
               type="button"
               onClick={() => setIsOpen((prev) => !prev)}
               className={`rounded-full border px-3 py-1 text-xs font-semibold ${isOpen ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-600"}`}
             >
-              {isOpen ? "Ocultar" : "Ver regras"}
+              {isOpen ? "Ocultar" : isCompact ? "Ver regras" : "Saiba mais"}
             </button>
           )}
         </div>

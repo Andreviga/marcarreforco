@@ -86,7 +86,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-emerald-50 px-4 py-10">
       <div className="mx-auto w-full max-w-5xl">
-        <RulesBanner />
+        <RulesBanner collapsible defaultOpen={false} />
       </div>
 
       <div className="mx-auto grid w-full max-w-5xl gap-8 md:grid-cols-[1.1fr_1fr]">
