@@ -93,6 +93,13 @@ export default function AdminSessionsClient({
     window.location.reload();
   }
 
+  async function deleteSession(id: string) {
+    const confirmed = window.confirm("Excluir esta sessão? Essa ação não pode ser desfeita.");
+    if (!confirmed) return;
+    await fetch(`/api/admin/sessions?id=${id}`, { method: "DELETE" });
+    window.location.reload();
+  }
+
   async function createMonthlySessions(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!month || !year) return;
@@ -165,6 +172,7 @@ export default function AdminSessionsClient({
                 </option>
               ))}
             </select>
+            <span className="mt-1 block text-xs text-slate-400">Use o valor padrão da disciplina para preço automático.</span>
           </label>
           <label className="text-sm text-slate-600">
             Professor
@@ -179,6 +187,7 @@ export default function AdminSessionsClient({
                 </option>
               ))}
             </select>
+            <span className="mt-1 block text-xs text-slate-400">Escolha o professor responsável pela sessão.</span>
           </label>
           <label className="text-sm text-slate-600">
             Data
@@ -189,6 +198,7 @@ export default function AdminSessionsClient({
               onChange={(event) => setDate(event.target.value)}
               required
             />
+            <span className="mt-1 block text-xs text-slate-400">Data da primeira sessão.</span>
           </label>
           <label className="text-sm text-slate-600">
             Início
@@ -198,6 +208,7 @@ export default function AdminSessionsClient({
               value={startTime}
               onChange={(event) => setStartTime(event.target.value)}
             />
+            <span className="mt-1 block text-xs text-slate-400">Horário de início (ex.: 13:30).</span>
           </label>
           <label className="text-sm text-slate-600">
             Fim
@@ -207,6 +218,7 @@ export default function AdminSessionsClient({
               value={endTime}
               onChange={(event) => setEndTime(event.target.value)}
             />
+            <span className="mt-1 block text-xs text-slate-400">Horário de término (ex.: 14:30).</span>
           </label>
           <label className="text-sm text-slate-600">
             Local
@@ -214,7 +226,9 @@ export default function AdminSessionsClient({
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={location}
               onChange={(event) => setLocation(event.target.value)}
+              placeholder="Ex.: Sala 1"
             />
+            <span className="mt-1 block text-xs text-slate-400">Sala, laboratório ou link da aula.</span>
           </label>
           <label className="text-sm text-slate-600">
             Modalidade
@@ -226,6 +240,7 @@ export default function AdminSessionsClient({
               <option value="PRESENCIAL">Presencial</option>
               <option value="ONLINE">Online</option>
             </select>
+            <span className="mt-1 block text-xs text-slate-400">Presencial ou online.</span>
           </label>
           <label className="text-sm text-slate-600">
             Valor (centavos)
@@ -234,7 +249,9 @@ export default function AdminSessionsClient({
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={price}
               onChange={(event) => setPrice(Number(event.target.value))}
+              placeholder="Ex.: 5000"
             />
+            <span className="mt-1 block text-xs text-slate-400">$5000 = R$ 50,00.</span>
           </label>
           <label className="text-sm text-slate-600">
             Repetir por (semanas)
@@ -244,7 +261,9 @@ export default function AdminSessionsClient({
               min={1}
               value={repeatWeeks}
               onChange={(event) => setRepeatWeeks(Number(event.target.value))}
+              placeholder="Ex.: 4"
             />
+            <span className="mt-1 block text-xs text-slate-400">Cria 1 sessão por semana.</span>
           </label>
         </div>
         <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
@@ -264,7 +283,9 @@ export default function AdminSessionsClient({
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={month}
               onChange={(event) => setMonth(Number(event.target.value))}
+              placeholder="Ex.: 3"
             />
+            <span className="mt-1 block text-xs text-slate-400">1 a 12.</span>
           </label>
           <label className="text-sm text-slate-600">
             Ano
@@ -275,7 +296,9 @@ export default function AdminSessionsClient({
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={year}
               onChange={(event) => setYear(Number(event.target.value))}
+              placeholder="Ex.: 2026"
             />
+            <span className="mt-1 block text-xs text-slate-400">Ano completo.</span>
           </label>
           <label className="text-sm text-slate-600">
             Dia da semana
@@ -292,6 +315,7 @@ export default function AdminSessionsClient({
               <option value={6}>Sábado</option>
               <option value={0}>Domingo</option>
             </select>
+            <span className="mt-1 block text-xs text-slate-400">Gera sessões em todas as semanas.</span>
           </label>
           <label className="text-sm text-slate-600">
             Horário
@@ -309,6 +333,7 @@ export default function AdminSessionsClient({
                 onChange={(event) => setEndTime(event.target.value)}
               />
             </div>
+            <span className="mt-1 block text-xs text-slate-400">Inicio e fim da aula.</span>
           </label>
         </div>
         <p className="mt-2 text-xs text-slate-500">
@@ -339,14 +364,22 @@ export default function AdminSessionsClient({
                 <p className="text-xs text-slate-500">Valor: {formatCurrency(session.priceCents)}</p>
                 <p className="text-xs text-slate-400">Status: {session.status}</p>
               </div>
-              {session.status === "ATIVA" && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {session.status === "ATIVA" && (
+                  <button
+                    onClick={() => cancelSession(session.id)}
+                    className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancelar
+                  </button>
+                )}
                 <button
-                  onClick={() => cancelSession(session.id)}
-                  className="mt-2 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                  onClick={() => deleteSession(session.id)}
+                  className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
                 >
-                  Cancelar
+                  Excluir
                 </button>
-              )}
+              </div>
             </div>
           ))}
         </div>

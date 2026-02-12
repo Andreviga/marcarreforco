@@ -72,6 +72,8 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
   const [editSubjectIds, setEditSubjectIds] = useState<string[]>([]);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSuccess, setEditSuccess] = useState<string | null>(null);
+  const [editPassword, setEditPassword] = useState("");
+  const [editPasswordMessage, setEditPasswordMessage] = useState<string | null>(null);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -120,12 +122,16 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     setEditTurma(user.studentProfile?.turma ?? "");
     setEditUnidade(user.studentProfile?.unidade ?? defaultUnidade);
     setEditSubjectIds(user.teacherProfile?.subjects.map((subject) => subject.id) ?? []);
+    setEditPassword("");
+    setEditPasswordMessage(null);
   }
 
   function cancelEdit() {
     setEditingId(null);
     setEditError(null);
     setEditSuccess(null);
+    setEditPassword("");
+    setEditPasswordMessage(null);
   }
 
   async function handleUpdate() {
@@ -144,7 +150,8 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
         serie: editRole === "ALUNO" ? editSerie : undefined,
         turma: editRole === "ALUNO" ? editTurma : undefined,
         unidade: editRole === "ALUNO" ? editUnidade : undefined,
-        subjectIds: editRole === "PROFESSOR" ? editSubjectIds : undefined
+        subjectIds: editRole === "PROFESSOR" ? editSubjectIds : undefined,
+        password: editPassword ? editPassword : undefined
       })
     });
 
@@ -164,8 +171,25 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
       return;
     }
 
-    setEditSuccess("Usuário atualizado com sucesso.");
+    setEditSuccess(editPassword ? "Usuário atualizado e senha redefinida." : "Usuário atualizado com sucesso.");
+    if (editPassword) {
+      setEditPassword("");
+      setEditPasswordMessage(null);
+    }
     window.location.reload();
+  }
+
+  function generateTempPassword() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    let result = "";
+    for (let i = 0; i < 10; i += 1) {
+      result += chars[Math.floor(Math.random() * chars.length)];
+    }
+    setEditPassword(result);
+    setEditPasswordMessage("Senha temporária gerada. Envie para o usuário.");
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(result).catch(() => null);
+    }
   }
 
   async function handleDelete(user: UserRow) {
@@ -328,15 +352,33 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <label className="text-sm text-slate-600">
             Nome
-            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={name} onChange={(e) => setName(e.target.value)} />
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex.: Ana Souza"
+            />
+            <span className="mt-1 block text-xs text-slate-400">Nome completo do usuário.</span>
           </label>
           <label className="text-sm text-slate-600">
             E-mail
-            <input className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Ex.: ana@colegio.com"
+            />
+            <span className="mt-1 block text-xs text-slate-400">Usado para login e notificações.</span>
           </label>
           <label className="text-sm text-slate-600">
             Senha
-            <input type="password" className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input
+              type="password"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+            />
             <span className="mt-1 block text-xs text-slate-400">Mínimo 6 caracteres.</span>
           </label>
           <label className="text-sm text-slate-600">
@@ -361,6 +403,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                   onChange={(e) => setSerie(e.target.value)}
                   placeholder="Ex.: 8º ano"
                 />
+                <span className="mt-1 block text-xs text-slate-400">Informe o ano/série do aluno.</span>
               </label>
               <label className="text-sm text-slate-600">
                 Turma
@@ -371,6 +414,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                   onChange={(e) => setTurma(e.target.value)}
                   placeholder="Ex.: Manhã"
                 />
+                <span className="mt-1 block text-xs text-slate-400">Manhã ou tarde.</span>
               </label>
               <label className="text-sm text-slate-600">
                 Unidade
@@ -381,6 +425,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                   onChange={(e) => setUnidade(e.target.value)}
                   placeholder="Ex.: Colégio Raízes"
                 />
+                <span className="mt-1 block text-xs text-slate-400">Campus/unidade escolar.</span>
               </label>
             </div>
             <datalist id="admin-serie-options">
@@ -523,7 +568,9 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                         className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
+                        placeholder="Ex.: Ana Souza"
                       />
+                      <span className="mt-1 block text-[11px] text-slate-400">Atualize o nome completo.</span>
                     </label>
                     <label className="text-xs text-slate-600">
                       E-mail
@@ -531,7 +578,9 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                         className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                         value={editEmail}
                         onChange={(e) => setEditEmail(e.target.value)}
+                        placeholder="Ex.: ana@colegio.com"
                       />
+                      <span className="mt-1 block text-[11px] text-slate-400">Este e-mail será o login.</span>
                     </label>
                     <label className="text-xs text-slate-600">
                       Perfil
@@ -544,7 +593,36 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                         <option value="PROFESSOR">Professor</option>
                         <option value="ADMIN">Secretaria/Admin</option>
                       </select>
+                      <span className="mt-1 block text-[11px] text-slate-400">Aluno, professor ou secretaria.</span>
                     </label>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <label className="text-xs text-slate-600">
+                      Nova senha
+                      <input
+                        type="text"
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                        value={editPassword}
+                        onChange={(e) => setEditPassword(e.target.value)}
+                        placeholder="Gerar ou digitar"
+                      />
+                      <span className="mt-1 block text-[11px] text-slate-400">
+                        Preencha para redefinir e envie ao usuário.
+                      </span>
+                    </label>
+                    <div className="flex items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={generateTempPassword}
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600"
+                      >
+                        Gerar senha
+                      </button>
+                      {editPasswordMessage && (
+                        <span className="text-[11px] text-emerald-600">{editPasswordMessage}</span>
+                      )}
+                    </div>
                   </div>
 
                   {editRole === "ALUNO" && (
@@ -556,6 +634,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                           className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                           value={editSerie}
                           onChange={(e) => setEditSerie(e.target.value)}
+                          placeholder="Ex.: 8º ano"
                         />
                       </label>
                       <label className="text-xs text-slate-600">
@@ -565,6 +644,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                           className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                           value={editTurma}
                           onChange={(e) => setEditTurma(e.target.value)}
+                          placeholder="Ex.: Manhã"
                         />
                       </label>
                       <label className="text-xs text-slate-600">
@@ -574,6 +654,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                           className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                           value={editUnidade}
                           onChange={(e) => setEditUnidade(e.target.value)}
+                          placeholder="Ex.: Colégio Raízes"
                         />
                       </label>
                     </div>

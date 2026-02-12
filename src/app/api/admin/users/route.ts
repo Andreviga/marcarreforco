@@ -95,12 +95,17 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
   }
 
+  const passwordHash = parsed.data.password
+    ? await bcrypt.hash(parsed.data.password, 10)
+    : undefined;
+
   const updated = await prisma.user.update({
     where: { id: parsed.data.id },
     data: {
       name: parsed.data.name,
       email: parsed.data.email?.toLowerCase(),
-      role: parsed.data.role
+      role: parsed.data.role,
+      passwordHash
     }
   });
 
