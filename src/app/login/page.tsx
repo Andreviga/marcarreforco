@@ -91,24 +91,37 @@ export default function LoginPage() {
 
       <div className="mx-auto grid w-full max-w-5xl gap-8 md:grid-cols-[1.1fr_1fr]">
         <div className="flex flex-col justify-center rounded-3xl bg-white/70 p-8 shadow-sm ring-1 ring-slate-100 backdrop-blur">
-          <span className="inline-flex w-fit items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-            Reforço Escolar
-          </span>
-          <h1 className="mt-4 text-3xl font-semibold text-slate-900 sm:text-4xl">
-            Gestão de reforço com acompanhamento simples e humano.
-          </h1>
-          <p className="mt-3 text-sm text-slate-600">
-            Organize sessões, matrículas e presença em um painel bonito e responsivo para toda a equipe.
-          </p>
-          <div className="mt-6 grid gap-3 text-sm text-slate-600">
-            <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
-              Agenda semanal centralizada
+          <div className="grid items-start gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                Plataforma escolar
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
+                Agendamento de reforço,
+                <span className="block text-emerald-700">direto ao ponto.</span>
+              </h1>
+              <p className="mt-3 text-sm text-slate-600">
+                Um fluxo claro para organizar aulas, presença e pagamentos antecipados sem ruídos.
+              </p>
             </div>
-            <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
-              Controle de alunos, professores e disciplinas
-            </div>
-            <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
-              Faturamento e presença com poucos cliques
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
+                Regras resumidas
+              </p>
+              <div className="mt-3 space-y-3 text-sm text-slate-700">
+                <div className="rounded-xl bg-white/80 px-3 py-2">
+                  Pagamento antecipado para confirmar a vaga.
+                </div>
+                <div className="rounded-xl bg-white/80 px-3 py-2">
+                  Cancelamento com aviso evita perda de crédito.
+                </div>
+                <div className="rounded-xl bg-white/80 px-3 py-2">
+                  Presença registrada libera novos agendamentos.
+                </div>
+                <div className="rounded-xl bg-white/80 px-3 py-2">
+                  Reagendamentos seguem disponibilidade do professor.
+                </div>
+              </div>
             </div>
           </div>
         </div>
