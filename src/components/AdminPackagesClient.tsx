@@ -30,6 +30,8 @@ export default function AdminPackagesClient({
   const [sessionCount, setSessionCount] = useState(1);
   const [priceCents, setPriceCents] = useState(0);
   const [active, setActive] = useState(true);
+  const [billingType, setBillingType] = useState<"PACKAGE" | "SUBSCRIPTION">("PACKAGE");
+  const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "WEEKLY">("MONTHLY");
   const [subjectId, setSubjectId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -46,8 +48,8 @@ export default function AdminPackagesClient({
         sessionCount,
         priceCents,
         active,
-        billingType: "PACKAGE",
-        billingCycle: null,
+        billingType,
+        billingCycle: billingType === "SUBSCRIPTION" ? billingCycle : null,
         subjectId: subjectId || null
       })
     });
@@ -78,7 +80,7 @@ export default function AdminPackagesClient({
     <div className="space-y-6">
       <form onSubmit={handleCreate} className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Novo pacote</h2>
-        <div className="mt-3 grid gap-2 md:grid-cols-[2fr_1fr_1fr_1fr_auto]">
+        <div className="mt-3 grid gap-2 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
           <input
             className="w-full rounded-lg border border-slate-200 px-3 py-2"
             value={name}
@@ -116,6 +118,23 @@ export default function AdminPackagesClient({
             placeholder="Valor"
             required
           />
+          <select
+            className="w-full rounded-lg border border-slate-200 px-3 py-2"
+            value={billingType}
+            onChange={(event) => setBillingType(event.target.value as "PACKAGE" | "SUBSCRIPTION")}
+          >
+            <option value="PACKAGE">Pacote avulso</option>
+            <option value="SUBSCRIPTION">Assinatura</option>
+          </select>
+          <select
+            className="w-full rounded-lg border border-slate-200 px-3 py-2"
+            value={billingCycle}
+            onChange={(event) => setBillingCycle(event.target.value as "MONTHLY" | "WEEKLY")}
+            disabled={billingType !== "SUBSCRIPTION"}
+          >
+            <option value="MONTHLY">Mensal</option>
+            <option value="WEEKLY">Semanal</option>
+          </select>
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input
               type="checkbox"
@@ -165,10 +184,12 @@ function PackageRow({
   const [sessionCount, setSessionCount] = useState(item.sessionCount);
   const [priceCents, setPriceCents] = useState(item.priceCents);
   const [active, setActive] = useState(item.active);
+  const [billingType, setBillingType] = useState<"PACKAGE" | "SUBSCRIPTION">(item.billingType);
+  const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "WEEKLY">(item.billingCycle ?? "MONTHLY");
   const [subjectId, setSubjectId] = useState(item.subjectId ?? "");
 
   return (
-    <div className="grid gap-2 rounded-lg border border-slate-100 p-3 text-sm md:grid-cols-[2fr_1fr_1fr_1fr_auto_auto] md:items-center">
+    <div className="grid gap-2 rounded-lg border border-slate-100 p-3 text-sm md:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto_auto] md:items-center">
       <input
         className="rounded-lg border border-slate-200 px-3 py-2"
         value={name}
@@ -200,6 +221,23 @@ function PackageRow({
         value={priceCents}
         onChange={(event) => setPriceCents(Number(event.target.value))}
       />
+      <select
+        className="rounded-lg border border-slate-200 px-3 py-2"
+        value={billingType}
+        onChange={(event) => setBillingType(event.target.value as "PACKAGE" | "SUBSCRIPTION")}
+      >
+        <option value="PACKAGE">Pacote avulso</option>
+        <option value="SUBSCRIPTION">Assinatura</option>
+      </select>
+      <select
+        className="rounded-lg border border-slate-200 px-3 py-2"
+        value={billingCycle}
+        onChange={(event) => setBillingCycle(event.target.value as "MONTHLY" | "WEEKLY")}
+        disabled={billingType !== "SUBSCRIPTION"}
+      >
+        <option value="MONTHLY">Mensal</option>
+        <option value="WEEKLY">Semanal</option>
+      </select>
       <label className="flex items-center gap-2 text-xs text-slate-500">
         <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
         Ativo
@@ -214,8 +252,8 @@ function PackageRow({
               sessionCount,
               priceCents,
               active,
-              billingType: "PACKAGE",
-              billingCycle: null,
+              billingType,
+              billingCycle: billingType === "SUBSCRIPTION" ? billingCycle : null,
               subjectId: subjectId || null
             })
           }
@@ -231,8 +269,8 @@ function PackageRow({
           Excluir
         </button>
       </div>
-      <p className="md:col-span-6 text-xs text-slate-500">
-        {sessionCount} aulas • Valor: {formatCurrency(priceCents)} • Pacote
+      <p className="md:col-span-7 text-xs text-slate-500">
+        {sessionCount} aulas • Valor: {formatCurrency(priceCents)} • {billingType === "SUBSCRIPTION" ? "Assinatura" : "Pacote"}
       </p>
     </div>
   );

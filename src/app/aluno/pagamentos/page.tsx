@@ -7,13 +7,18 @@ import StudentPaymentsClient from "@/components/StudentPaymentsClient";
 export default async function AlunoPagamentosPage() {
   const session = await requireRole(["ALUNO"]);
 
-  const [packages, balances, profile, subjects, pendingPayments] = await Promise.all([
+  const [packages, balances, subscriptions, profile, subjects, pendingPayments] = await Promise.all([
     prisma.sessionPackage.findMany({
-      where: { active: true, billingType: "PACKAGE" },
+      where: { active: true },
       include: { subject: true },
       orderBy: { createdAt: "desc" }
     }),
     getBalancesForStudent(session.user.id),
+    prisma.asaasSubscription.findMany({
+      where: { userId: session.user.id },
+      include: { package: { include: { subject: true } } },
+      orderBy: { createdAt: "desc" }
+    }),
     prisma.studentProfile.findUnique({ where: { userId: session.user.id } }),
     prisma.subject.findMany({ orderBy: { name: "asc" } }),
     prisma.asaasPayment.findMany({
@@ -29,12 +34,26 @@ export default async function AlunoPagamentosPage() {
   ]);
 
   return (
-    <AppShell title="Pagamentos" subtitle="Compre pacotes e pague via PIX" role="ALUNO">
+    <AppShell title="Pagamentos" subtitle="Assine planos e compre pacotes" role="ALUNO">
       <StudentPaymentsClient
         packages={packages}
         balances={balances.map((item) => ({
           subject: { id: item.subject.id, name: item.subject.name },
           balance: item.balance
+        }))}
+        subscriptions={subscriptions.map((item) => ({
+          id: item.id,
+          status: item.status,
+          nextDueDate: item.nextDueDate ? item.nextDueDate.toISOString() : null,
+          package: {
+            id: item.package.id,
+            name: item.package.name,
+            sessionCount: item.package.sessionCount,
+            priceCents: item.package.priceCents,
+            billingType: item.package.billingType,
+            billingCycle: item.package.billingCycle,
+            subject: item.package.subject ? { id: item.package.subject.id, name: item.package.subject.name } : null
+          }
         }))}
         subjects={subjects.map((subject) => ({ id: subject.id, name: subject.name }))}
         pendingCredits={pendingPayments.map((payment) => ({
