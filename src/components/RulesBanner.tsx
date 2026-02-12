@@ -50,7 +50,7 @@ export default function RulesBanner({
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
             Todos os valores abaixo sao mensais. Cada dia no plano equivale a 1 aula por semana,
-            com 1h por aula. Em geral sao 4 aulas no mes.
+            com 1h por aula.
           </p>
         </div>
         <div className="flex items-center gap-2">
