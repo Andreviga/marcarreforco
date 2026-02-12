@@ -49,8 +49,8 @@ export default function RulesBanner({
             Plantao de Duvidas 2026
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Todos os valores abaixo sao mensais. Cada dia no plano mensal equivale a 1 aula por semana,
-            com 1h por aula, ate 4 aulas no mes.
+            Todos os valores abaixo sao mensais. Cada dia no plano equivale a 1 aula por semana,
+            com 1h por aula. Em geral sao 4 aulas no mes.
           </p>
         </div>
         <div className="flex items-center gap-2">
