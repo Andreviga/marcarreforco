@@ -22,10 +22,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
   }
 
-  if (!parsed.data.subjectId) {
-    return NextResponse.json({ message: "Disciplina obrigatória" }, { status: 400 });
-  }
-
   if (parsed.data.billingType === "SUBSCRIPTION" && !parsed.data.billingCycle) {
     return NextResponse.json({ message: "Ciclo obrigatório para assinaturas" }, { status: 400 });
   }
@@ -38,7 +34,7 @@ export async function POST(request: Request) {
       active: parsed.data.active ?? true,
       billingType: parsed.data.billingType ?? "PACKAGE",
       billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
-      subjectId: parsed.data.subjectId
+      subjectId: parsed.data.subjectId ?? null
     }
   });
 
@@ -63,10 +59,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
   }
 
-  if (parsed.data.subjectId === null || parsed.data.subjectId === "") {
-    return NextResponse.json({ message: "Disciplina obrigatória" }, { status: 400 });
-  }
-
   if (parsed.data.billingType === "SUBSCRIPTION" && !parsed.data.billingCycle) {
     return NextResponse.json({ message: "Ciclo obrigatório para assinaturas" }, { status: 400 });
   }
@@ -80,7 +72,7 @@ export async function PATCH(request: Request) {
       active: parsed.data.active,
       billingType: parsed.data.billingType,
       billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
-      subjectId: parsed.data.subjectId
+      subjectId: parsed.data.subjectId ?? null
     }
   });
 

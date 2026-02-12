@@ -33,10 +33,14 @@ export default function AdminPackagesClient({
   const [billingType, setBillingType] = useState<"PACKAGE" | "SUBSCRIPTION">("PACKAGE");
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "WEEKLY">("MONTHLY");
   const [subjectId, setSubjectId] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await fetch("/api/admin/packages", {
+    setFormError(null);
+    setFormSuccess(null);
+    const response = await fetch("/api/admin/packages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -49,6 +53,12 @@ export default function AdminPackagesClient({
         subjectId: subjectId || null
       })
     });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setFormError(data?.message ?? "Não foi possível criar o pacote.");
+      return;
+    }
+    setFormSuccess("Pacote criado com sucesso.");
     window.location.reload();
   }
 
@@ -82,9 +92,8 @@ export default function AdminPackagesClient({
             className="w-full rounded-lg border border-slate-200 px-3 py-2"
             value={subjectId}
             onChange={(event) => setSubjectId(event.target.value)}
-            required
           >
-            <option value="">Disciplina</option>
+            <option value="">Sem disciplina (escolha do aluno)</option>
             {subjects.map((subject) => (
               <option key={subject.id} value={subject.id}>
                 {subject.name}
@@ -138,6 +147,8 @@ export default function AdminPackagesClient({
         <button className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
           Criar
         </button>
+        {formError && <p className="mt-3 text-sm text-red-600">{formError}</p>}
+        {formSuccess && <p className="mt-3 text-sm text-emerald-600">{formSuccess}</p>}
       </form>
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
@@ -188,9 +199,8 @@ function PackageRow({
         className="rounded-lg border border-slate-200 px-3 py-2"
         value={subjectId}
         onChange={(event) => setSubjectId(event.target.value)}
-        required
       >
-        <option value="">Disciplina</option>
+        <option value="">Sem disciplina</option>
         {subjects.map((subject) => (
           <option key={subject.id} value={subject.id}>
             {subject.name}
