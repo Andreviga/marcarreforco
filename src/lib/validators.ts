@@ -98,7 +98,7 @@ export const packageSchema = z.object({
   active: z.boolean().optional(),
   billingType: z.enum(["PACKAGE", "SUBSCRIPTION"]).optional(),
   billingCycle: z.enum(["MONTHLY", "WEEKLY"]).optional(),
-  subjectId: z.string().min(1).optional()
+  subjectId: z.string().min(1).nullable().optional()
 });
 
 export const packageUpdateSchema = packageSchema.partial().extend({
