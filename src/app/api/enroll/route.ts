@@ -45,6 +45,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Disciplina inválida" }, { status: 400 });
   }
 
+  const wildcardSubject = await prisma.subject.findFirst({
+    where: { name: { equals: "A DEFINIR", mode: "insensitive" } },
+    select: { id: true }
+  });
+
   const currentBalance = await getBalance(session.user.id, sessionRecord.subjectId);
   if (currentBalance <= 0) {
     const pendingPayment = await prisma.asaasPayment.findFirst({
@@ -88,12 +93,30 @@ export async function POST(request: Request) {
         }
       });
 
-      await reserveCredit({
-        tx,
-        studentId: session.user.id,
-        subjectId: sessionRecord.subjectId,
-        enrollmentId: updated.id
-      });
+      try {
+        await reserveCredit({
+          tx,
+          studentId: session.user.id,
+          subjectId: sessionRecord.subjectId,
+          enrollmentId: updated.id
+        });
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === "SEM_CREDITO" &&
+          wildcardSubject &&
+          wildcardSubject.id !== sessionRecord.subjectId
+        ) {
+          await reserveCredit({
+            tx,
+            studentId: session.user.id,
+            subjectId: wildcardSubject.id,
+            enrollmentId: updated.id
+          });
+        } else {
+          throw error;
+        }
+      }
 
       return updated;
     });

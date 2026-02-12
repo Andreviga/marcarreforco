@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   await adjustCredits({
     studentId: parsed.data.userId,
     subjectId: parsed.data.subjectId,
-    delta: parsed.data.amount,
+    delta: parsed.data.delta,
     reason: "ADMIN_ADJUST"
   });
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     action: "ADMIN_ADJUST_CREDITS",
     entityType: "StudentCreditBalance",
     entityId: parsed.data.userId,
-    payload: { subjectId: parsed.data.subjectId, amount: parsed.data.amount }
+    payload: { subjectId: parsed.data.subjectId, delta: parsed.data.delta }
   });
 
   return NextResponse.json({ ok: true });

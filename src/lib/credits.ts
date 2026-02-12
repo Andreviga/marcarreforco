@@ -238,7 +238,7 @@ export async function releaseCredit(params: {
   subjectId: string;
   enrollmentId: string;
 }) {
-  const { tx, studentId, subjectId, enrollmentId } = params;
+  const { tx, studentId, enrollmentId } = params;
   const now = new Date();
 
   const reservation = await tx.studentCreditLedger.findFirst({
@@ -267,7 +267,7 @@ export async function releaseCredit(params: {
   await tx.studentCreditLedger.create({
     data: {
       studentId,
-      subjectId,
+      subjectId: lot.subjectId,
       delta: 1,
       reason: "ENROLL_RELEASE",
       enrollmentId,
@@ -275,7 +275,7 @@ export async function releaseCredit(params: {
     }
   });
 
-  await recalcBalance(tx, studentId, subjectId, now);
+  await recalcBalance(tx, studentId, lot.subjectId, now);
   return true;
 }
 

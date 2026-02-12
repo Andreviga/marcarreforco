@@ -122,7 +122,7 @@ export const creditAllocationSchema = z.object({
 export const adminCreditAdjustSchema = z.object({
   userId: z.string().min(1),
   subjectId: z.string().min(1),
-  amount: z.number().int().min(1)
+  delta: z.number().int().refine((value) => value !== 0, "Delta nao pode ser zero")
 });
 
 export const ticketCreateSchema = z.object({

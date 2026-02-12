@@ -76,6 +76,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
   const [editPasswordMessage, setEditPasswordMessage] = useState<string | null>(null);
   const [creditSubjectId, setCreditSubjectId] = useState("");
   const [creditAmount, setCreditAmount] = useState(1);
+  const [creditAction, setCreditAction] = useState<"ADD" | "REMOVE">("ADD");
   const [creditMessage, setCreditMessage] = useState<string | null>(null);
   const [creditError, setCreditError] = useState<string | null>(null);
   const [creditLoading, setCreditLoading] = useState(false);
@@ -131,6 +132,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     setEditPasswordMessage(null);
     setCreditSubjectId("");
     setCreditAmount(1);
+    setCreditAction("ADD");
     setCreditMessage(null);
     setCreditError(null);
     setCreditLoading(false);
@@ -144,6 +146,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     setEditPasswordMessage(null);
     setCreditSubjectId("");
     setCreditAmount(1);
+    setCreditAction("ADD");
     setCreditMessage(null);
     setCreditError(null);
     setCreditLoading(false);
@@ -222,13 +225,14 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     setCreditMessage(null);
     setCreditLoading(true);
 
+    const delta = creditAction === "REMOVE" ? -creditAmount : creditAmount;
     const response = await fetch("/api/admin/credits/adjust", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userId: editingId,
         subjectId: creditSubjectId,
-        amount: creditAmount
+        delta
       })
     });
 
@@ -239,7 +243,9 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
       return;
     }
 
-    setCreditMessage("Creditos adicionados com sucesso.");
+    setCreditMessage(
+      creditAction === "REMOVE" ? "Creditos removidos com sucesso." : "Creditos adicionados com sucesso."
+    );
     setCreditLoading(false);
   }
 
@@ -732,6 +738,18 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                           <span className="mt-1 block text-[11px] text-slate-400">Disciplina que recebera os creditos.</span>
                         </label>
                         <label className="text-xs text-slate-600">
+                          Operacao
+                          <select
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                            value={creditAction}
+                            onChange={(e) => setCreditAction(e.target.value as "ADD" | "REMOVE")}
+                          >
+                            <option value="ADD">Adicionar</option>
+                            <option value="REMOVE">Remover</option>
+                          </select>
+                          <span className="mt-1 block text-[11px] text-slate-400">Use remover para corrigir compras.</span>
+                        </label>
+                        <label className="text-xs text-slate-600">
                           Quantidade
                           <input
                             type="number"
@@ -749,7 +767,11 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                             disabled={creditLoading}
                             className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-white hover:bg-slate-800 disabled:opacity-60"
                           >
-                            {creditLoading ? "Salvando..." : "Adicionar"}
+                            {creditLoading
+                              ? "Salvando..."
+                              : creditAction === "REMOVE"
+                                ? "Remover"
+                                : "Adicionar"}
                           </button>
                         </div>
                       </div>

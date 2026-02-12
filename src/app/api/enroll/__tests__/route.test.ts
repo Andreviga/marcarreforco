@@ -15,6 +15,9 @@ jest.mock("@/lib/prisma", () => ({
     session: {
       findUnique: jest.fn()
     },
+    subject: {
+      findFirst: jest.fn()
+    },
     asaasPayment: {
       findFirst: jest.fn()
     },
@@ -43,6 +46,7 @@ describe("enroll route", () => {
   const getBalanceMock = getBalance as jest.Mock;
   const addPaymentCreditsMock = addPaymentCredits as jest.Mock;
   const sessionRepo = prisma.session as unknown as { findUnique: jest.Mock };
+  const subjectRepo = prisma.subject as unknown as { findFirst: jest.Mock };
   const paymentRepo = prisma.asaasPayment as unknown as { findFirst: jest.Mock };
   const enrollmentRepo = prisma.enrollment as unknown as { findUnique: jest.Mock; upsert: jest.Mock };
   const transactionMock = prisma.$transaction as jest.Mock;
@@ -62,6 +66,7 @@ describe("enroll route", () => {
       session: { user: { id: "student-1" } },
       response: null
     });
+    subjectRepo.findFirst.mockResolvedValue(null);
   });
 
   it("rejects unavailable session", async () => {
