@@ -116,10 +116,6 @@ export default function RulesBanner({
             <p className="font-semibold text-slate-900">Avulso</p>
             <p>R$ 7,00 por aula (1h).</p>
           </div>
-          <div className="mt-3 text-sm text-slate-600">
-            <p className="font-semibold text-slate-900">Pacote especial 5 dias/semana</p>
-            <p>R$ 89,00/mes, sujeito a disponibilidade de vagas e grade.</p>
-          </div>
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-white p-4">
