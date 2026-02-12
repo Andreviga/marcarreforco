@@ -48,13 +48,35 @@ export async function POST(request: Request) {
 
   try {
     enrollment = await prisma.$transaction(async (tx) => {
+      const now = new Date();
       const balance = await tx.studentCreditBalance.findUnique({
         where: {
           studentId_subjectId: { studentId: session.user.id, subjectId: sessionRecord.subjectId }
         }
       });
 
-      if (!balance || balance.balance < 1) {
+      if (balance && balance.updatedAt) {
+        const sameMonth =
+          balance.updatedAt.getFullYear() === now.getFullYear() &&
+          balance.updatedAt.getMonth() === now.getMonth();
+        if (!sameMonth) {
+          await tx.studentCreditBalance.update({
+            where: {
+              studentId_subjectId: { studentId: session.user.id, subjectId: sessionRecord.subjectId }
+            },
+            data: { balance: 0 }
+          });
+        }
+      }
+
+      const currentBalance = balance
+        ? balance.updatedAt.getFullYear() === now.getFullYear() &&
+          balance.updatedAt.getMonth() === now.getMonth()
+          ? balance.balance
+          : 0
+        : 0;
+
+      if (currentBalance < 1) {
         throw new Error("SEM_CREDITO");
       }
 

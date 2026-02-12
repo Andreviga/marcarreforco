@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { getBalancesForStudent } from "@/lib/credits";
 import AppShell from "@/components/AppShell";
 import StudentPaymentsClient from "@/components/StudentPaymentsClient";
 
@@ -12,10 +13,7 @@ export default async function AlunoPagamentosPage() {
       include: { subject: true },
       orderBy: { createdAt: "desc" }
     }),
-    prisma.studentCreditBalance.findMany({
-      where: { studentId: session.user.id },
-      include: { subject: true }
-    }),
+    getBalancesForStudent(session.user.id),
     prisma.asaasSubscription.findMany({
       where: { userId: session.user.id },
       include: { package: { include: { subject: true } } },

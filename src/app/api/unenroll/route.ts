@@ -37,6 +37,25 @@ export async function POST(request: Request) {
       record.creditsReserved > 0 && enrollment.session.startsAt > new Date() && enrollment.session.subjectId;
 
     if (shouldRefund) {
+      const now = new Date();
+      const existing = await tx.studentCreditBalance.findUnique({
+        where: {
+          studentId_subjectId: { studentId: enrollment.studentId, subjectId: enrollment.session.subjectId }
+        }
+      });
+      if (existing) {
+        const sameMonth =
+          existing.updatedAt.getFullYear() === now.getFullYear() &&
+          existing.updatedAt.getMonth() === now.getMonth();
+        if (!sameMonth) {
+          await tx.studentCreditBalance.update({
+            where: {
+              studentId_subjectId: { studentId: enrollment.studentId, subjectId: enrollment.session.subjectId }
+            },
+            data: { balance: 0 }
+          });
+        }
+      }
       await tx.studentCreditBalance.upsert({
         where: {
           studentId_subjectId: { studentId: enrollment.studentId, subjectId: enrollment.session.subjectId }
