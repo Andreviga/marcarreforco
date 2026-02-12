@@ -15,6 +15,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDefaultPriceCents, setEditDefaultPriceCents] = useState(0);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,7 +52,13 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
   async function handleDelete(id: string) {
     const confirmed = window.confirm("Excluir esta disciplina? Essa ação não pode ser desfeita.");
     if (!confirmed) return;
-    await fetch(`/api/admin/subjects?id=${id}`, { method: "DELETE" });
+    setDeleteError(null);
+    const response = await fetch(`/api/admin/subjects?id=${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setDeleteError(data?.message ?? "Nao foi possivel excluir a disciplina.");
+      return;
+    }
     window.location.reload();
   }
 
@@ -82,6 +89,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Disciplinas cadastradas</h2>
+        {deleteError && <p className="mt-2 text-sm text-rose-600">{deleteError}</p>}
         <ul className="mt-3 space-y-2 text-sm text-slate-700">
           {subjects.map((subject) => (
             <li key={subject.id} className="rounded-lg border border-slate-100 p-2">

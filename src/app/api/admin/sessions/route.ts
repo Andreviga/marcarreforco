@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import { sessionCreateSchema, sessionUpdateSchema } from "@/lib/validators";
@@ -94,7 +95,17 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ message: "ID obrigatório" }, { status: 400 });
   }
 
-  await prisma.session.delete({ where: { id } });
+  try {
+    await prisma.session.delete({ where: { id } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return NextResponse.json(
+        { message: "Nao foi possivel excluir: a sessao possui matriculas vinculadas." },
+        { status: 409 }
+      );
+    }
+    throw error;
+  }
   await logAudit({
     actorUserId: session.user.id,
     action: "DELETE_SESSION",

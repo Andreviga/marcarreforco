@@ -47,6 +47,7 @@ export default function AdminSessionsClient({
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [weekday, setWeekday] = useState(1);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function createSessions(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -96,7 +97,13 @@ export default function AdminSessionsClient({
   async function deleteSession(id: string) {
     const confirmed = window.confirm("Excluir esta sessão? Essa ação não pode ser desfeita.");
     if (!confirmed) return;
-    await fetch(`/api/admin/sessions?id=${id}`, { method: "DELETE" });
+    setDeleteError(null);
+    const response = await fetch(`/api/admin/sessions?id=${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setDeleteError(data?.message ?? "Nao foi possivel excluir a sessao.");
+      return;
+    }
     window.location.reload();
   }
 
@@ -346,6 +353,7 @@ export default function AdminSessionsClient({
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Agenda</h2>
+        {deleteError && <p className="mt-2 text-sm text-rose-600">{deleteError}</p>}
         <div className="mt-3 grid gap-3">
           {sessions.map((session) => (
             <div key={session.id} className="rounded-lg border border-slate-100 p-3">
