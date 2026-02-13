@@ -1,15 +1,33 @@
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { getBalancesForStudent } from "@/lib/credits";
+import { isPackageEligibleForSerie } from "@/lib/validators";
 import AppShell from "@/components/AppShell";
 import StudentPaymentsClient from "@/components/StudentPaymentsClient";
 
 export default async function AlunoPagamentosPage() {
   const session = await requireRole(["ALUNO"]);
 
-  const [packages, balances, subscriptions, profile, subjects, pendingPayments] = await Promise.all([
+  // Buscar perfil do aluno para filtrar por série
+  const profile = await prisma.studentProfile.findUnique({ where: { userId: session.user.id } });
+
+  // Buscar disciplinas de sessões ativas para filtrar pacotes
+  const activeSessions = await prisma.session.findMany({
+    where: { status: "ATIVA" },
+    select: { subjectId: true },
+    distinct: ["subjectId"]
+  });
+  const activeSubjectIds = activeSessions.map((s) => s.subjectId);
+
+  const [allPackages, balances, subscriptions, subjects, pendingPayments] = await Promise.all([
     prisma.sessionPackage.findMany({
-      where: { active: true },
+      where: {
+        active: true,
+        OR: [
+          { subjectId: null }, // Pacotes sem disciplina específica
+          { subjectId: { in: activeSubjectIds } } // Pacotes de disciplinas com sessões ativas
+        ]
+      },
       include: { subject: true },
       orderBy: { createdAt: "desc" }
     }),
@@ -19,7 +37,6 @@ export default async function AlunoPagamentosPage() {
       include: { package: { include: { subject: true } } },
       orderBy: { createdAt: "desc" }
     }),
-    prisma.studentProfile.findUnique({ where: { userId: session.user.id } }),
     prisma.subject.findMany({ orderBy: { name: "asc" } }),
     prisma.asaasPayment.findMany({
       where: {
@@ -32,6 +49,9 @@ export default async function AlunoPagamentosPage() {
       orderBy: { createdAt: "desc" }
     })
   ]);
+
+  // Filtrar pacotes pela série do aluno
+  const packages = allPackages.filter((pkg) => isPackageEligibleForSerie(pkg.name, profile?.serie));
 
   return (
     <AppShell title="Pagamentos" subtitle="Assine planos e compre pacotes" role="ALUNO">

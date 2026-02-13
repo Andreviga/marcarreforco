@@ -166,5 +166,16 @@ export async function POST(request: Request) {
     });
   }
 
+  // Ativar assinatura quando o primeiro pagamento for confirmado
+  if (payload.payment?.subscription && payload.payment?.id) {
+    const paymentStatus = paymentStatusMap[payload.payment.status ?? "PENDING"] ?? "PENDING";
+    if (paymentStatus === "CONFIRMED") {
+      await prisma.asaasSubscription.updateMany({
+        where: { asaasId: payload.payment.subscription },
+        data: { status: "ACTIVE" }
+      });
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }

@@ -34,6 +34,31 @@ export const serieSchema = z.preprocess(
 export const turmaSchema = optionalText();
 export const unidadeSchema = optionalText();
 
+// Função para verificar se um pacote é elegível para a série do aluno
+export function isPackageEligibleForSerie(packageName: string, studentSerie: string | null | undefined): boolean {
+  if (!studentSerie) return true; // Se não tem série, mostra todos
+
+  const normalized = normalizeSerie(studentSerie);
+  const serieNumber = parseInt(normalized.match(/^(\d+)/)?.[1] ?? "0");
+
+  if (serieNumber === 0) return true; // Série inválida, mostra todos
+
+  const packageLower = packageName.toLowerCase();
+
+  // Pacote específico para 1º ao 3º ano
+  if (packageLower.includes("1o ao 3o") || packageLower.includes("1º ao 3º")) {
+    return serieNumber >= 1 && serieNumber <= 3;
+  }
+
+  // Pacote específico para 4º ao 9º ano
+  if (packageLower.includes("4o ao 9o") || packageLower.includes("4º ao 9º")) {
+    return serieNumber >= 4 && serieNumber <= 9;
+  }
+
+  // Pacotes gerais sem especificação de série
+  return true;
+}
+
 export const sessionCreateSchema = z.object({
   subjectId: z.string().min(1),
   teacherId: z.string().min(1),

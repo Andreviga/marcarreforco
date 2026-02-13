@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatCurrency } from "@/lib/format";
 
 interface SubjectOption {
@@ -61,6 +61,14 @@ export default function StudentPaymentsClient({
   const [allocationSubject, setAllocationSubject] = useState<Record<string, string>>({});
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [isChrome, setIsChrome] = useState(false);
+
+  // Detectar se é Chrome
+  useEffect(() => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    const chrome = userAgent.includes("chrome") && !userAgent.includes("edg");
+    setIsChrome(chrome);
+  }, []);
 
   const subscriptionMap = useMemo(() => {
     return new Map(subscriptions.map((sub) => [sub.package.id, sub]));
@@ -262,9 +270,11 @@ export default function StudentPaymentsClient({
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-slate-900">Planos e pacotes</h2>
-          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-            Pagamento via PIX
-          </span>
+          {!isChrome && (
+            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+              Pagamento via PIX
+            </span>
+          )}
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">

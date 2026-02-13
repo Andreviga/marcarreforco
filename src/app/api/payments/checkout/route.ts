@@ -93,7 +93,7 @@ export async function POST(request: Request) {
         userId: session.user.id,
         packageId: packageRecord.id,
         asaasId: subscription.id,
-        status: subscription.status === "ACTIVE" ? "ACTIVE" : "INACTIVE",
+        status: "INACTIVE", // Sempre começa INACTIVE, será ativada via webhook após pagamento
         nextDueDate: subscription.nextDueDate ? new Date(subscription.nextDueDate) : null
       }
     });
