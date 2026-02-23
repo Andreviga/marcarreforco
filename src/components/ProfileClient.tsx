@@ -8,7 +8,7 @@ interface UserProfile {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: "ALUNO" | "PROFESSOR" | "ADMIN";
   studentProfile?: {
     serie: string | null;
     turma: string | null;
@@ -45,6 +45,7 @@ export default function ProfileClient({
   const [unidade, setUnidade] = useState(initialUser.studentProfile?.unidade || "");
   const [document, setDocument] = useState(initialUser.studentProfile?.document || "");
   const [documentValid, setDocumentValid] = useState<boolean | null>(null);
+  const [originalDocumentValid, setOriginalDocumentValid] = useState<boolean>(false);
   
   // Dados específicos de professor
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>(
@@ -59,11 +60,15 @@ export default function ProfileClient({
   useEffect(() => {
     if (initialUser.studentProfile?.document) {
       const cleaned = initialUser.studentProfile.document.replace(/\D/g, "");
+      let isValid = false;
       if (cleaned.length === 11) {
-        setDocumentValid(isValidCPF(cleaned));
+        isValid = isValidCPF(cleaned);
+        setDocumentValid(isValid);
       } else if (cleaned.length === 14) {
-        setDocumentValid(isValidCNPJ(cleaned));
+        isValid = isValidCNPJ(cleaned);
+        setDocumentValid(isValid);
       }
+      setOriginalDocumentValid(isValid);
     }
   }, [initialUser]);
 
@@ -277,18 +282,25 @@ export default function ProfileClient({
                     : documentValid === true 
                     ? "border-green-500 bg-green-50" 
                     : "border-slate-200"
-                }`}
+                } ${originalDocumentValid && initialUser.role !== "ADMIN" ? "bg-slate-100 cursor-not-allowed" : ""}`}
                 placeholder="000.000.000-00"
                 value={document}
                 onChange={(e) => handleDocumentChange(e.target.value)}
                 maxLength={18}
+                disabled={originalDocumentValid && initialUser.role !== "ADMIN"}
+                title={originalDocumentValid && initialUser.role !== "ADMIN" ? "CPF/CNPJ validado não pode ser alterado. Contate um administrador." : ""}
               />
               {documentValid === false && (
                 <span className="mt-1 block text-xs text-red-600 font-medium">
                   ❌ CPF ou CNPJ inválido
                 </span>
               )}
-              {documentValid === true && (
+              {documentValid === true && initialUser.role !== "ADMIN" && originalDocumentValid && (
+                <span className="mt-1 block text-xs text-blue-600 font-medium">
+                  🔒 Documento validado e bloqueado (somente admin pode alterar)
+                </span>
+              )}
+              {documentValid === true && (initialUser.role === "ADMIN" || !originalDocumentValid) && (
                 <span className="mt-1 block text-xs text-green-600 font-medium">
                   ✓ Documento válido
                 </span>

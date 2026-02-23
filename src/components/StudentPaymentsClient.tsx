@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatCurrency } from "@/lib/format";
+import { isValidCPF, isValidCNPJ } from "@/lib/asaas";
 
 interface SubjectOption {
   id: string;
@@ -137,6 +138,16 @@ export default function StudentPaymentsClient({
     // Valida o tamanho
     if (cleanedDoc.length !== 11 && cleanedDoc.length !== 14) {
       setDocError("CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos");
+      return;
+    }
+    
+    // Valida o formato do CPF/CNPJ
+    const isValid = cleanedDoc.length === 11 
+      ? isValidCPF(cleanedDoc) 
+      : isValidCNPJ(cleanedDoc);
+    
+    if (!isValid) {
+      setDocError("CPF ou CNPJ inválido. Verifique os dígitos.");
       return;
     }
     

@@ -87,8 +87,53 @@ export async function PATCH(request: Request) {
   }
 
   // Validar CPF/CNPJ se fornecido
-  if (document && !isValidDocument(document)) {
-    return NextResponse.json({ message: "CPF ou CNPJ inválido" }, { status: 400 });
+  if (document) {
+    const cleanedDocument = document.replace(/\D/g, "");
+    
+    // Validar formato
+    if (!isValidDocument(cleanedDocument)) {
+      return NextResponse.json({ message: "CPF ou CNPJ inválido" }, { status: 400 });
+    }
+
+    // Buscar perfil atual para verificar se CPF já estava validado
+    const currentProfile = await prisma.studentProfile.findUnique({
+      where: { userId: session.user.id },
+      select: { document: true }
+    });
+
+    // Se CPF atual existe e é válido, somente ADMIN pode alterar
+    if (currentProfile?.document) {
+      const currentClean = currentProfile.document.replace(/\D/g, "");
+      const currentValid = isValidDocument(currentClean);
+      
+      if (currentValid && currentClean !== cleanedDocument && session.user.role !== "ADMIN") {
+        return NextResponse.json({ 
+          message: "CPF/CNPJ validado não pode ser alterado. Contate um administrador." 
+        }, { status: 403 });
+      }
+    }
+
+    // Verificar se CPF/CNPJ já está em uso por outro usuário
+    const existingDocument = await prisma.studentProfile.findFirst({
+      where: {
+        document: cleanedDocument,
+        userId: { not: session.user.id }
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    if (existingDocument) {
+      return NextResponse.json({ 
+        message: `Este CPF/CNPJ já está cadastrado para outro usuário (${existingDocument.user.name})` 
+      }, { status: 400 });
+    }
   }
 
   // Verificar se email já está em uso por outro usuário
