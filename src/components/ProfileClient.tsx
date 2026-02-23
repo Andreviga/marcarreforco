@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
+import { isValidCPF, isValidCNPJ } from "@/lib/asaas";
 
 interface UserProfile {
   id: string;
@@ -43,6 +44,7 @@ export default function ProfileClient({
   const [turma, setTurma] = useState(initialUser.studentProfile?.turma || "");
   const [unidade, setUnidade] = useState(initialUser.studentProfile?.unidade || "");
   const [document, setDocument] = useState(initialUser.studentProfile?.document || "");
+  const [documentValid, setDocumentValid] = useState<boolean | null>(null);
   
   // Dados específicos de professor
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>(
@@ -52,6 +54,18 @@ export default function ProfileClient({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Validar documento inicial se existir
+  useEffect(() => {
+    if (initialUser.studentProfile?.document) {
+      const cleaned = initialUser.studentProfile.document.replace(/\D/g, "");
+      if (cleaned.length === 11) {
+        setDocumentValid(isValidCPF(cleaned));
+      } else if (cleaned.length === 14) {
+        setDocumentValid(isValidCNPJ(cleaned));
+      }
+    }
+  }, [initialUser]);
 
   // Função para formatar CPF/CNPJ com máscara
   function formatDocument(value: string) {
@@ -74,6 +88,18 @@ export default function ProfileClient({
   function handleDocumentChange(value: string) {
     const formatted = formatDocument(value);
     setDocument(formatted);
+    
+    // Validar em tempo real
+    const cleaned = value.replace(/\D/g, "");
+    if (cleaned.length === 0) {
+      setDocumentValid(null);
+    } else if (cleaned.length === 11) {
+      setDocumentValid(isValidCPF(cleaned));
+    } else if (cleaned.length === 14) {
+      setDocumentValid(isValidCNPJ(cleaned));
+    } else {
+      setDocumentValid(false);
+    }
   }
 
   function toggleSubject(subjectId: string) {
@@ -98,6 +124,18 @@ export default function ProfileClient({
     if (newPassword && newPassword.length < 6) {
       setError("A nova senha deve ter no mínimo 6 caracteres");
       return;
+    }
+
+    // Validar CPF/CNPJ antes de enviar
+    if (user.role === "ALUNO" && document) {
+      const cleaned = document.replace(/\D/g, "");
+      if (cleaned.length > 0) {
+        const valid = cleaned.length === 11 ? isValidCPF(cleaned) : cleaned.length === 14 ? isValidCNPJ(cleaned) : false;
+        if (!valid) {
+          setError("CPF ou CNPJ inválido. Verifique os dígitos.");
+          return;
+        }
+      }
     }
 
     setLoading(true);
@@ -233,15 +271,33 @@ export default function ProfileClient({
               CPF/CNPJ
               <input
                 type="text"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 ${
+                  documentValid === false 
+                    ? "border-red-500 bg-red-50" 
+                    : documentValid === true 
+                    ? "border-green-500 bg-green-50" 
+                    : "border-slate-200"
+                }`}
                 placeholder="000.000.000-00"
                 value={document}
                 onChange={(e) => handleDocumentChange(e.target.value)}
                 maxLength={18}
               />
-              <span className="mt-1 block text-xs text-slate-500">
-                Necessário para pagamentos
-              </span>
+              {documentValid === false && (
+                <span className="mt-1 block text-xs text-red-600 font-medium">
+                  ❌ CPF ou CNPJ inválido
+                </span>
+              )}
+              {documentValid === true && (
+                <span className="mt-1 block text-xs text-green-600 font-medium">
+                  ✓ Documento válido
+                </span>
+              )}
+              {documentValid === null && (
+                <span className="mt-1 block text-xs text-slate-500">
+                  Necessário para pagamentos
+                </span>
+              )}
             </label>
           </div>
         </div>
