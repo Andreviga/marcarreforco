@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import Providers from "./providers";
 
 export const metadata: Metadata = {
   title: "Agendamento de Reforço",
@@ -12,7 +13,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className="min-h-screen">
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

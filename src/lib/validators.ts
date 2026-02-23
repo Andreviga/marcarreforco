@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidDocument } from "@/lib/asaas";
 
 const optionalText = () =>
   z.preprocess(
@@ -136,7 +137,13 @@ export const paymentCheckoutSchema = z.object({
 });
 
 export const profileDocumentSchema = z.object({
-  document: z.string().min(11).max(18)
+  document: z
+    .string()
+    .min(11, "CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos")
+    .max(18, "Documento inválido")
+    .refine((doc) => isValidDocument(doc), {
+      message: "CPF ou CNPJ inválido"
+    })
 });
 
 export const creditAllocationSchema = z.object({

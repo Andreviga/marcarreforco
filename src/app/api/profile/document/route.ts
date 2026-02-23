@@ -10,7 +10,8 @@ export async function PATCH(request: Request) {
   const body = await request.json();
   const parsed = profileDocumentSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
+    const errorMessage = parsed.error.errors[0]?.message || "Dados inválidos";
+    return NextResponse.json({ message: errorMessage }, { status: 400 });
   }
 
   const existing = await prisma.studentProfile.findUnique({

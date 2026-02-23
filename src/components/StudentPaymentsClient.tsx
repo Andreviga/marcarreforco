@@ -63,6 +63,32 @@ export default function StudentPaymentsClient({
   const [searchTerm, setSearchTerm] = useState("");
   const [isChrome, setIsChrome] = useState(false);
 
+  // Função para formatar CPF/CNPJ com máscara
+  function formatDocument(value: string) {
+    const cleaned = value.replace(/\D/g, "");
+    
+    if (cleaned.length <= 11) {
+      // Formatar como CPF: 000.000.000-00
+      return cleaned
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    } else {
+      // Formatar como CNPJ: 00.000.000/0000-00
+      return cleaned
+        .replace(/(\d{2})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1/$2")
+        .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+    }
+  }
+
+  function handleDocumentChange(value: string) {
+    const formatted = formatDocument(value);
+    setDocValue(formatted);
+    setDocError(null);
+  }
+
   // Detectar se é Chrome
   useEffect(() => {
     const userAgent = navigator.userAgent.toLowerCase();
@@ -104,10 +130,20 @@ export default function StudentPaymentsClient({
 
   async function handleDocumentSave() {
     setDocError(null);
+    
+    // Remove caracteres não numéricos
+    const cleanedDoc = docValue.replace(/\D/g, "");
+    
+    // Valida o tamanho
+    if (cleanedDoc.length !== 11 && cleanedDoc.length !== 14) {
+      setDocError("CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos");
+      return;
+    }
+    
     const response = await fetch("/api/profile/document", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ document: docValue })
+      body: JSON.stringify({ document: cleanedDoc })
     });
 
     if (!response.ok) {
@@ -185,9 +221,10 @@ export default function StudentPaymentsClient({
           <div className="mt-3 flex flex-wrap gap-2">
             <input
               className="min-w-[240px] flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"
-              placeholder="CPF ou CNPJ"
+              placeholder="000.000.000-00 ou 00.000.000/0000-00"
               value={docValue}
-              onChange={(event) => setDocValue(event.target.value)}
+              onChange={(event) => handleDocumentChange(event.target.value)}
+              maxLength={18}
             />
             <button
               type="button"

@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import { paymentCheckoutSchema } from "@/lib/validators";
-import { asaasFetch, normalizeDocument } from "@/lib/asaas";
+import { asaasFetch, normalizeDocument, isValidDocument } from "@/lib/asaas";
 import { logAudit } from "@/lib/audit";
 
 function formatValue(priceCents: number) {
@@ -36,6 +36,14 @@ export async function POST(request: Request) {
   if (!studentProfile?.document) {
     return NextResponse.json({ message: "Informe CPF/CNPJ antes do pagamento." }, { status: 400 });
   }
+
+  // Valida o documento antes de enviar para o Asaas
+  if (!isValidDocument(studentProfile.document)) {
+    return NextResponse.json({ 
+      message: "CPF/CNPJ inválido. Por favor, atualize seus dados antes de prosseguir." 
+    }, { status: 400 });
+  }
+
   const billingType = "PIX";
 
   const customer = await prisma.asaasCustomer.findUnique({
