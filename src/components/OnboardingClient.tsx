@@ -71,7 +71,7 @@ export default function OnboardingClient({
       {role === "ALUNO" ? (
         <div className="grid gap-3 md:grid-cols-2">
           <label className="text-sm text-slate-600">
-            Serie
+            Série
             <input
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={serie}

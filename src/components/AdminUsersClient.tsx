@@ -238,7 +238,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setCreditError(data?.message ?? "Nao foi possivel adicionar creditos.");
+      setCreditError(data?.message ?? "Não foi possível adicionar créditos.");
       setCreditLoading(false);
       return;
     }

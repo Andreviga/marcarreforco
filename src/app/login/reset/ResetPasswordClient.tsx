@@ -28,7 +28,7 @@ export default function ResetPasswordClient() {
     }
 
     if (password !== confirmPassword) {
-      setError("As senhas nao conferem.");
+      setError("As senhas não conferem.");
       return;
     }
 
@@ -42,11 +42,11 @@ export default function ResetPasswordClient() {
     setLoading(false);
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setError(data?.message ?? "Nao foi possivel redefinir a senha.");
+      setError(data?.message ?? "Não foi possível redefinir a senha.");
       return;
     }
 
-    setSuccess("Senha atualizada. Voce ja pode fazer login.");
+    setSuccess("Senha atualizada. Você já pode fazer login.");
   }
 
   return (

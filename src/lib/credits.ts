@@ -209,7 +209,7 @@ export async function reserveCredit(params: {
   const now = new Date();
   const lots = await getAvailableLots(tx, studentId, subjectId, now);
   if (!lots.length) {
-    throw new Error("SEM_CREDITO");
+    throw new Error("SEM_CRÉDITO");
   }
 
   const lot = lots[0];

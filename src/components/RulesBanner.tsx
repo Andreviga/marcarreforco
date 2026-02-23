@@ -73,22 +73,22 @@ export default function RulesBanner({
         <div>
           <div className={isCompact ? "mt-5 grid gap-4 lg:grid-cols-2" : "mt-6 grid gap-6 md:grid-cols-2"}>
         <div className="rounded-2xl border border-slate-100 bg-white p-4">
-          <h3 className="text-sm font-semibold text-slate-900">Publico atendido</h3>
+          <h3 className="text-sm font-semibold text-slate-900">Público atendido</h3>
           <ul className="mt-2 space-y-1 text-sm text-slate-600">
             <li>1o ao 3o ano</li>
             <li>4o ao 9o ano</li>
-            <li className="font-semibold text-rose-600">Ensino Medio nao tem plantao de duvidas.</li>
+            <li className="font-semibold text-rose-600">Ensino Médio não tem plantão de dúvidas.</li>
           </ul>
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-white p-4">
-          <h3 className="text-sm font-semibold text-slate-900">Regras rapidas</h3>
+          <h3 className="text-sm font-semibold text-slate-900">Regras rápidas</h3>
           <ul className="mt-2 space-y-1 text-sm text-slate-600">
-            <li>Vagas conforme formacao de turma.</li>
-            <li>Valores promocionais de lancamento.</li>
+            <li>Vagas conforme formação de turma.</li>
+            <li>Valores promocionais de lançamento.</li>
             <li>Pagamento mensal antecipado.</li>
-            <li>Alteracoes e solicitacoes com 2 dias de antecedencia.</li>
-            <li>Turmas abaixo do minimo podem ser reagrupadas por nivel/horario.</li>
+            <li>Alterações e solicitações com 2 dias de antecedência.</li>
+            <li>Turmas abaixo do mínimo podem ser reagrupadas por nível/horário.</li>
           </ul>
         </div>
       </div>
@@ -98,12 +98,12 @@ export default function RulesBanner({
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-slate-900">1o ao 3o ano</h4>
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-              Regras especificas
+              Regras específicas
             </span>
           </div>
           <ul className="mt-3 space-y-1 text-sm text-slate-600">
-            <li>Maximo de 2 dias por semana por aluno.</li>
-            <li>Disciplinas: Ingles e professora da turma (reforco da turma).</li>
+            <li>Máximo de 2 dias por semana por aluno.</li>
+            <li>Disciplinas: Inglês e professora da turma (reforço da turma).</li>
           </ul>
           <div className="mt-3 text-sm text-slate-600">
             <p className="font-semibold text-slate-900">Valores mensais</p>

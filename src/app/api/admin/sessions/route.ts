@@ -100,7 +100,7 @@ export async function DELETE(request: Request) {
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
       return NextResponse.json(
-        { message: "Nao foi possivel excluir: a sessao possui matriculas vinculadas." },
+        { message: "Não foi possível excluir: a sessão possui matrículas vinculadas." },
         { status: 409 }
       );
     }

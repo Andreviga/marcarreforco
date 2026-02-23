@@ -25,7 +25,7 @@ export default function ForgotPasswordPage() {
 
     setLoading(false);
     if (!response.ok) {
-      setError("Nao foi possivel enviar o e-mail. Tente novamente.");
+      setError("Não foi possível enviar o e-mail. Tente novamente.");
       return;
     }
 

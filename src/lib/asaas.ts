@@ -9,7 +9,7 @@ const ASAAS_BASE_URL =
 function getApiKey() {
   const apiKey = process.env.ASAAS_API_KEY;
   if (!apiKey) {
-    throw new Error("ASAAS_API_KEY nao configurada");
+    throw new Error("ASAAS_API_KEY não configurada");
   }
   return apiKey;
 }

@@ -82,7 +82,7 @@ export async function DELETE(request: Request) {
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
       return NextResponse.json(
-        { message: "Nao foi possivel excluir: a disciplina possui vinculos (professores ou sessoes)." },
+        { message: "Não foi possível excluir: a disciplina possui vínculos (professores ou sessões)." },
         { status: 409 }
       );
     }

@@ -117,7 +117,7 @@ export default function MonthlyCalendarClient({
             onClick={() => setVisibleDate((prev) => addMonths(prev, 1))}
             className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
           >
-            Proximo
+            Próximo
           </button>
         </div>
       </div>

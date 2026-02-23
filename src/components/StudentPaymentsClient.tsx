@@ -160,12 +160,12 @@ export default function StudentPaymentsClient({
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setDocError(data?.message ?? "Nao foi possivel salvar.");
+      setDocError(data?.message ?? "Não foi possível salvar.");
       return;
     }
 
     setHasDocument(true);
-    setMessage("Documento salvo. Agora voce ja pode pagar.");
+    setMessage("Documento salvo. Agora você já pode pagar.");
   }
 
   async function handleCheckout(packageId: string) {
@@ -194,7 +194,7 @@ export default function StudentPaymentsClient({
       return;
     }
 
-    setMessage("Assinatura criada. Aguarde a cobranca.");
+    setMessage("Assinatura criada. Aguarde a cobrança.");
   }
 
   async function handleCancelSubscription(subscriptionId: string) {
@@ -289,7 +289,7 @@ export default function StudentPaymentsClient({
             balances.map((item) => (
               <div key={item.subject.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
                 <span>{item.subject.name}</span>
-                <span className="font-semibold text-slate-700">{item.balance} credito(s)</span>
+                <span className="font-semibold text-slate-700">{item.balance} crédito(s)</span>
               </div>
             ))
           )}
@@ -434,7 +434,7 @@ export default function StudentPaymentsClient({
                           </div>
                           {subscription?.nextDueDate && (
                             <p className="text-xs text-slate-500">
-                              Proxima cobranca: {new Date(subscription.nextDueDate).toLocaleDateString("pt-BR")}
+                              Próxima cobrança: {new Date(subscription.nextDueDate).toLocaleDateString("pt-BR")}
                             </p>
                           )}
                         </div>

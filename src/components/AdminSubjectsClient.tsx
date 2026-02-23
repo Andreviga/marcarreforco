@@ -56,7 +56,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
     const response = await fetch(`/api/admin/subjects?id=${id}`, { method: "DELETE" });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setDeleteError(data?.message ?? "Nao foi possivel excluir a disciplina.");
+      setDeleteError(data?.message ?? "Não foi possível excluir a disciplina.");
       return;
     }
     window.location.reload();

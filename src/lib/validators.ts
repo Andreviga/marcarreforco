@@ -26,7 +26,7 @@ const requiredSerieSchema = z
   .trim()
   .min(1)
   .max(60)
-  .refine(isAllowedSerie, { message: "Serie nao atendida pelo plantao." });
+  .refine(isAllowedSerie, { message: "Série não atendida pelo plantão." });
 
 export const serieSchema = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -154,7 +154,7 @@ export const creditAllocationSchema = z.object({
 export const adminCreditAdjustSchema = z.object({
   userId: z.string().min(1),
   subjectId: z.string().min(1),
-  delta: z.number().int().refine((value) => value !== 0, "Delta nao pode ser zero")
+  delta: z.number().int().refine((value) => value !== 0, "Delta não pode ser zero")
 });
 
 export const ticketCreateSchema = z.object({

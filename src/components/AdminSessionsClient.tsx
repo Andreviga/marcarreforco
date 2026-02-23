@@ -98,7 +98,7 @@ export default function AdminSessionsClient({
     const response = await fetch(`/api/admin/sessions?id=${id}`, { method: "DELETE" });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setDeleteError(data?.message ?? "Nao foi possivel excluir a sessao.");
+      setDeleteError(data?.message ?? "Não foi possível excluir a sessão.");
       return;
     }
     window.location.reload();

@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     });
 
     if (existing) {
-      return NextResponse.json({ message: "Assinatura ja ativa." }, { status: 400 });
+      return NextResponse.json({ message: "Assinatura já ativa." }, { status: 400 });
     }
 
     const subscription = await asaasFetch<{ id: string; status: string; nextDueDate?: string }>("/subscriptions", {
