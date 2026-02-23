@@ -189,8 +189,24 @@ export default function StudentPaymentsClient({
     setLoadingId(null);
 
     if (data?.paymentUrl) {
-      window.open(data.paymentUrl, "_blank");
-      setMessage("Pagamento criado. Finalize na nova aba.");
+      // Detectar mobile através do user agent e tamanho da tela
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+      
+      if (isMobile) {
+        // No mobile, redireciona na mesma aba
+        window.location.href = data.paymentUrl;
+      } else {
+        // No desktop, tenta abrir em nova aba
+        const popup = window.open(data.paymentUrl, "_blank");
+        
+        // Detecta se o popup foi bloqueado
+        if (!popup || popup.closed || typeof popup.closed === "undefined") {
+          // Fallback: redireciona na mesma aba
+          window.location.href = data.paymentUrl;
+        } else {
+          setMessage("Pagamento criado. Finalize na nova aba.");
+        }
+      }
       return;
     }
 
@@ -386,7 +402,7 @@ export default function StudentPaymentsClient({
                   <h3 className="text-sm font-semibold text-slate-700">{group.label}</h3>
                   <span className="text-xs text-slate-400">{group.items.length} item(s)</span>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                   {group.items.map((item) => {
                     const subscription = subscriptionMap.get(item.id);
                     return (
@@ -398,15 +414,15 @@ export default function StudentPaymentsClient({
                             <p className="text-xs text-slate-500">
                               {item.billingType === "SUBSCRIPTION" ? "Assinatura" : "Pacote"} • {item.sessionCount} aula(s)
                               {item.billingType === "SUBSCRIPTION" && item.billingCycle
-                                ? ` / ${item.billingCycle === "MONTHLY" ? "mes" : "semana"}`
+                                ? ` / ${item.billingCycle === "MONTHLY" ? "mês" : "semana"}`
                                 : ""}
                             </p>
                           </div>
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-base font-semibold text-slate-700">{formatCurrency(item.priceCents)}</span>
+                          <div className="flex flex-col gap-2">
+                            <span className="text-lg font-semibold text-slate-700">{formatCurrency(item.priceCents)}</span>
                             {subscription && item.billingType === "SUBSCRIPTION" ? (
-                              <div className="flex items-center gap-2">
-                                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">
+                              <div className="flex flex-col gap-2">
+                                <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-center text-xs font-medium text-emerald-700">
                                   {subscription.status === "ACTIVE" ? "Assinatura ativa" : "Assinatura pendente"}
                                 </span>
                                 {subscription.status === "ACTIVE" && (
@@ -414,7 +430,7 @@ export default function StudentPaymentsClient({
                                     type="button"
                                     onClick={() => handleCancelSubscription(subscription.id)}
                                     disabled={cancelingId === subscription.id}
-                                    className="rounded-lg bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-60"
+                                    className="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
                                     title="Cancelar assinatura"
                                   >
                                     {cancelingId === subscription.id ? "Cancelando..." : "Cancelar"}
@@ -426,7 +442,7 @@ export default function StudentPaymentsClient({
                                 type="button"
                                 onClick={() => handleCheckout(item.id)}
                                 disabled={loadingId === item.id || !hasDocument}
-                                className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-60"
+                                className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
                               >
                                 {loadingId === item.id ? "Processando..." : "Contratar"}
                               </button>
