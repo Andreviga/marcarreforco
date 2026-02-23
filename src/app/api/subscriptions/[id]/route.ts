@@ -37,7 +37,7 @@ export async function DELETE(
   }
 
   // Verificar se já está cancelada
-  if (subscription.status === "INACTIVE") {
+  if (subscription.status === "CANCELED") {
     return NextResponse.json({ message: "Assinatura já está cancelada" }, { status: 400 });
   }
 
@@ -50,7 +50,7 @@ export async function DELETE(
     // Atualizar status no banco
     const updated = await prisma.asaasSubscription.update({
       where: { id: subscriptionId },
-      data: { status: "INACTIVE" }
+      data: { status: "CANCELED" }
     });
 
     // Registrar no audit log

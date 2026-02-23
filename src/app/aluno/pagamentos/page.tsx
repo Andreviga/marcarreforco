@@ -33,7 +33,10 @@ export default async function AlunoPagamentosPage() {
     }),
     getBalancesForStudent(session.user.id),
     prisma.asaasSubscription.findMany({
-      where: { userId: session.user.id },
+      where: { 
+        userId: session.user.id,
+        status: { not: "CANCELED" } // Não mostrar assinaturas canceladas
+      },
       include: { package: { include: { subject: true } } },
       orderBy: { createdAt: "desc" }
     }),
