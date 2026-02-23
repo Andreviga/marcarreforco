@@ -63,6 +63,7 @@ export default function StudentPaymentsClient({
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [isChrome, setIsChrome] = useState(false);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
 
   // Função para formatar CPF/CNPJ com máscara
   function formatDocument(value: string) {
@@ -194,6 +195,34 @@ export default function StudentPaymentsClient({
     }
 
     setMessage("Assinatura criada. Aguarde a cobranca.");
+  }
+
+  async function handleCancelSubscription(subscriptionId: string) {
+    if (!confirm("Tem certeza que deseja cancelar esta assinatura? Esta ação não pode ser desfeita.")) {
+      return;
+    }
+
+    setCancelingId(subscriptionId);
+    setMessage(null);
+
+    const response = await fetch(`/api/subscriptions/${subscriptionId}`, {
+      method: "DELETE"
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setMessage(data?.message ?? "Falha ao cancelar assinatura.");
+      setCancelingId(null);
+      return;
+    }
+
+    setMessage("✅ Assinatura cancelada com sucesso!");
+    setCancelingId(null);
+    
+    // Recarregar a página após 2 segundos
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
   }
 
   async function handleAllocate(paymentId: string) {
@@ -376,9 +405,22 @@ export default function StudentPaymentsClient({
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <span className="text-base font-semibold text-slate-700">{formatCurrency(item.priceCents)}</span>
                             {subscription && item.billingType === "SUBSCRIPTION" ? (
-                              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">
-                                {subscription.status === "ACTIVE" ? "Assinatura ativa" : "Assinatura pendente"}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">
+                                  {subscription.status === "ACTIVE" ? "Assinatura ativa" : "Assinatura pendente"}
+                                </span>
+                                {subscription.status === "ACTIVE" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelSubscription(subscription.id)}
+                                    disabled={cancelingId === subscription.id}
+                                    className="rounded-lg bg-red-600 px-3 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-60"
+                                    title="Cancelar assinatura"
+                                  >
+                                    {cancelingId === subscription.id ? "Cancelando..." : "Cancelar"}
+                                  </button>
+                                )}
+                              </div>
                             ) : (
                               <button
                                 type="button"
