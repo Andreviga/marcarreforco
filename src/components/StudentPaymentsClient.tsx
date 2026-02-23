@@ -99,7 +99,11 @@ export default function StudentPaymentsClient({
   }, []);
 
   const subscriptionMap = useMemo(() => {
-    return new Map(subscriptions.map((sub) => [sub.package.id, sub]));
+    // Filtra apenas assinaturas ATIVAS ou PENDENTES (ignora CANCELED/OVERDUE)
+    const activeSubscriptions = subscriptions.filter(
+      (sub) => sub.status === "ACTIVE" || sub.status === "INACTIVE"
+    );
+    return new Map(activeSubscriptions.map((sub) => [sub.package.id, sub]));
   }, [subscriptions]);
 
   const filteredPackages = useMemo(() => {
@@ -431,17 +435,15 @@ export default function StudentPaymentsClient({
                                 }`}>
                                   {subscription.status === "ACTIVE" 
                                     ? "Assinatura ativa" 
-                                    : subscription.status === "INACTIVE"
-                                    ? "Aguardando pagamento"
-                                    : "Cancelada"}
+                                    : "Aguardando pagamento"}
                                 </span>
-                                {subscription.status === "ACTIVE" && (
+                                {(subscription.status === "ACTIVE" || subscription.status === "INACTIVE") && (
                                   <button
                                     type="button"
                                     onClick={() => handleCancelSubscription(subscription.id)}
                                     disabled={cancelingId === subscription.id}
                                     className="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
-                                    title="Cancelar assinatura"
+                                    title={subscription.status === "ACTIVE" ? "Cancelar assinatura" : "Cancelar e remover cobrança"}
                                   >
                                     {cancelingId === subscription.id ? "Cancelando..." : "Cancelar"}
                                   </button>
