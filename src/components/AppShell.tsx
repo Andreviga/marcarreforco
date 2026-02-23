@@ -14,11 +14,13 @@ const navByRole: Record<string, { href: string; label: string }[]> = {
     { href: "/aluno/agenda", label: "Agenda" },
     { href: "/aluno/minhas-inscricoes", label: "Minhas inscrições" },
     { href: "/aluno/pagamentos", label: "Pagamentos" },
-    { href: "/aluno/tickets", label: "Tickets" }
+    { href: "/aluno/tickets", label: "Tickets" },
+    { href: "/aluno/perfil", label: "Perfil" }
   ],
   PROFESSOR: [
     { href: "/professor/sessoes", label: "Sessões" },
-    { href: "/professor/tickets", label: "Tickets" }
+    { href: "/professor/tickets", label: "Tickets" },
+    { href: "/professor/perfil", label: "Perfil" }
   ],
   ADMIN: [
     { href: "/admin/sessoes", label: "Sessões" },
@@ -26,7 +28,8 @@ const navByRole: Record<string, { href: string; label: string }[]> = {
     { href: "/admin/disciplinas", label: "Disciplinas" },
     { href: "/admin/pacotes", label: "Pacotes" },
     { href: "/admin/pagamentos", label: "Pagamentos" },
-    { href: "/admin/tickets", label: "Tickets" }
+    { href: "/admin/tickets", label: "Tickets" },
+    { href: "/admin/perfil", label: "Perfil" }
   ]
 };
 
