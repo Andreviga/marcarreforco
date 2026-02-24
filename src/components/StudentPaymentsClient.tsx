@@ -99,11 +99,22 @@ export default function StudentPaymentsClient({
   }, []);
 
   const subscriptionMap = useMemo(() => {
-    // Filtra apenas assinaturas ATIVAS ou PENDENTES (ignora CANCELED/OVERDUE)
-    const activeSubscriptions = subscriptions.filter(
+    // A lista já vem ordenada por createdAt desc.
+    // Mantemos apenas a assinatura mais recente por pacote;
+    // se a mais recente estiver CANCELED/OVERDUE, não exibimos assinatura para o pacote.
+    const latestByPackage = new Map<string, (typeof subscriptions)[number]>();
+
+    for (const sub of subscriptions) {
+      if (!latestByPackage.has(sub.package.id)) {
+        latestByPackage.set(sub.package.id, sub);
+      }
+    }
+
+    const visibleSubscriptions = Array.from(latestByPackage.values()).filter(
       (sub) => sub.status === "ACTIVE" || sub.status === "INACTIVE"
     );
-    return new Map(activeSubscriptions.map((sub) => [sub.package.id, sub]));
+
+    return new Map(visibleSubscriptions.map((sub) => [sub.package.id, sub]));
   }, [subscriptions]);
 
   const filteredPackages = useMemo(() => {
@@ -225,24 +236,30 @@ export default function StudentPaymentsClient({
     setCancelingId(subscriptionId);
     setMessage(null);
 
-    const response = await fetch(`/api/subscriptions/${subscriptionId}`, {
-      method: "DELETE"
-    });
+    try {
+      const response = await fetch(`/api/subscriptions/${subscriptionId}`, {
+        method: "DELETE"
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setMessage(data?.message ?? "Falha ao cancelar assinatura.");
+        return;
+      }
+
       const data = await response.json().catch(() => ({}));
-      setMessage(data?.message ?? "Falha ao cancelar assinatura.");
-      setCancelingId(null);
-      return;
-    }
 
-    setMessage("✅ Assinatura cancelada com sucesso!");
-    setCancelingId(null);
-    
-    // Recarregar a página após 2 segundos
-    setTimeout(() => {
-      window.location.reload();
-    }, 2000);
+      setMessage(data?.message ?? "✅ Assinatura cancelada com sucesso!");
+
+      // Recarregar a página após 2 segundos
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch {
+      setMessage("Falha ao cancelar assinatura. Verifique sua conexão e tente novamente.");
+    } finally {
+      setCancelingId(null);
+    }
   }
 
   async function handleAllocate(paymentId: string) {

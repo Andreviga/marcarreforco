@@ -4,6 +4,21 @@ import { requireApiRole } from "@/lib/api-auth";
 import { asaasFetch } from "@/lib/asaas";
 import { logAudit } from "@/lib/audit";
 
+type AsaasPaymentListResponse = {
+  data?: Array<{
+    id: string;
+    status?: string;
+  }>;
+};
+
+const OPEN_PAYMENT_STATUSES = new Set(["PENDING", "OVERDUE", "AWAITING_RISK_ANALYSIS"]);
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "Erro desconhecido";
+}
+
 // DELETE /api/subscriptions/[id] - Cancelar assinatura
 export async function DELETE(
   request: Request,
@@ -42,10 +57,56 @@ export async function DELETE(
   }
 
   try {
+    let canceledPaymentsCount = 0;
+    let hasOpenPayments = false;
+    let asaasCancelWarning: string | null = null;
+
+    // Sempre que cancelar assinatura, cancelar também cobranças ainda em aberto no Asaas.
+    const payments = await asaasFetch<AsaasPaymentListResponse>(
+      `/payments?subscription=${subscription.asaasId}&limit=100`,
+      { method: "GET" }
+    );
+
+    const openPaymentIds = (payments.data ?? [])
+      .filter((payment) => OPEN_PAYMENT_STATUSES.has(payment.status ?? ""))
+      .map((payment) => payment.id);
+
+    hasOpenPayments = openPaymentIds.length > 0;
+
+    for (const paymentId of openPaymentIds) {
+      await asaasFetch(`/payments/${paymentId}`, {
+        method: "DELETE"
+      });
+    }
+
+    if (openPaymentIds.length > 0) {
+      canceledPaymentsCount = openPaymentIds.length;
+
+      await prisma.asaasPayment.updateMany({
+        where: {
+          asaasId: { in: openPaymentIds }
+        },
+        data: {
+          status: "CANCELED"
+        }
+      });
+    }
+
     // Cancelar assinatura no Asaas
-    await asaasFetch(`/subscriptions/${subscription.asaasId}`, {
-      method: "DELETE"
-    });
+    try {
+      await asaasFetch(`/subscriptions/${subscription.asaasId}`, {
+        method: "DELETE"
+      });
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+
+      if (!hasOpenPayments) {
+        asaasCancelWarning =
+          "Assinatura marcada como cancelada no sistema. O Asaas retornou erro ao encerrar o registro remoto, mas não há cobranças pendentes para esta assinatura.";
+      } else {
+        throw new Error(errorMessage);
+      }
+    }
 
     // Atualizar status no banco
     const updated = await prisma.asaasSubscription.update({
@@ -68,18 +129,27 @@ export async function DELETE(
     });
 
     return NextResponse.json({ 
-      message: "Assinatura cancelada com sucesso",
-      subscription: updated
+      message:
+        asaasCancelWarning ??
+        (canceledPaymentsCount > 0
+          ? `Assinatura cancelada com sucesso. ${canceledPaymentsCount} cobrança(s) pendente(s) também foram canceladas no Asaas.`
+          : "Assinatura cancelada com sucesso"),
+      subscription: updated,
+      canceledPaymentsCount,
+      asaasCancelWarning
     });
   } catch (error) {
+    const errorMessage = getErrorMessage(error);
+
     console.error("CANCEL_SUBSCRIPTION_ERROR", {
       subscriptionId,
       asaasId: subscription.asaasId,
-      error: error instanceof Error ? error.message : error
+      error: errorMessage
     });
     
     return NextResponse.json({ 
-      message: "Erro ao cancelar assinatura. Tente novamente." 
+      message: "Erro ao cancelar assinatura. Tente novamente.",
+      detail: errorMessage
     }, { status: 500 });
   }
 }

@@ -6,10 +6,18 @@ const ASAAS_ENV = (process.env.ASAAS_ENV as AsaasEnvironment | undefined) ?? "sa
 const ASAAS_BASE_URL =
   ASAAS_ENV === "production" ? "https://www.asaas.com/api/v3" : "https://sandbox.asaas.com/api/v3";
 
+function getEnvValue(...keys: string[]) {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value) return value;
+  }
+  return undefined;
+}
+
 function getApiKey() {
-  const apiKey = process.env.ASAAS_API_KEY;
+  const apiKey = getEnvValue("ASAAS_API_KEY", "ASAAS_ACCESS_TOKEN");
   if (!apiKey) {
-    throw new Error("ASAAS_API_KEY não configurada");
+    throw new Error("ASAAS_API_KEY/ASAAS_ACCESS_TOKEN não configurada");
   }
   return apiKey;
 }
@@ -31,7 +39,20 @@ export async function asaasFetch<T>(path: string, options: AsaasRequestOptions =
     throw new Error(`Asaas error (${response.status}): ${message}`);
   }
 
-  return (await response.json()) as T;
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const rawBody = await response.text();
+  if (!rawBody.trim()) {
+    return undefined as T;
+  }
+
+  try {
+    return JSON.parse(rawBody) as T;
+  } catch {
+    return rawBody as T;
+  }
 }
 
 export function normalizeDocument(document: string) {

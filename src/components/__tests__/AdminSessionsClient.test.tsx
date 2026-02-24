@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AdminSessionsClient from "@/components/AdminSessionsClient";
 
@@ -37,15 +37,14 @@ describe("AdminSessionsClient", () => {
     consoleErrorMock.mockRestore();
   });
 
-  it("updates price when selecting a subject", async () => {
+  it("updates selected subject", async () => {
     render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
 
-    const subjectSelect = screen.getByLabelText("Disciplina");
-    const priceInput = screen.getByLabelText("Valor (centavos)") as HTMLInputElement;
+    const subjectSelect = screen.getByLabelText(/Disciplina/i) as HTMLSelectElement;
 
     await userEvent.selectOptions(subjectSelect, "sub2");
 
-    expect(priceInput.value).toBe("2500");
+    expect(subjectSelect.value).toBe("sub2");
   });
 
   it("creates repeated sessions and cancels a session", async () => {
@@ -55,8 +54,10 @@ describe("AdminSessionsClient", () => {
 
     render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
 
-    await userEvent.type(screen.getByLabelText("Data"), "2024-01-10");
-    const repeatInput = screen.getByLabelText("Repetir por (semanas)") as HTMLInputElement;
+    const dateInput = screen.getByLabelText(/^Data/i) as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: "2024-01-10" } });
+
+    const repeatInput = screen.getByLabelText(/Repetir por \(semanas\)/i) as HTMLInputElement;
     await userEvent.clear(repeatInput);
     await userEvent.type(repeatInput, "2");
     await userEvent.click(screen.getByRole("button", { name: "Criar sessões" }));

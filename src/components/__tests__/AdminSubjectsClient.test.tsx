@@ -21,7 +21,7 @@ describe("AdminSubjectsClient", () => {
   it("renders subjects and formatted price", () => {
     render(<AdminSubjectsClient subjects={subjects} />);
 
-    const item = screen.getByText(/Física/);
+    const item = screen.getByText("Física").closest("li");
     expect(item).toHaveTextContent(/R\$/);
     expect(screen.getByText("Química")).toBeInTheDocument();
   });
@@ -33,8 +33,8 @@ describe("AdminSubjectsClient", () => {
 
     render(<AdminSubjectsClient subjects={[]} />);
 
-    await userEvent.type(screen.getByPlaceholderText("Nome da disciplina"), "Biologia");
-    const priceInput = screen.getByPlaceholderText("Valor");
+    await userEvent.type(screen.getByPlaceholderText("Ex.: Matemática"), "Biologia");
+    const priceInput = screen.getByPlaceholderText("Ex.: 5000");
     await userEvent.clear(priceInput);
     await userEvent.type(priceInput, "2500");
     await userEvent.click(screen.getByRole("button", { name: "Criar" }));

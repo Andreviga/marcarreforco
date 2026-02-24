@@ -5,11 +5,27 @@ import { addPaymentCredits, adjustCredits } from "@/lib/credits";
 
 const paymentStatusMap: Record<string, "PENDING" | "CONFIRMED" | "OVERDUE" | "CANCELED" | "REFUNDED"> = {
   PENDING: "PENDING",
+  AWAITING_RISK_ANALYSIS: "PENDING",
   RECEIVED: "CONFIRMED",
   CONFIRMED: "CONFIRMED",
+  RECEIVED_IN_CASH: "CONFIRMED",
   OVERDUE: "OVERDUE",
   CANCELED: "CANCELED",
-  REFUNDED: "REFUNDED"
+  DELETED: "CANCELED",
+  REFUNDED: "REFUNDED",
+  RECEIVED_IN_CASH_UNDONE: "REFUNDED"
+};
+
+const paymentEventStatusMap: Record<string, "PENDING" | "CONFIRMED" | "OVERDUE" | "CANCELED" | "REFUNDED"> = {
+  PAYMENT_CREATED: "PENDING",
+  PAYMENT_AWAITING_RISK_ANALYSIS: "PENDING",
+  PAYMENT_AUTHORIZED: "PENDING",
+  PAYMENT_RECEIVED: "CONFIRMED",
+  PAYMENT_CONFIRMED: "CONFIRMED",
+  PAYMENT_OVERDUE: "OVERDUE",
+  PAYMENT_DELETED: "CANCELED",
+  PAYMENT_REFUNDED: "REFUNDED",
+  PAYMENT_RECEIVED_IN_CASH_UNDONE: "REFUNDED"
 };
 
 const subscriptionStatusMap: Record<string, "ACTIVE" | "INACTIVE" | "CANCELED" | "OVERDUE"> = {
@@ -27,8 +43,11 @@ function parseExternalReference(value?: string | null) {
 }
 
 export async function POST(request: Request) {
-  const token = process.env.ASAAS_WEBHOOK_TOKEN;
-  const provided = request.headers.get("asaas-access-token");
+  const token = process.env.ASAAS_WEBHOOK_TOKEN ?? process.env.ASAAS_WEBHOOK_ACCESS_TOKEN;
+  const provided =
+    request.headers.get("asaas-access-token") ??
+    request.headers.get("Asaas-Access-Token") ??
+    request.headers.get("access_token");
   if (token && provided !== token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
@@ -59,7 +78,10 @@ export async function POST(request: Request) {
 
   if (payload.payment?.id) {
     const paymentData = payload.payment;
-    const status = paymentStatusMap[paymentData.status ?? "PENDING"] ?? "PENDING";
+    const status =
+      paymentStatusMap[paymentData.status ?? ""] ??
+      paymentEventStatusMap[payload.event ?? ""] ??
+      "PENDING";
 
     let payment: Prisma.AsaasPaymentGetPayload<{ include: { package: true } }> | null =
       await prisma.asaasPayment.findUnique({
@@ -157,8 +179,13 @@ export async function POST(request: Request) {
 
   if (payload.subscription?.id) {
     const status = subscriptionStatusMap[payload.subscription.status ?? "INACTIVE"] ?? "INACTIVE";
+    const where =
+      status === "CANCELED"
+        ? { asaasId: payload.subscription.id }
+        : { asaasId: payload.subscription.id, status: { not: "CANCELED" as const } };
+
     await prisma.asaasSubscription.updateMany({
-      where: { asaasId: payload.subscription.id },
+      where,
       data: {
         status,
         nextDueDate: payload.subscription.nextDueDate ? new Date(payload.subscription.nextDueDate) : null
@@ -168,10 +195,16 @@ export async function POST(request: Request) {
 
   // Ativar assinatura quando o primeiro pagamento for confirmado
   if (payload.payment?.subscription && payload.payment?.id) {
-    const paymentStatus = paymentStatusMap[payload.payment.status ?? "PENDING"] ?? "PENDING";
+    const paymentStatus =
+      paymentStatusMap[payload.payment.status ?? ""] ??
+      paymentEventStatusMap[payload.event ?? ""] ??
+      "PENDING";
     if (paymentStatus === "CONFIRMED") {
       await prisma.asaasSubscription.updateMany({
-        where: { asaasId: payload.payment.subscription },
+        where: {
+          asaasId: payload.payment.subscription,
+          status: { not: "CANCELED" }
+        },
         data: { status: "ACTIVE" }
       });
     }
