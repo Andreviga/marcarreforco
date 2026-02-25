@@ -36,6 +36,26 @@ export default function AgendaClient({
   const [filterLocation, setFilterLocation] = useState("");
   const enrolledMap = new Map(enrollments.map((enr) => [enr.sessionId, enr]));
 
+  function getHelpHint(message: string) {
+    const normalized = message.toLowerCase();
+    if (normalized.includes("série")) {
+      return "Verifique sua série no perfil ou escolha uma aula compatível com o seu ano escolar.";
+    }
+    if (normalized.includes("turma")) {
+      return "Escolha uma aula da sua turma ou peça ao suporte para revisar seu cadastro.";
+    }
+    if (normalized.includes("créditos")) {
+      return "Compre um pacote em Pagamentos ou aplique créditos pendentes antes de tentar novamente.";
+    }
+    if (normalized.includes("fora do prazo") || normalized.includes("já começou")) {
+      return "Selecione uma sessão futura para agendar.";
+    }
+    if (normalized.includes("não está disponível")) {
+      return "A sessão pode ter sido cancelada. Atualize a agenda e tente outra opção.";
+    }
+    return null;
+  }
+
   async function handleEnroll(sessionId: string) {
     setLoadingId(sessionId);
     setErrorMessage(null);
@@ -105,7 +125,12 @@ export default function AgendaClient({
           />
         </div>
         {errorMessage && (
-          <p className="mt-3 text-sm text-red-600">{errorMessage}</p>
+          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+            <p className="text-sm font-medium text-red-700">{errorMessage}</p>
+            {getHelpHint(errorMessage) && (
+              <p className="mt-1 text-xs text-red-600">{getHelpHint(errorMessage)}</p>
+            )}
+          </div>
         )}
       </div>
       <div className="grid gap-4">
