@@ -2,25 +2,27 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import InscricoesClient from "@/components/InscricoesClient";
 
+const now = Date.now();
+
 const enrollments = [
   {
     id: "e1",
     status: "AGENDADO",
     session: {
       id: "s1",
-      startsAt: new Date("2024-01-10T10:00:00.000Z"),
-      endsAt: new Date("2024-01-10T11:00:00.000Z"),
+      startsAt: new Date(now + 7 * 24 * 60 * 60 * 1000),
+      endsAt: new Date(now + 7 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000),
       subject: { name: "Matemática" },
       teacher: { name: "Ana" }
     }
   },
   {
     id: "e2",
-    status: "CANCELADO",
+    status: "AGENDADO",
     session: {
       id: "s2",
-      startsAt: new Date("2024-01-12T10:00:00.000Z"),
-      endsAt: new Date("2024-01-12T11:00:00.000Z"),
+      startsAt: new Date(now + 24 * 60 * 60 * 1000),
+      endsAt: new Date(now + 24 * 60 * 60 * 1000 + 60 * 60 * 1000),
       subject: { name: "História" },
       teacher: { name: "Bruno" }
     }
@@ -38,19 +40,20 @@ describe("InscricoesClient", () => {
     consoleErrorMock.mockRestore();
   });
 
-  it("shows unenroll button only for scheduled enrollments and submits", async () => {
+  it("shows cancel rules and only allows click when more than 48h", async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true });
     // @ts-expect-error - override fetch for test
     global.fetch = fetchMock;
 
     render(<InscricoesClient enrollments={enrollments} />);
 
-    expect(screen.getByText("Matemática")).toBeInTheDocument();
-    expect(screen.getByText("História")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Desmarcar" })).toBeInTheDocument();
-    expect(screen.queryByText("Desmarcando...")).not.toBeInTheDocument();
+    const buttons = screen.getAllByRole("button", { name: "Desmarcar" }) as HTMLButtonElement[];
 
-    await userEvent.click(screen.getByRole("button", { name: "Desmarcar" }));
+    expect(buttons[0]).toBeEnabled();
+    expect(buttons[1]).toBeDisabled();
+    expect(screen.getByText(/Desmarcação permitida apenas até 48h antes da aula/i)).toBeInTheDocument();
+
+    await userEvent.click(buttons[0]);
 
     expect(fetchMock).toHaveBeenCalledWith("/api/unenroll", {
       method: "POST",
