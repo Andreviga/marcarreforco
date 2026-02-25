@@ -9,7 +9,7 @@ interface Subject {
   id: string;
   name: string;
   defaultPriceCents?: number;
-  eligibleTurmas: EligibleTurma[];
+  eligibleTurmas: string[];
 }
 
 const TURMA_OPTIONS: Array<{ value: EligibleTurma; label: string }> = [
@@ -17,9 +17,13 @@ const TURMA_OPTIONS: Array<{ value: EligibleTurma; label: string }> = [
   { value: "TARDE", label: "Tarde" }
 ];
 
-function formatEligibleTurmas(value: EligibleTurma[]) {
+function isEligibleTurma(value: string): value is EligibleTurma {
+  return value === "MANHA" || value === "TARDE";
+}
+
+function formatEligibleTurmas(value: string[]) {
   if (value.length === 0) return "Todas as turmas";
-  return value.map((item) => (item === "MANHA" ? "Manhã" : "Tarde")).join(", ");
+  return value.map((item) => (item === "MANHA" ? "Manhã" : item === "TARDE" ? "Tarde" : item)).join(", ");
 }
 
 function toggleTurma(current: EligibleTurma[], turma: EligibleTurma) {
@@ -53,7 +57,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
     setEditingId(subject.id);
     setEditName(subject.name);
     setEditDefaultPriceCents(subject.defaultPriceCents ?? 0);
-    setEditEligibleTurmas(subject.eligibleTurmas ?? []);
+    setEditEligibleTurmas((subject.eligibleTurmas ?? []).filter(isEligibleTurma));
   }
 
   function cancelEdit() {
