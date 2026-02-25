@@ -7,6 +7,14 @@ const optionalText = () =>
     z.string().trim().min(1).max(60).optional()
   );
 
+const normalizeTurma = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const normalizeSerie = (value: string) =>
   value
     .toLowerCase()
@@ -57,6 +65,36 @@ export function isPackageEligibleForSerie(packageName: string, studentSerie: str
   }
 
   // Pacotes gerais sem especificação de série
+  return true;
+}
+
+// Função para verificar se um pacote é elegível para a turma do aluno
+export function isPackageEligibleForTurma(packageName: string, studentTurma: string | null | undefined): boolean {
+  if (!studentTurma) return true; // Se não tem turma, mostra todos
+
+  const packageNormalized = normalizeTurma(packageName);
+  const turmaNormalized = normalizeTurma(studentTurma);
+
+  const packageHasManha = packageNormalized.includes("manha");
+  const packageHasTarde = packageNormalized.includes("tarde");
+
+  // Pacote sem recorte de turma
+  if (!packageHasManha && !packageHasTarde) {
+    return true;
+  }
+
+  const studentIsManha = turmaNormalized.includes("manha");
+  const studentIsTarde = turmaNormalized.includes("tarde");
+
+  if (packageHasManha && !packageHasTarde) {
+    return studentIsManha;
+  }
+
+  if (packageHasTarde && !packageHasManha) {
+    return studentIsTarde;
+  }
+
+  // Pacote atende ambas as turmas
   return true;
 }
 
