@@ -219,7 +219,7 @@ export const profileDocumentSchema = z.object({
 
 export const creditAllocationSchema = z.object({
   paymentId: z.string().min(1),
-  subjectId: z.string().min(1)
+  subjectId: z.string().min(1).optional()
 });
 
 export const adminCreditAdjustSchema = z.object({

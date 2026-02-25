@@ -28,26 +28,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Pagamento ainda não confirmado" }, { status: 400 });
   }
 
-  if (payment.package.subjectId) {
-    return NextResponse.json({ message: "Pacote já possui disciplina" }, { status: 400 });
-  }
-
   const alreadyCredited = payment.creditLedger.some((entry) => entry.reason === "PAYMENT_CREDIT");
   if (alreadyCredited) {
     return NextResponse.json({ message: "Crédito já aplicado" }, { status: 400 });
   }
 
-  const subject = await prisma.subject.findUnique({
-    where: { id: parsed.data.subjectId }
-  });
-
-  if (!subject) {
-    return NextResponse.json({ message: "Disciplina inválida" }, { status: 400 });
-  }
-
   await addPaymentCredits({
     studentId: payment.userId,
-    subjectId: subject.id,
+    subjectId: payment.package.subjectId ?? "",
     amount: payment.package.sessionCount,
     paymentId: payment.id,
     paidAt: payment.paidAt
@@ -58,8 +46,8 @@ export async function POST(request: Request) {
     action: "ALLOCATE_CREDITS",
     entityType: "AsaasPayment",
     entityId: payment.id,
-    payload: { subjectId: subject.id }
+    payload: { mode: "UNIVERSAL" }
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, message: "Créditos aplicados no saldo geral." });
 }

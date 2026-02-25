@@ -168,10 +168,10 @@ export async function POST(request: Request) {
         where: { paymentId: payment.id, reason: "PAYMENT_CREDIT" }
       });
 
-      if (!alreadyCredited && payment.package.subjectId) {
+      if (!alreadyCredited) {
         await addPaymentCredits({
           studentId: payment.userId,
-          subjectId: payment.package.subjectId,
+          subjectId: payment.package.subjectId ?? "",
           amount: payment.package.sessionCount,
           paymentId: payment.id,
           paidAt: payment.paidAt
@@ -187,10 +187,10 @@ export async function POST(request: Request) {
         where: { paymentId: payment.id, reason: "ADMIN_ADJUST" }
       });
 
-      if (credited && !reversed && payment.package.subjectId) {
+      if (credited && !reversed) {
         await adjustCredits({
           studentId: payment.userId,
-          subjectId: payment.package.subjectId,
+          subjectId: payment.package.subjectId ?? "",
           delta: -payment.package.sessionCount,
           reason: "ADMIN_ADJUST",
           paymentId: payment.id

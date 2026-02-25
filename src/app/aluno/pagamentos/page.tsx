@@ -37,7 +37,7 @@ export default async function AlunoPagamentosPage() {
   });
   const activeSubjectIds = activeSessions.map((s) => s.subjectId);
 
-  const [allPackages, balances, subjects, pendingPayments] = await Promise.all([
+  const [allPackages, balances, subjects] = await Promise.all([
     prisma.sessionPackage.findMany({
       where: {
         OR: [
@@ -55,17 +55,7 @@ export default async function AlunoPagamentosPage() {
       orderBy: { createdAt: "desc" }
     }),
     getBalancesForStudent(session.user.id),
-    prisma.subject.findMany({ orderBy: { name: "asc" } }),
-    prisma.asaasPayment.findMany({
-      where: {
-        userId: session.user.id,
-        status: "CONFIRMED",
-        package: { subjectId: null },
-        creditLedger: { none: { reason: "PAYMENT_CREDIT" } }
-      },
-      include: { package: true },
-      orderBy: { createdAt: "desc" }
-    })
+    prisma.subject.findMany({ orderBy: { name: "asc" } })
   ]);
 
   // Filtrar pacotes pela série do aluno
@@ -111,14 +101,7 @@ export default async function AlunoPagamentosPage() {
           };
         })}
         subjects={subjects.map((subject) => ({ id: subject.id, name: subject.name }))}
-        pendingCredits={pendingPayments.map((payment) => ({
-          id: payment.id,
-          createdAt: payment.createdAt.toISOString(),
-          package: {
-            name: payment.package.name,
-            sessionCount: payment.package.sessionCount
-          }
-        }))}
+        pendingCredits={[]}
         document={profile?.document ?? null}
       />
     </AppShell>

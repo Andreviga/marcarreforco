@@ -66,11 +66,6 @@ export async function POST(request: Request) {
       return enrollmentError("Não foi possível agendar: esta aula não é da sua turma.");
     }
 
-    const wildcardSubject = await prisma.subject.findFirst({
-      where: { name: { equals: "A DEFINIR", mode: "insensitive" } },
-      select: { id: true }
-    });
-
     const currentBalance = await getBalance(session.user.id, sessionRecord.subjectId);
     if (currentBalance <= 0) {
       const pendingPayment = await prisma.asaasPayment.findFirst({
@@ -114,30 +109,12 @@ export async function POST(request: Request) {
           }
         });
 
-        try {
-          await reserveCredit({
-            tx,
-            studentId: session.user.id,
-            subjectId: sessionRecord.subjectId,
-            enrollmentId: updated.id
-          });
-        } catch (error) {
-          if (
-            error instanceof Error &&
-            error.message === "SEM_CREDITO" &&
-            wildcardSubject &&
-            wildcardSubject.id !== sessionRecord.subjectId
-          ) {
-            await reserveCredit({
-              tx,
-              studentId: session.user.id,
-              subjectId: wildcardSubject.id,
-              enrollmentId: updated.id
-            });
-          } else {
-            throw error;
-          }
-        }
+        await reserveCredit({
+          tx,
+          studentId: session.user.id,
+          subjectId: sessionRecord.subjectId,
+          enrollmentId: updated.id
+        });
 
         return updated;
       });
