@@ -1,6 +1,6 @@
 /** @jest-environment node */
 
-import { isPackageEligibleForSerie, isPackageEligibleForTurma, isTurmaEligible } from "@/lib/validators";
+import { isPackageEligibleForSerie, isSerieEligible } from "@/lib/validators";
 
 describe("validators package eligibility", () => {
   describe("isPackageEligibleForSerie", () => {
@@ -15,34 +15,16 @@ describe("validators package eligibility", () => {
     });
   });
 
-
-  describe("isTurmaEligible", () => {
-    it("allows any turma when discipline has no eligibility restriction", () => {
-      expect(isTurmaEligible([], "Manhã")).toBe(true);
-      expect(isTurmaEligible(undefined, "Tarde")).toBe(true);
+  describe("isSerieEligible", () => {
+    it("allows any serie when discipline has no eligibility restriction", () => {
+      expect(isSerieEligible([], "1º ano")).toBe(true);
+      expect(isSerieEligible(undefined, "9º ano")).toBe(true);
     });
 
-    it("enforces discipline eligible turmas", () => {
-      expect(isTurmaEligible(["MANHA"], "Manhã")).toBe(true);
-      expect(isTurmaEligible(["MANHA"], "Tarde")).toBe(false);
-      expect(isTurmaEligible(["TARDE"], "Tarde")).toBe(true);
-    });
-  });
-
-  describe("isPackageEligibleForTurma", () => {
-    it("allows generic package for any turma", () => {
-      expect(isPackageEligibleForTurma("Pacote Matemática", "Manhã")).toBe(true);
-      expect(isPackageEligibleForTurma("Pacote Matemática", "Tarde")).toBe(true);
-    });
-
-    it("restricts package with Manhã marker", () => {
-      expect(isPackageEligibleForTurma("Pacote Matemática - Manhã", "Manhã")).toBe(true);
-      expect(isPackageEligibleForTurma("Pacote Matemática - Manhã", "Tarde")).toBe(false);
-    });
-
-    it("restricts package with Tarde marker", () => {
-      expect(isPackageEligibleForTurma("Pacote Português - Tarde", "Tarde")).toBe(true);
-      expect(isPackageEligibleForTurma("Pacote Português - Tarde", "Manhã")).toBe(false);
+    it("enforces discipline eligible series", () => {
+      expect(isSerieEligible(["1", "2", "3"], "2º ano")).toBe(true);
+      expect(isSerieEligible(["1", "2", "3"], "5º ano")).toBe(false);
+      expect(isSerieEligible(["7", "8", "9"], "8º ano")).toBe(true);
     });
   });
 });

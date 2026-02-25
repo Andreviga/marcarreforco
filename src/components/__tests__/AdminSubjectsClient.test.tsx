@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import AdminSubjectsClient from "@/components/AdminSubjectsClient";
 
 const subjects = [
-  { id: "s1", name: "Física", defaultPriceCents: 1200, eligibleTurmas: ["MANHA"] },
-  { id: "s2", name: "Química", eligibleTurmas: [] }
+  { id: "s1", name: "Física", defaultPriceCents: 1200, eligibleSeries: ["1","2","3"] },
+  { id: "s2", name: "Química", eligibleSeries: [] }
 ];
 
 describe("AdminSubjectsClient", () => {
@@ -42,7 +42,7 @@ describe("AdminSubjectsClient", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/subjects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Biologia", defaultPriceCents: 2500, eligibleTurmas: [] })
+      body: JSON.stringify({ name: "Biologia", defaultPriceCents: 2500, eligibleSeries: [] })
     });
   });
 });

@@ -1,7 +1,7 @@
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { getBalancesForStudent } from "@/lib/credits";
-import { isPackageEligibleForSerie, isPackageEligibleForTurma, isTurmaEligible } from "@/lib/validators";
+import { isPackageEligibleForSerie, isSerieEligible } from "@/lib/validators";
 import AppShell from "@/components/AppShell";
 import StudentPaymentsClient from "@/components/StudentPaymentsClient";
 
@@ -71,8 +71,7 @@ export default async function AlunoPagamentosPage() {
   // Filtrar pacotes pela série do aluno
   const packages = allPackages.filter((pkg) =>
     isPackageEligibleForSerie(pkg.name, profile?.serie) &&
-    isPackageEligibleForTurma(pkg.name, profile?.turma) &&
-    isTurmaEligible(pkg.subject?.eligibleTurmas as Array<"MANHA" | "TARDE"> | undefined, profile?.turma)
+    isSerieEligible(pkg.subject?.eligibleSeries, profile?.serie)
   );
 
   return (

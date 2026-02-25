@@ -30,7 +30,8 @@ export async function POST(request: Request) {
     data: {
       name: parsed.data.name,
       defaultPriceCents: parsed.data.defaultPriceCents ?? 0,
-      eligibleTurmas: parsed.data.eligibleTurmas ?? []
+      eligibleTurmas: parsed.data.eligibleTurmas ?? [],
+      eligibleSeries: parsed.data.eligibleSeries ?? []
     }
   });
 
@@ -60,7 +61,8 @@ export async function PATCH(request: Request) {
     data: {
       name: parsed.data.name,
       defaultPriceCents: parsed.data.defaultPriceCents ?? 0,
-      eligibleTurmas: parsed.data.eligibleTurmas ?? []
+      eligibleTurmas: parsed.data.eligibleTurmas ?? [],
+      eligibleSeries: parsed.data.eligibleSeries ?? []
     }
   });
 

@@ -82,6 +82,20 @@ export function isTurmaEligible(
   return (eligibleTurmas.includes("MANHA") && studentIsManha) || (eligibleTurmas.includes("TARDE") && studentIsTarde);
 }
 
+export function isSerieEligible(
+  eligibleSeries: string[] | null | undefined,
+  studentSerie: string | null | undefined
+): boolean {
+  if (!eligibleSeries || eligibleSeries.length === 0) return true;
+  if (!studentSerie) return false;
+
+  const normalized = normalizeSerie(studentSerie);
+  const serieNumber = parseInt(normalized.match(/^(\d+)/)?.[1] ?? "0", 10);
+  if (serieNumber < 1 || serieNumber > 9) return false;
+
+  return eligibleSeries.includes(String(serieNumber));
+}
+
 // Função para verificar se um pacote é elegível para a turma do aluno
 export function isPackageEligibleForTurma(packageName: string, studentTurma: string | null | undefined): boolean {
   if (!studentTurma) return true; // Se não tem turma, mostra todos
@@ -161,11 +175,13 @@ export const userDeleteSchema = z.object({
 });
 
 const turmaEligibilitySchema = z.array(z.enum(["MANHA", "TARDE"])).optional();
+const serieEligibilitySchema = z.array(z.enum(["1", "2", "3", "4", "5", "6", "7", "8", "9"])).optional();
 
 export const subjectSchema = z.object({
   name: z.string().min(2),
   defaultPriceCents: z.number().int().min(0).optional(),
-  eligibleTurmas: turmaEligibilitySchema
+  eligibleTurmas: turmaEligibilitySchema,
+  eligibleSeries: serieEligibilitySchema
 });
 
 export const subjectUpdateSchema = subjectSchema.extend({

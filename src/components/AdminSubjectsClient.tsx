@@ -3,44 +3,55 @@
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 
-type EligibleTurma = "MANHA" | "TARDE";
+type EligibleSerie = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
 
 interface Subject {
   id: string;
   name: string;
   defaultPriceCents?: number;
-  eligibleTurmas: string[];
+  eligibleSeries: string[];
 }
 
-const TURMA_OPTIONS: Array<{ value: EligibleTurma; label: string }> = [
-  { value: "MANHA", label: "Manhã" },
-  { value: "TARDE", label: "Tarde" }
+const SERIE_OPTIONS: Array<{ value: EligibleSerie; label: string }> = [
+  { value: "1", label: "1º ano" },
+  { value: "2", label: "2º ano" },
+  { value: "3", label: "3º ano" },
+  { value: "4", label: "4º ano" },
+  { value: "5", label: "5º ano" },
+  { value: "6", label: "6º ano" },
+  { value: "7", label: "7º ano" },
+  { value: "8", label: "8º ano" },
+  { value: "9", label: "9º ano" }
 ];
 
-function isEligibleTurma(value: string): value is EligibleTurma {
-  return value === "MANHA" || value === "TARDE";
+function isEligibleSerie(value: string): value is EligibleSerie {
+  return ["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(value);
 }
 
-function formatEligibleTurmas(value: string[]) {
-  if (value.length === 0) return "Todas as turmas";
-  return value.map((item) => (item === "MANHA" ? "Manhã" : item === "TARDE" ? "Tarde" : item)).join(", ");
+function formatEligibleSeries(value: string[]) {
+  if (value.length === 0) return "Todas as séries";
+  return value
+    .filter(isEligibleSerie)
+    .sort((a, b) => Number(a) - Number(b))
+    .map((item) => `${item}º ano`)
+    .join(", ");
 }
 
-function toggleTurma(current: EligibleTurma[], turma: EligibleTurma) {
-  if (current.includes(turma)) {
-    return current.filter((item) => item !== turma);
+function toggleSerie(current: EligibleSerie[], serie: EligibleSerie) {
+  if (current.includes(serie)) {
+    return current.filter((item) => item !== serie);
   }
-  return [...current, turma];
+  return [...current, serie];
 }
 
 export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] }) {
   const [name, setName] = useState("");
   const [defaultPriceCents, setDefaultPriceCents] = useState(0);
-  const [eligibleTurmas, setEligibleTurmas] = useState<EligibleTurma[]>([]);
+  const [eligibleSeries, setEligibleSeries] = useState<EligibleSerie[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDefaultPriceCents, setEditDefaultPriceCents] = useState(0);
-  const [editEligibleTurmas, setEditEligibleTurmas] = useState<EligibleTurma[]>([]);
+  const [editEligibleSeries, setEditEligibleSeries] = useState<EligibleSerie[]>([]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
@@ -48,7 +59,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
     await fetch("/api/admin/subjects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, defaultPriceCents, eligibleTurmas })
+      body: JSON.stringify({ name, defaultPriceCents, eligibleSeries })
     });
     window.location.reload();
   }
@@ -57,14 +68,14 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
     setEditingId(subject.id);
     setEditName(subject.name);
     setEditDefaultPriceCents(subject.defaultPriceCents ?? 0);
-    setEditEligibleTurmas((subject.eligibleTurmas ?? []).filter(isEligibleTurma));
+    setEditEligibleSeries((subject.eligibleSeries ?? []).filter(isEligibleSerie));
   }
 
   function cancelEdit() {
     setEditingId(null);
     setEditName("");
     setEditDefaultPriceCents(0);
-    setEditEligibleTurmas([]);
+    setEditEligibleSeries([]);
   }
 
   async function handleUpdate() {
@@ -76,7 +87,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
         id: editingId,
         name: editName,
         defaultPriceCents: editDefaultPriceCents,
-        eligibleTurmas: editEligibleTurmas
+        eligibleSeries: editEligibleSeries
       })
     });
     window.location.reload();
@@ -115,19 +126,19 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
           />
           <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">Criar</button>
         </div>
-        <div className="mt-3 flex flex-wrap gap-4">
-          {TURMA_OPTIONS.map((option) => (
+        <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-9">
+          {SERIE_OPTIONS.map((option) => (
             <label key={option.value} className="inline-flex items-center gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
-                checked={eligibleTurmas.includes(option.value)}
-                onChange={() => setEligibleTurmas((current) => toggleTurma(current, option.value))}
+                checked={eligibleSeries.includes(option.value)}
+                onChange={() => setEligibleSeries((current) => toggleSerie(current, option.value))}
               />
               {option.label}
             </label>
           ))}
-          <span className="text-xs text-slate-500">Sem seleção = todas as turmas</span>
         </div>
+        <span className="mt-2 block text-xs text-slate-500">Sem seleção = todas as séries (1º ao 9º ano)</span>
         <p className="mt-2 text-xs text-slate-500">Valor em centavos (R$ 50,00 = 5000). Deixe 0 para usar preço manual.</p>
       </form>
 
@@ -152,19 +163,19 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
                       onChange={(event) => setEditDefaultPriceCents(Number(event.target.value))}
                     />
                   </div>
-                  <div className="flex flex-wrap gap-4">
-                    {TURMA_OPTIONS.map((option) => (
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-9">
+                    {SERIE_OPTIONS.map((option) => (
                       <label key={option.value} className="inline-flex items-center gap-2 text-sm text-slate-700">
                         <input
                           type="checkbox"
-                          checked={editEligibleTurmas.includes(option.value)}
-                          onChange={() => setEditEligibleTurmas((current) => toggleTurma(current, option.value))}
+                          checked={editEligibleSeries.includes(option.value)}
+                          onChange={() => setEditEligibleSeries((current) => toggleSerie(current, option.value))}
                         />
                         {option.label}
                       </label>
                     ))}
-                    <span className="text-xs text-slate-500">Sem seleção = todas as turmas</span>
                   </div>
+                  <span className="text-xs text-slate-500">Sem seleção = todas as séries (1º ao 9º ano)</span>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -189,7 +200,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
                     {typeof subject.defaultPriceCents === "number" && subject.defaultPriceCents > 0
                       ? ` • Valor: ${formatCurrency(subject.defaultPriceCents)}`
                       : ""}
-                    {` • Turmas: ${formatEligibleTurmas(subject.eligibleTurmas ?? [])}`}
+                    {` • Séries: ${formatEligibleSeries(subject.eligibleSeries ?? [])}`}
                   </div>
                   <div className="flex gap-2">
                     <button
