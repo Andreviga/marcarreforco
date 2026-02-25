@@ -136,6 +136,7 @@ model Subject {
   id     String          @id @default(cuid())
   name   String          @unique
   defaultPriceCents Int  @default(0)
+  eligibleTurmas String[] @default([])
   teachers TeacherSubject[]
   sessions Session[]
   packages SessionPackage[]

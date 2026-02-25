@@ -3,18 +3,40 @@
 import { useState } from "react";
 import { formatCurrency } from "@/lib/format";
 
+type EligibleTurma = "MANHA" | "TARDE";
+
 interface Subject {
   id: string;
   name: string;
   defaultPriceCents?: number;
+  eligibleTurmas: EligibleTurma[];
+}
+
+const TURMA_OPTIONS: Array<{ value: EligibleTurma; label: string }> = [
+  { value: "MANHA", label: "Manhã" },
+  { value: "TARDE", label: "Tarde" }
+];
+
+function formatEligibleTurmas(value: EligibleTurma[]) {
+  if (value.length === 0) return "Todas as turmas";
+  return value.map((item) => (item === "MANHA" ? "Manhã" : "Tarde")).join(", ");
+}
+
+function toggleTurma(current: EligibleTurma[], turma: EligibleTurma) {
+  if (current.includes(turma)) {
+    return current.filter((item) => item !== turma);
+  }
+  return [...current, turma];
 }
 
 export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] }) {
   const [name, setName] = useState("");
   const [defaultPriceCents, setDefaultPriceCents] = useState(0);
+  const [eligibleTurmas, setEligibleTurmas] = useState<EligibleTurma[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDefaultPriceCents, setEditDefaultPriceCents] = useState(0);
+  const [editEligibleTurmas, setEditEligibleTurmas] = useState<EligibleTurma[]>([]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
@@ -22,7 +44,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
     await fetch("/api/admin/subjects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, defaultPriceCents })
+      body: JSON.stringify({ name, defaultPriceCents, eligibleTurmas })
     });
     window.location.reload();
   }
@@ -31,12 +53,14 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
     setEditingId(subject.id);
     setEditName(subject.name);
     setEditDefaultPriceCents(subject.defaultPriceCents ?? 0);
+    setEditEligibleTurmas(subject.eligibleTurmas ?? []);
   }
 
   function cancelEdit() {
     setEditingId(null);
     setEditName("");
     setEditDefaultPriceCents(0);
+    setEditEligibleTurmas([]);
   }
 
   async function handleUpdate() {
@@ -44,7 +68,12 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
     await fetch("/api/admin/subjects", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editingId, name: editName, defaultPriceCents: editDefaultPriceCents })
+      body: JSON.stringify({
+        id: editingId,
+        name: editName,
+        defaultPriceCents: editDefaultPriceCents,
+        eligibleTurmas: editEligibleTurmas
+      })
     });
     window.location.reload();
   }
@@ -80,9 +109,20 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
             onChange={(event) => setDefaultPriceCents(Number(event.target.value))}
             placeholder="Ex.: 5000"
           />
-          <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
-            Criar
-          </button>
+          <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">Criar</button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-4">
+          {TURMA_OPTIONS.map((option) => (
+            <label key={option.value} className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={eligibleTurmas.includes(option.value)}
+                onChange={() => setEligibleTurmas((current) => toggleTurma(current, option.value))}
+              />
+              {option.label}
+            </label>
+          ))}
+          <span className="text-xs text-slate-500">Sem seleção = todas as turmas</span>
         </div>
         <p className="mt-2 text-xs text-slate-500">Valor em centavos (R$ 50,00 = 5000). Deixe 0 para usar preço manual.</p>
       </form>
@@ -94,18 +134,33 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
           {subjects.map((subject) => (
             <li key={subject.id} className="rounded-lg border border-slate-100 p-2">
               {editingId === subject.id ? (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <input
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2"
-                    value={editName}
-                    onChange={(event) => setEditName(event.target.value)}
-                  />
-                  <input
-                    className="w-32 rounded-lg border border-slate-200 px-3 py-2"
-                    type="number"
-                    value={editDefaultPriceCents}
-                    onChange={(event) => setEditDefaultPriceCents(Number(event.target.value))}
-                  />
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                      value={editName}
+                      onChange={(event) => setEditName(event.target.value)}
+                    />
+                    <input
+                      className="w-32 rounded-lg border border-slate-200 px-3 py-2"
+                      type="number"
+                      value={editDefaultPriceCents}
+                      onChange={(event) => setEditDefaultPriceCents(Number(event.target.value))}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-4">
+                    {TURMA_OPTIONS.map((option) => (
+                      <label key={option.value} className="inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={editEligibleTurmas.includes(option.value)}
+                          onChange={() => setEditEligibleTurmas((current) => toggleTurma(current, option.value))}
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                    <span className="text-xs text-slate-500">Sem seleção = todas as turmas</span>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -130,6 +185,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
                     {typeof subject.defaultPriceCents === "number" && subject.defaultPriceCents > 0
                       ? ` • Valor: ${formatCurrency(subject.defaultPriceCents)}`
                       : ""}
+                    {` • Turmas: ${formatEligibleTurmas(subject.eligibleTurmas ?? [])}`}
                   </div>
                   <div className="flex gap-2">
                     <button

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
-import { paymentCheckoutSchema, isPackageEligibleForSerie, isPackageEligibleForTurma } from "@/lib/validators";
+import { paymentCheckoutSchema, isPackageEligibleForSerie, isPackageEligibleForTurma, isTurmaEligible } from "@/lib/validators";
 import { asaasFetch, normalizeDocument, isValidDocument } from "@/lib/asaas";
 import { logAudit } from "@/lib/audit";
 
@@ -39,8 +39,12 @@ export async function POST(request: Request) {
 
   const eligibleForSerie = isPackageEligibleForSerie(packageRecord.name, studentProfile.serie);
   const eligibleForTurma = isPackageEligibleForTurma(packageRecord.name, studentProfile.turma);
+  const eligibleForSubjectTurma = isTurmaEligible(
+    packageRecord.subject?.eligibleTurmas as Array<"MANHA" | "TARDE"> | undefined,
+    studentProfile.turma
+  );
 
-  if (!eligibleForSerie || !eligibleForTurma) {
+  if (!eligibleForSerie || !eligibleForTurma || !eligibleForSubjectTurma) {
     return NextResponse.json({ message: "Pacote indisponível para a sua turma/série." }, { status: 400 });
   }
 

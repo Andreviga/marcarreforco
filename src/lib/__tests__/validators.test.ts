@@ -1,6 +1,6 @@
 /** @jest-environment node */
 
-import { isPackageEligibleForSerie, isPackageEligibleForTurma } from "@/lib/validators";
+import { isPackageEligibleForSerie, isPackageEligibleForTurma, isTurmaEligible } from "@/lib/validators";
 
 describe("validators package eligibility", () => {
   describe("isPackageEligibleForSerie", () => {
@@ -12,6 +12,20 @@ describe("validators package eligibility", () => {
     it("matches package range for 4o ao 9o", () => {
       expect(isPackageEligibleForSerie("Pacote 4o ao 9o", "7º ano")).toBe(true);
       expect(isPackageEligibleForSerie("Pacote 4o ao 9o", "2º ano")).toBe(false);
+    });
+  });
+
+
+  describe("isTurmaEligible", () => {
+    it("allows any turma when discipline has no eligibility restriction", () => {
+      expect(isTurmaEligible([], "Manhã")).toBe(true);
+      expect(isTurmaEligible(undefined, "Tarde")).toBe(true);
+    });
+
+    it("enforces discipline eligible turmas", () => {
+      expect(isTurmaEligible(["MANHA"], "Manhã")).toBe(true);
+      expect(isTurmaEligible(["MANHA"], "Tarde")).toBe(false);
+      expect(isTurmaEligible(["TARDE"], "Tarde")).toBe(true);
     });
   });
 
