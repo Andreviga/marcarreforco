@@ -9,7 +9,7 @@ interface Subject {
   id: string;
   name: string;
   defaultPriceCents?: number;
-  eligibleSeries: string[];
+  eligibleSeries?: string[];
 }
 
 const SERIE_OPTIONS: Array<{ value: EligibleSerie; label: string }> = [

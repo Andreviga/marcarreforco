@@ -59,10 +59,14 @@ export default async function AlunoPagamentosPage() {
   ]);
 
   // Filtrar pacotes pela série do aluno
-  const packages = allPackages.filter((pkg) =>
-    isPackageEligibleForSerie(pkg.name, profile?.serie) &&
-    isSerieEligible(pkg.subject?.eligibleSeries, profile?.serie)
-  );
+  const packages = allPackages.filter((pkg) => {
+    const subjectEligibleSeries =
+      pkg.subject && "eligibleSeries" in pkg.subject
+        ? (pkg.subject as { eligibleSeries?: string[] }).eligibleSeries
+        : undefined;
+
+    return isPackageEligibleForSerie(pkg.name, profile?.serie) && isSerieEligible(subjectEligibleSeries, profile?.serie);
+  });
 
   return (
     <AppShell title="Pagamentos" subtitle="Assine planos e compre pacotes" role="ALUNO">
