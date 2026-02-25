@@ -45,6 +45,8 @@ export default function AdminSessionsClient({
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [weekday, setWeekday] = useState(1);
+  const [monthlySubjectId, setMonthlySubjectId] = useState(subjects[0]?.id ?? "");
+  const [monthlyTeacherId, setMonthlyTeacherId] = useState(teachers[0]?.id ?? "");
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function createSessions(event: React.FormEvent<HTMLFormElement>) {
@@ -121,8 +123,8 @@ export default function AdminSessionsClient({
     }
 
     const payloadBase = {
-      subjectId,
-      teacherId,
+      subjectId: monthlySubjectId,
+      teacherId: monthlyTeacherId,
       location,
       modality
     };
@@ -261,7 +263,35 @@ export default function AdminSessionsClient({
 
       <form onSubmit={createMonthlySessions} className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Gerar sessões por mês</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-3 lg:grid-cols-4">
+          <label className="text-sm text-slate-600">
+            Disciplina
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={monthlySubjectId}
+              onChange={(event) => setMonthlySubjectId(event.target.value)}
+            >
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-slate-600">
+            Professor
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={monthlyTeacherId}
+              onChange={(event) => setMonthlyTeacherId(event.target.value)}
+            >
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="text-sm text-slate-600">
             Mês
             <input
