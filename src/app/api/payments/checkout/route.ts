@@ -75,7 +75,8 @@ export async function POST(request: Request) {
       where: {
         userId: session.user.id,
         packageId: packageRecord.id,
-        status: "ACTIVE"
+        status: "ACTIVE",
+        payments: { some: { status: "CONFIRMED" } }
       }
     });
 

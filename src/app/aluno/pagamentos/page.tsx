@@ -36,7 +36,14 @@ export default async function AlunoPagamentosPage() {
       where: { 
         userId: session.user.id
       },
-      include: { package: { include: { subject: true } } },
+      include: {
+        package: { include: { subject: true } },
+        payments: {
+          where: { status: "CONFIRMED" },
+          select: { id: true },
+          take: 1
+        }
+      },
       orderBy: { createdAt: "desc" }
     }),
     prisma.subject.findMany({ orderBy: { name: "asc" } }),
@@ -65,7 +72,7 @@ export default async function AlunoPagamentosPage() {
         }))}
         subscriptions={subscriptions.map((item) => ({
           id: item.id,
-          status: item.status,
+          status: item.status === "ACTIVE" && item.payments.length === 0 ? "INACTIVE" : item.status,
           nextDueDate: item.nextDueDate ? item.nextDueDate.toISOString() : null,
           package: {
             id: item.package.id,
