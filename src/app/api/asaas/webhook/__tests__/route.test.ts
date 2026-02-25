@@ -27,21 +27,18 @@ jest.mock("@/lib/credits", () => ({
 }));
 
 describe("asaas webhook route", () => {
-  const paymentRepo = prisma.asaasPayment as unknown as {
-    findFirst: jest.Mock;
-  };
   const subscriptionRepo = prisma.asaasSubscription as unknown as {
+    findUnique: jest.Mock;
     updateMany: jest.Mock;
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.ASAAS_WEBHOOK_TOKEN = "token";
+    subscriptionRepo.findUnique.mockResolvedValue(null);
   });
 
-  it("keeps subscription as INACTIVE when Asaas sends ACTIVE without confirmed payment", async () => {
-    paymentRepo.findFirst.mockResolvedValue(null);
-
+  it("keeps subscription as INACTIVE when Asaas sends ACTIVE for a not-yet-activated subscription", async () => {
     const request = new Request("http://localhost/api/asaas/webhook", {
       method: "POST",
       headers: {
@@ -73,8 +70,8 @@ describe("asaas webhook route", () => {
     });
   });
 
-  it("sets subscription as ACTIVE when there is confirmed payment", async () => {
-    paymentRepo.findFirst.mockResolvedValue({ id: "pay_1" });
+  it("keeps ACTIVE when Asaas sends ACTIVE for subscription already active locally", async () => {
+    subscriptionRepo.findUnique.mockResolvedValue({ status: "ACTIVE" });
 
     const request = new Request("http://localhost/api/asaas/webhook", {
       method: "POST",
