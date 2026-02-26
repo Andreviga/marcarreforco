@@ -47,12 +47,16 @@ async function cleanupTestTeachersUnused() {
     },
     select: {
       id: true,
+      teacherProfile: {
+        select: {
+          subjects: { take: 1, select: { subjectId: true } }
+        }
+      },
       _count: {
         select: {
           sessions: true,
-          teacherSubjects: true,
           teacherTickets: true,
-          markedAttendances: true,
+          attendances: true,
           ticketMessages: true
         }
       }
@@ -60,7 +64,10 @@ async function cleanupTestTeachersUnused() {
   });
 
   const deletableIds = teachers
-    .filter((teacher) => Object.values(teacher._count).every((count) => count === 0))
+    .filter(
+      (teacher) =>
+        Object.values(teacher._count).every((count) => count === 0) && (teacher.teacherProfile?.subjects.length ?? 0) === 0
+    )
     .map((teacher) => teacher.id);
 
   if (deletableIds.length === 0) return { deletedTeachers: 0 };
