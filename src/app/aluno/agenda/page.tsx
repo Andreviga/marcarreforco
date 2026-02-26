@@ -28,14 +28,16 @@ export default async function AlunoAgendaPage() {
   });
 
 
+  const enrollmentBySessionId = new Map(enrollments.map((enrollment) => [enrollment.sessionId, enrollment.status]));
+
   const calendarItems = sessions.map((item) => ({
     id: item.id,
     startsAt: item.startsAt,
     endsAt: item.endsAt,
     title: item.subject.name,
     subtitle: `${item.teacher.name} • ${item.modality === "ONLINE" ? "Online" : item.location}`,
-    meta: "1 crédito",
-    status: item.status
+    meta: enrollmentBySessionId.get(item.id) === "AGENDADO" ? "✅ Agendado" : "🗓️ Disponível",
+    status: enrollmentBySessionId.get(item.id) === "AGENDADO" ? "AGENDADO" : item.status
   }));
 
   return (

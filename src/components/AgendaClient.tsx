@@ -129,8 +129,28 @@ export default function AgendaClient({
     return subjectMatch && teacherMatch && locationMatch && dateMatch;
   });
 
+
+
+  const agendadas = filtered.filter((session) => enrolledMap.get(session.id)?.status === "AGENDADO").length;
+  const disponiveis = filtered.length - agendadas;
+
   return (
     <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-800">
+          <p className="text-xs font-semibold uppercase tracking-wide">Aulas agendadas</p>
+          <p className="mt-1 text-xl font-bold">{agendadas}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
+          <p className="text-xs font-semibold uppercase tracking-wide">Aulas disponíveis</p>
+          <p className="mt-1 text-xl font-bold">{disponiveis}</p>
+        </div>
+        <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
+          <p className="font-semibold">Regra de cancelamento</p>
+          <p className="mt-1">Desmarcação permitida somente até 48h antes da aula.</p>
+        </div>
+      </div>
+
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Filtros</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
@@ -177,10 +197,21 @@ export default function AgendaClient({
           const cancelAllowed = canCancelUntil(session.startsAt);
 
           return (
-            <div key={session.id} className="rounded-xl bg-white p-4 shadow-sm">
+            <div key={session.id} className={`rounded-xl p-4 shadow-sm ${enrollment?.status === "AGENDADO" ? "border border-emerald-200 bg-emerald-50/40" : "bg-white"}`}>
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">{session.subject.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-slate-900">{session.subject.name}</h3>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        enrollment?.status === "AGENDADO"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {enrollment?.status === "AGENDADO" ? "AGENDADO" : "DISPONÍVEL"}
+                    </span>
+                  </div>
                   <p className="text-sm text-slate-500">
                     {session.teacher.name} • {new Date(session.startsAt).toLocaleDateString("pt-BR", {
                       weekday: "short",
