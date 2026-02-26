@@ -28,6 +28,7 @@ const navByRole: Record<string, { href: string; label: string }[]> = {
     { href: "/admin/disciplinas", label: "Disciplinas" },
     { href: "/admin/pacotes", label: "Pacotes" },
     { href: "/admin/pagamentos", label: "Pagamentos" },
+    { href: "/admin/relatorios", label: "Relatórios" },
     { href: "/admin/tickets", label: "Tickets" },
     { href: "/admin/perfil", label: "Perfil" }
   ]
