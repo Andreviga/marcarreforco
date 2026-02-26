@@ -48,8 +48,8 @@ export default async function AdminRelatoriosPage() {
     prisma.attendance.groupBy({
       by: ["studentId"],
       where: { status: "AUSENTE" },
-      _count: { _all: true },
-      orderBy: { _count: { _all: "desc" } },
+      _count: { studentId: true },
+      orderBy: { _count: { studentId: "desc" } },
       take: 5
     }),
     prisma.asaasPayment.findMany({
@@ -109,7 +109,7 @@ export default async function AdminRelatoriosPage() {
                 topAusencias.map((item) => (
                   <div key={item.studentId} className="rounded-lg border border-slate-100 p-3">
                     <p className="font-medium text-slate-900">{nomePorAluno.get(item.studentId) ?? item.studentId}</p>
-                    <p className="text-xs text-slate-500">{item._count._all} ausência(s)</p>
+                    <p className="text-xs text-slate-500">{item._count.studentId} ausência(s)</p>
                   </div>
                 ))
               )}

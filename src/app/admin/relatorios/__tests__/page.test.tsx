@@ -64,7 +64,7 @@ describe("AdminRelatoriosPage", () => {
       .mockResolvedValueOnce(2);
     subscriptionRepo.count.mockResolvedValue(6);
 
-    attendanceRepo.groupBy.mockResolvedValue([{ studentId: "u1", _count: { _all: 3 } }]);
+    attendanceRepo.groupBy.mockResolvedValue([{ studentId: "u1", _count: { studentId: 3 } }]);
     paymentRepo.findMany.mockResolvedValue([{ id: "p1", user: { name: "Ana" }, package: { name: "Pacote 4" }, amountCents: 9900 }]);
     userRepo.findMany.mockResolvedValue([{ id: "u1", name: "Aluno 1" }]);
   });
