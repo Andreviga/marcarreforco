@@ -8,6 +8,31 @@ function normalizePackageName(name: string) {
   return name.replace(/\s*\(sem disciplina\)\s*/gi, " ").replace(/\s{2,}/g, " ").trim();
 }
 
+const REMOVED_PACKAGE_NAME = "PACOTE REMOVIDO (HISTÓRICO)";
+
+async function getOrCreateRemovedPackageId() {
+  const existing = await prisma.sessionPackage.findUnique({
+    where: { name: REMOVED_PACKAGE_NAME },
+    select: { id: true }
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.sessionPackage.create({
+    data: {
+      name: REMOVED_PACKAGE_NAME,
+      sessionCount: 1,
+      priceCents: 0,
+      active: false,
+      billingType: "PACKAGE",
+      billingCycle: null,
+      subjectId: null
+    },
+    select: { id: true }
+  });
+
+  return created.id;
+}
+
 export async function GET() {
   const { response } = await requireApiRole(["ADMIN"]);
   if (response) return response;
@@ -113,39 +138,58 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ message: "ID obrigatório" }, { status: 400 });
   }
 
-  try {
-    await prisma.sessionPackage.delete({ where: { id } });
-  } catch (error: unknown) {
-    const packageData = await prisma.sessionPackage.findUnique({
-      where: { id },
-      select: { name: true, _count: { select: { subscriptions: true, payments: true } } }
-    });
+  const packageData = await prisma.sessionPackage.findUnique({
+    where: { id },
+    select: { name: true, _count: { select: { subscriptions: true, payments: true } } }
+  });
 
-    if (packageData) {
-      return NextResponse.json(
-        {
-          message:
-            "Não foi possível excluir o pacote porque ele possui vínculos. Remova/cancele os vínculos e tente novamente.",
-          package: packageData.name,
-          links: {
-            subscriptions: packageData._count.subscriptions,
-            payments: packageData._count.payments
-          }
-        },
-        { status: 409 }
-      );
-    }
-
-    throw error;
+  if (!packageData) {
+    return NextResponse.json({ message: "Pacote não encontrado." }, { status: 404 });
   }
+
+  const [activeSubscriptions, activePayments] = await Promise.all([
+    prisma.asaasSubscription.count({ where: { packageId: id, status: { not: "CANCELED" } } }),
+    prisma.asaasPayment.count({ where: { packageId: id, status: { not: "CANCELED" } } })
+  ]);
+
+  if (activeSubscriptions > 0 || activePayments > 0) {
+    return NextResponse.json(
+      {
+        message:
+          "Não foi possível excluir o pacote porque ele possui vínculos ativos. Cancele primeiro as assinaturas/pagamentos em aberto.",
+        package: packageData.name,
+        links: {
+          subscriptions: packageData._count.subscriptions,
+          payments: packageData._count.payments,
+          activeSubscriptions,
+          activePayments
+        }
+      },
+      { status: 409 }
+    );
+  }
+
+  const removedPackageId = await getOrCreateRemovedPackageId();
+
+  await prisma.$transaction([
+    prisma.asaasPayment.updateMany({
+      where: { packageId: id, status: "CANCELED" },
+      data: { packageId: removedPackageId }
+    }),
+    prisma.asaasSubscription.updateMany({
+      where: { packageId: id, status: "CANCELED" },
+      data: { packageId: removedPackageId }
+    }),
+    prisma.sessionPackage.delete({ where: { id } })
+  ]);
 
   await logAudit({
     actorUserId: session.user.id,
     action: "DELETE_PACKAGE",
     entityType: "SessionPackage",
     entityId: id,
-    payload: { id }
+    payload: { id, migratedCanceledLinksTo: removedPackageId }
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, migratedCanceledLinksTo: removedPackageId });
 }
