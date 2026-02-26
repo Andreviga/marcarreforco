@@ -43,14 +43,14 @@ export default function RulesBanner({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className={`text-xs font-semibold uppercase tracking-[0.2em] ${isCompact ? "text-emerald-700" : "text-amber-700"}`}>
-            Colegio Raizes
+            Colégio Raízes
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-            Plantao de Duvidas 2026
+            Plantão de Dúvidas 2026
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Todos os valores abaixo sao mensais. Cada dia no plano equivale a 1 aula por semana,
-            com 1h por aula.
+            Todos os valores abaixo são mensais. Cada dia no plano equivale a 1 aula por semana,
+            com 50 minutos por aula (12h30 às 13h20).
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -75,8 +75,8 @@ export default function RulesBanner({
         <div className="rounded-2xl border border-slate-100 bg-white p-4">
           <h3 className="text-sm font-semibold text-slate-900">Público atendido</h3>
           <ul className="mt-2 space-y-1 text-sm text-slate-600">
-            <li>1o ao 3o ano</li>
-            <li>4o ao 9o ano</li>
+            <li>1º ao 3º ano</li>
+            <li>4º ao 9º ano</li>
             <li className="font-semibold text-rose-600">Ensino Médio não tem plantão de dúvidas.</li>
           </ul>
         </div>
@@ -96,7 +96,7 @@ export default function RulesBanner({
       <div className={isCompact ? "mt-5 grid gap-4 lg:grid-cols-2" : "mt-6 grid gap-6 lg:grid-cols-2"}>
         <div className="rounded-2xl border border-slate-100 bg-white p-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-slate-900">1o ao 3o ano</h4>
+            <h4 className="text-sm font-semibold text-slate-900">1º ao 3º ano</h4>
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
               Regras específicas
             </span>
@@ -114,20 +114,20 @@ export default function RulesBanner({
           </div>
           <div className="mt-3 text-sm text-slate-600">
             <p className="font-semibold text-slate-900">Avulso</p>
-            <p>R$ 7,00 por aula (1h).</p>
+            <p>R$ 7,00 por aula (50 min).</p>
           </div>
         </div>
 
         <div className="rounded-2xl border border-slate-100 bg-white p-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-slate-900">4o ao 9o ano</h4>
+            <h4 className="text-sm font-semibold text-slate-900">4º ao 9º ano</h4>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
               Dia fixo
             </span>
           </div>
           <ul className="mt-3 space-y-1 text-sm text-slate-600">
-            <li>Plantao com dia fixo da semana.</li>
-            <li>4o ano: ate 4 dias por semana.</li>
+            <li>Plantão com dia fixo da semana.</li>
+            <li>4º ano: até 4 dias por semana.</li>
           </ul>
           <div className="mt-3 text-sm text-slate-600">
             <p className="font-semibold text-slate-900">Valores mensais</p>
@@ -136,12 +136,12 @@ export default function RulesBanner({
               <li>2 dias/semana: R$ 48,00</li>
               <li>3 dias/semana: R$ 66,00</li>
               <li>4 dias/semana: R$ 81,00</li>
-              <li>5 dias/semana: R$ 95,00 (somente 5o ao 9o)</li>
+              <li>5 dias/semana: R$ 95,00 (somente 5º ao 9º)</li>
             </ul>
           </div>
           <div className="mt-3 text-sm text-slate-600">
             <p className="font-semibold text-slate-900">Avulso</p>
-            <p>R$ 9,00 por aula (1h).</p>
+            <p>R$ 9,00 por aula (50 min).</p>
           </div>
         </div>
       </div>

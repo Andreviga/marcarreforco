@@ -40,7 +40,7 @@ export default function AdminSessionsClient({
   const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("12:30");
-  const [endTime, setEndTime] = useState("13:30");
+  const [endTime, setEndTime] = useState("13:20");
   const [location, setLocation] = useState("Sala 1");
   const [modality, setModality] = useState("PRESENCIAL");
   const [repeatWeeks, setRepeatWeeks] = useState(1);
@@ -178,13 +178,15 @@ export default function AdminSessionsClient({
 
     const requests = sourceSessions.map((session) => {
       const originalStart = new Date(session.startsAt);
-      const originalEnd = new Date(session.endsAt);
 
       const startsAt = new Date(originalStart);
       startsAt.setFullYear(targetYear, targetMonthIndex, originalStart.getDate());
 
-      const endsAt = new Date(originalEnd);
-      endsAt.setFullYear(targetYear, targetMonthIndex, originalEnd.getDate());
+      const endsAt = new Date(startsAt);
+      const [startHour, startMinute] = startTime.split(":").map(Number);
+      const [endHour, endMinute] = endTime.split(":").map(Number);
+      startsAt.setHours(startHour, startMinute, 0, 0);
+      endsAt.setHours(endHour, endMinute, 0, 0);
 
       if (startsAt.getMonth() !== targetMonthIndex || endsAt.getMonth() !== targetMonthIndex) {
         return Promise.resolve();
@@ -265,7 +267,7 @@ export default function AdminSessionsClient({
               value={startTime}
               onChange={(event) => setStartTime(event.target.value)}
             />
-            <span className="mt-1 block text-xs text-slate-400">Horário de início (ex.: 13:30).</span>
+            <span className="mt-1 block text-xs text-slate-400">Horário de início (ex.: 12:30).</span>
           </label>
           <label className="text-sm text-slate-600">
             Fim
@@ -275,7 +277,7 @@ export default function AdminSessionsClient({
               value={endTime}
               onChange={(event) => setEndTime(event.target.value)}
             />
-            <span className="mt-1 block text-xs text-slate-400">Horário de término (ex.: 14:30).</span>
+            <span className="mt-1 block text-xs text-slate-400">Horário de término (ex.: 13:20).</span>
           </label>
           <label className="text-sm text-slate-600">
             Local
