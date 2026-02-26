@@ -5,7 +5,16 @@ import { packageSchema, packageUpdateSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
 
 function normalizePackageName(name: string) {
-  return name.replace(/\s*\(sem disciplina\)\s*/gi, " ").replace(/\s{2,}/g, " ").trim();
+  return name
+    .replace(/\s*\(sem disciplina\)\s*/gi, " ")
+    .replace(/avulso\s*\(1h\)/gi, "Avulso (50min)")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function isUniqueConstraintError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  return "code" in error && (error as { code?: string }).code === "P2002";
 }
 
 const REMOVED_PACKAGE_NAME = "PACOTE REMOVIDO (HISTÓRICO)";
@@ -62,17 +71,27 @@ export async function POST(request: Request) {
     ((parsed.data.billingCycle === "WEEKLY" && sessionCount > 1) ||
       (parsed.data.billingCycle === "MONTHLY" && sessionCount > 4));
 
-  const created = await prisma.sessionPackage.create({
-    data: {
-      name: normalizePackageName(parsed.data.name),
-      sessionCount: parsed.data.sessionCount,
-      priceCents: parsed.data.priceCents,
-      active: parsed.data.active ?? true,
-      billingType: parsed.data.billingType ?? "PACKAGE",
-      billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
-      subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
+  const normalizedName = normalizePackageName(parsed.data.name);
+
+  let created;
+  try {
+    created = await prisma.sessionPackage.create({
+      data: {
+        name: normalizedName,
+        sessionCount: parsed.data.sessionCount,
+        priceCents: parsed.data.priceCents,
+        active: parsed.data.active ?? true,
+        billingType: parsed.data.billingType ?? "PACKAGE",
+        billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
+        subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
+      }
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return NextResponse.json({ message: `Já existe um pacote com o nome "${normalizedName}".` }, { status: 409 });
     }
-  });
+    throw error;
+  }
 
   await logAudit({
     actorUserId: session.user.id,
@@ -105,18 +124,28 @@ export async function PATCH(request: Request) {
     ((parsed.data.billingCycle === "WEEKLY" && sessionCount > 1) ||
       (parsed.data.billingCycle === "MONTHLY" && sessionCount > 4));
 
-  const updated = await prisma.sessionPackage.update({
-    where: { id: parsed.data.id },
-    data: {
-      name: typeof parsed.data.name === "string" ? normalizePackageName(parsed.data.name) : undefined,
-      sessionCount: parsed.data.sessionCount,
-      priceCents: parsed.data.priceCents,
-      active: parsed.data.active,
-      billingType: parsed.data.billingType,
-      billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
-      subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
+  const normalizedName = typeof parsed.data.name === "string" ? normalizePackageName(parsed.data.name) : undefined;
+
+  let updated;
+  try {
+    updated = await prisma.sessionPackage.update({
+      where: { id: parsed.data.id },
+      data: {
+        name: normalizedName,
+        sessionCount: parsed.data.sessionCount,
+        priceCents: parsed.data.priceCents,
+        active: parsed.data.active,
+        billingType: parsed.data.billingType,
+        billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
+        subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
+      }
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error) && normalizedName) {
+      return NextResponse.json({ message: `Já existe um pacote com o nome "${normalizedName}".` }, { status: 409 });
     }
-  });
+    throw error;
+  }
 
   await logAudit({
     actorUserId: session.user.id,
