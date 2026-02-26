@@ -288,8 +288,8 @@ export default function StudentPaymentsClient({
     <div className="space-y-6">
       {!hasDocument && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <h2 className="text-lg font-semibold text-amber-900">Complete seu CPF/CNPJ</h2>
-          <p className="text-sm text-amber-700">Precisamos do documento para criar a cobranca no Asaas.</p>
+          <h2 className="text-lg font-semibold text-amber-900">Complete o CPF/CNPJ do responsável</h2>
+          <p className="text-sm text-amber-700">Usamos o documento do responsável para criar a cobrança no Asaas.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <input
               className="min-w-[240px] flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"

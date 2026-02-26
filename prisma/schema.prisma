@@ -120,6 +120,7 @@ model StudentProfile {
   serie   String
   turma   String
   unidade String
+  responsavel String?
   document String?
 
   user User @relation(fields: [userId], references: [id])
