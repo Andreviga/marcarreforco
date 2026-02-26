@@ -18,6 +18,7 @@ export default async function AlunoProfilePage() {
           serie: true,
           turma: true,
           unidade: true,
+          responsavel: true,
           document: true
         }
       }
