@@ -194,7 +194,7 @@ export const packageSchema = z.object({
   priceCents: z.number().int().min(0),
   active: z.boolean().optional(),
   billingType: z.enum(["PACKAGE", "SUBSCRIPTION"]).optional(),
-  billingCycle: z.enum(["MONTHLY", "WEEKLY"]).optional(),
+  billingCycle: z.enum(["MONTHLY", "WEEKLY"]).nullable().optional(),
   subjectId: z.string().min(1).nullable().optional()
 });
 
