@@ -13,6 +13,8 @@ interface Teacher {
   name: string;
 }
 
+const MONTH_LABELS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
 interface SessionItem {
   id: string;
   startsAt: string | Date;
@@ -48,6 +50,10 @@ export default function AdminSessionsClient({
   const [monthlySubjectId, setMonthlySubjectId] = useState(subjects[0]?.id ?? "");
   const [monthlyTeacherId, setMonthlyTeacherId] = useState(teachers[0]?.id ?? "");
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const selectedMonthLabel = `${MONTH_LABELS[Math.max(0, Math.min(11, month - 1))]} de ${year}`;
+  const previousMonthDate = new Date(year, month - 2, 1);
+  const previousMonthLabel = `${MONTH_LABELS[previousMonthDate.getMonth()]} de ${previousMonthDate.getFullYear()}`;
 
   async function createSessions(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -142,6 +148,56 @@ export default function AdminSessionsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...payloadBase,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString()
+        })
+      });
+    });
+
+    await Promise.all(requests);
+    window.location.reload();
+  }
+
+
+  async function replicatePreviousMonthSchedule() {
+    const targetMonthIndex = month - 1;
+    const targetYear = year;
+    const sourceMonthDate = new Date(targetYear, targetMonthIndex - 1, 1);
+    const sourceMonthIndex = sourceMonthDate.getMonth();
+    const sourceYear = sourceMonthDate.getFullYear();
+
+    const sourceSessions = sessions.filter((session) => {
+      const startsAt = new Date(session.startsAt);
+      return startsAt.getFullYear() === sourceYear && startsAt.getMonth() === sourceMonthIndex;
+    });
+
+    if (sourceSessions.length === 0) {
+      window.alert(`Não há sessões em ${previousMonthLabel} para replicar.`);
+      return;
+    }
+
+    const requests = sourceSessions.map((session) => {
+      const originalStart = new Date(session.startsAt);
+      const originalEnd = new Date(session.endsAt);
+
+      const startsAt = new Date(originalStart);
+      startsAt.setFullYear(targetYear, targetMonthIndex, originalStart.getDate());
+
+      const endsAt = new Date(originalEnd);
+      endsAt.setFullYear(targetYear, targetMonthIndex, originalEnd.getDate());
+
+      if (startsAt.getMonth() !== targetMonthIndex || endsAt.getMonth() !== targetMonthIndex) {
+        return Promise.resolve();
+      }
+
+      return fetch("/api/admin/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subjectId: session.subject.id,
+          teacherId: session.teacher.id,
+          location: session.location,
+          modality: session.modality,
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString()
         })
@@ -303,7 +359,7 @@ export default function AdminSessionsClient({
               onChange={(event) => setMonth(Number(event.target.value))}
               placeholder="Ex.: 3"
             />
-            <span className="mt-1 block text-xs text-slate-400">1 a 12.</span>
+            <span className="mt-1 block text-xs text-slate-400">1 a 12 • selecionado: {selectedMonthLabel}</span>
           </label>
           <label className="text-sm text-slate-600">
             Ano
@@ -351,15 +407,25 @@ export default function AdminSessionsClient({
                 onChange={(event) => setEndTime(event.target.value)}
               />
             </div>
-            <span className="mt-1 block text-xs text-slate-400">Inicio e fim da aula.</span>
+            <span className="mt-1 block text-xs text-slate-400">Início e fim da aula.</span>
           </label>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Serão criadas sessões em todas as datas do mês que caem no dia selecionado.
+          Serão criadas sessões em todas as datas de <strong>{selectedMonthLabel}</strong> que caem no dia selecionado.
         </p>
-        <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
-          Gerar sessões do mês
-        </button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
+            Gerar sessões do mês
+          </button>
+          <button
+            type="button"
+            onClick={replicatePreviousMonthSchedule}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            title={`Replicar grade de ${previousMonthLabel} para ${selectedMonthLabel}`}
+          >
+            Replicar mês anterior
+          </button>
+        </div>
       </form>
 
       <div className="rounded-xl bg-white p-4 shadow-sm">

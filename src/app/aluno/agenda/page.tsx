@@ -81,7 +81,7 @@ export default async function AlunoAgendaPage() {
             <h2 className="text-lg font-semibold text-slate-900">Como agendar e pagar</h2>
             <ol className="mt-3 space-y-2 text-sm text-slate-600">
               <li>1. Acesse Pagamentos e escolha um pacote.</li>
-              <li>2. Pague via PIX e aguarde a confirmacao.</li>
+              <li>2. Pague via PIX e aguarde a confirmação.</li>
               <li>3. Se o pacote for sem disciplina, defina a disciplina em Pagamentos.</li>
               <li>4. Volte aqui e agende suas sessões na agenda.</li>
             </ol>
