@@ -248,7 +248,7 @@ async function main() {
       const displayName = monthly.name ?? `${monthly.days} dia/semana`;
 
       await createPackage({
-        name: `${displayName} - ${base.label} (sem disciplina)`,
+        name: `${displayName} - ${base.label}`,
         sessionCount: daysToSessions(monthly.days),
         priceCents: monthly.priceCents,
         subjectId: null,
@@ -269,7 +269,7 @@ async function main() {
     }
 
     await createPackage({
-      name: `Avulso (1h) - ${base.label} (sem disciplina)`,
+      name: `Avulso (50min) - ${base.label}`,
       sessionCount: 1,
       priceCents: base.avulsoPriceCents,
       subjectId: null,
@@ -278,7 +278,7 @@ async function main() {
 
     for (const subject of subjectsForPackages) {
       await createPackage({
-        name: `Avulso (1h) - ${base.label} - ${subject.name}`,
+        name: `Avulso (50min) - ${base.label} - ${subject.name}`,
         sessionCount: 1,
         priceCents: base.avulsoPriceCents,
         subjectId: subject.id,

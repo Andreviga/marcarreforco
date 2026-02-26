@@ -4,6 +4,10 @@ import { requireApiRole } from "@/lib/api-auth";
 import { packageSchema, packageUpdateSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
 
+function normalizePackageName(name: string) {
+  return name.replace(/\s*\(sem disciplina\)\s*/gi, " ").replace(/\s{2,}/g, " ").trim();
+}
+
 export async function GET() {
   const { response } = await requireApiRole(["ADMIN"]);
   if (response) return response;
@@ -34,7 +38,7 @@ export async function POST(request: Request) {
 
   const created = await prisma.sessionPackage.create({
     data: {
-      name: parsed.data.name,
+      name: normalizePackageName(parsed.data.name),
       sessionCount: parsed.data.sessionCount,
       priceCents: parsed.data.priceCents,
       active: parsed.data.active ?? true,
@@ -78,7 +82,7 @@ export async function PATCH(request: Request) {
   const updated = await prisma.sessionPackage.update({
     where: { id: parsed.data.id },
     data: {
-      name: parsed.data.name,
+      name: typeof parsed.data.name === "string" ? normalizePackageName(parsed.data.name) : undefined,
       sessionCount: parsed.data.sessionCount,
       priceCents: parsed.data.priceCents,
       active: parsed.data.active,
@@ -109,7 +113,31 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ message: "ID obrigatório" }, { status: 400 });
   }
 
-  await prisma.sessionPackage.delete({ where: { id } });
+  try {
+    await prisma.sessionPackage.delete({ where: { id } });
+  } catch (error: unknown) {
+    const packageData = await prisma.sessionPackage.findUnique({
+      where: { id },
+      select: { name: true, _count: { select: { subscriptions: true, payments: true } } }
+    });
+
+    if (packageData) {
+      return NextResponse.json(
+        {
+          message:
+            "Não foi possível excluir o pacote porque ele possui vínculos. Remova/cancele os vínculos e tente novamente.",
+          package: packageData.name,
+          links: {
+            subscriptions: packageData._count.subscriptions,
+            payments: packageData._count.payments
+          }
+        },
+        { status: 409 }
+      );
+    }
+
+    throw error;
+  }
 
   await logAudit({
     actorUserId: session.user.id,

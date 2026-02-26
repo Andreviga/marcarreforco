@@ -35,6 +35,8 @@ export default function AdminPackagesClient({
   const [subjectId, setSubjectId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [listMessage, setListMessage] = useState<string | null>(null);
+  const [listMessageTone, setListMessageTone] = useState<"error" | "success">("error");
   const requiresGeneralSubject =
     billingType === "SUBSCRIPTION" &&
     ((billingCycle === "WEEKLY" && sessionCount > 1) || (billingCycle === "MONTHLY" && sessionCount > 4));
@@ -72,16 +74,40 @@ export default function AdminPackagesClient({
   }
 
   async function handleUpdate(item: SessionPackage) {
-    await fetch("/api/admin/packages", {
+    setListMessage(null);
+    setListMessageTone("error");
+    const response = await fetch("/api/admin/packages", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item)
     });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setListMessage(data?.message ?? "Não foi possível salvar o pacote.");
+      return;
+    }
+    setListMessageTone("success");
+    setListMessage("Pacote atualizado com sucesso.");
     window.location.reload();
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/admin/packages?id=${id}`, { method: "DELETE" });
+    setListMessage(null);
+    setListMessageTone("error");
+    const response = await fetch(`/api/admin/packages?id=${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      if (data?.links) {
+        setListMessage(
+          `${data.message} Vínculos encontrados — Assinaturas: ${data.links.subscriptions}, Pagamentos: ${data.links.payments}.`
+        );
+      } else {
+        setListMessage(data?.message ?? "Não foi possível excluir o pacote.");
+      }
+      return;
+    }
+    setListMessageTone("success");
+    setListMessage("Pacote excluído com sucesso.");
     window.location.reload();
   }
 
@@ -191,6 +217,7 @@ export default function AdminPackagesClient({
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Pacotes cadastrados</h2>
+        {listMessage && <p className={`mt-2 text-sm ${listMessageTone === "error" ? "text-rose-600" : "text-emerald-600"}`}>{listMessage}</p>}
         <div className="mt-3 space-y-3">
           {packages.map((item) => (
             <PackageRow
