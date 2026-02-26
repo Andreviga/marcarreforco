@@ -127,7 +127,6 @@ export default function RulesBanner({
           </div>
           <ul className="mt-3 space-y-1 text-sm text-slate-600">
             <li>Plantão com dia fixo da semana.</li>
-            <li>4º ano: até 4 dias por semana.</li>
           </ul>
           <div className="mt-3 text-sm text-slate-600">
             <p className="font-semibold text-slate-900">Valores mensais</p>
