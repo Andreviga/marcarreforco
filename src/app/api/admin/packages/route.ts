@@ -154,6 +154,33 @@ export async function DELETE(request: Request) {
   ]);
 
   if (activeSubscriptions > 0 || activePayments > 0) {
+    const [blockingSubscriptions, blockingPayments] = await Promise.all([
+      prisma.asaasSubscription.findMany({
+        where: { packageId: id, status: { not: "CANCELED" } },
+        select: {
+          id: true,
+          status: true,
+          asaasId: true,
+          user: { select: { name: true, email: true } },
+          nextDueDate: true
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10
+      }),
+      prisma.asaasPayment.findMany({
+        where: { packageId: id, status: { in: OPEN_PAYMENT_STATUSES } },
+        select: {
+          id: true,
+          status: true,
+          asaasId: true,
+          dueDate: true,
+          user: { select: { name: true, email: true } }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20
+      })
+    ]);
+
     return NextResponse.json(
       {
         message:
@@ -164,7 +191,9 @@ export async function DELETE(request: Request) {
           payments: packageData._count.payments,
           activeSubscriptions,
           activePayments
-        }
+        },
+        blockingSubscriptions,
+        blockingPayments
       },
       { status: 409 }
     );

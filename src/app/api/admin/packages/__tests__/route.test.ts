@@ -17,11 +17,13 @@ jest.mock("@/lib/prisma", () => ({
     },
     asaasPayment: {
       count: jest.fn(),
-      updateMany: jest.fn()
+      updateMany: jest.fn(),
+      findMany: jest.fn()
     },
     asaasSubscription: {
       count: jest.fn(),
-      updateMany: jest.fn()
+      updateMany: jest.fn(),
+      findMany: jest.fn()
     },
     $transaction: jest.fn()
   }
@@ -34,8 +36,8 @@ describe("admin packages delete", () => {
     create: jest.Mock;
     delete: jest.Mock;
   };
-  const paymentRepo = prisma.asaasPayment as unknown as { count: jest.Mock; updateMany: jest.Mock };
-  const subscriptionRepo = prisma.asaasSubscription as unknown as { count: jest.Mock; updateMany: jest.Mock };
+  const paymentRepo = prisma.asaasPayment as unknown as { count: jest.Mock; updateMany: jest.Mock; findMany: jest.Mock };
+  const subscriptionRepo = prisma.asaasSubscription as unknown as { count: jest.Mock; updateMany: jest.Mock; findMany: jest.Mock };
   const txMock = prisma.$transaction as jest.Mock;
   const logAuditMock = logAudit as jest.Mock;
 
@@ -67,6 +69,12 @@ describe("admin packages delete", () => {
     packageRepo.findUnique.mockResolvedValue({ name: "Avulso", _count: { subscriptions: 4, payments: 5 } });
     paymentRepo.count.mockResolvedValue(2);
     subscriptionRepo.count.mockResolvedValue(1);
+    subscriptionRepo.findMany.mockResolvedValue([
+      { id: "sub-1", status: "ACTIVE", asaasId: "sub_a", user: { name: "Aluno 1", email: "a@a.com" }, nextDueDate: null }
+    ]);
+    paymentRepo.findMany.mockResolvedValue([
+      { id: "pay-1", status: "PENDING", asaasId: "pay_a", dueDate: null, user: { name: "Aluno 1", email: "a@a.com" } }
+    ]);
 
     const response = await DELETE(new Request("http://localhost/api/admin/packages?id=pkg-1"));
     const data = await response.json();

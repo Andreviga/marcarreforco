@@ -98,8 +98,23 @@ export default function AdminPackagesClient({
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       if (data?.links) {
+        const paymentsDetails = Array.isArray(data?.blockingPayments)
+          ? data.blockingPayments
+              .map((item: { id: string; status: string; user?: { name?: string }; dueDate?: string | null }) => {
+                const due = item.dueDate ? ` (venc.: ${new Date(item.dueDate).toLocaleDateString("pt-BR")})` : "";
+                return `• ${item.id} - ${item.status} - ${item.user?.name ?? "Aluno"}${due}`;
+              })
+              .join(" ")
+          : "";
+
+        const subscriptionsDetails = Array.isArray(data?.blockingSubscriptions)
+          ? data.blockingSubscriptions
+              .map((item: { id: string; status: string; user?: { name?: string } }) => `• ${item.id} - ${item.status} - ${item.user?.name ?? "Aluno"}`)
+              .join(" ")
+          : "";
+
         setListMessage(
-          `${data.message} Vínculos encontrados — Assinaturas: ${data.links.subscriptions}, Pagamentos: ${data.links.payments}.`
+          `${data.message} Vínculos encontrados — Assinaturas: ${data.links.subscriptions} (ativas: ${data.links.activeSubscriptions}), Pagamentos: ${data.links.payments} (em aberto: ${data.links.activePayments}). ${subscriptionsDetails} ${paymentsDetails}`
         );
       } else {
         setListMessage(data?.message ?? "Não foi possível excluir o pacote.");
