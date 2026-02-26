@@ -76,4 +76,20 @@ describe("admin packages delete", () => {
     expect(data.links.activeSubscriptions).toBe(1);
     expect(txMock).not.toHaveBeenCalled();
   });
+
+  it("allows delete when only historical payments exist", async () => {
+    packageRepo.findUnique
+      .mockResolvedValueOnce({ name: "Avulso", _count: { subscriptions: 0, payments: 6 } })
+      .mockResolvedValueOnce({ id: "removed-pkg" });
+    paymentRepo.count.mockResolvedValue(0);
+    subscriptionRepo.count.mockResolvedValue(0);
+    txMock.mockResolvedValue([{ count: 6 }, { count: 0 }, { id: "pkg-2" }]);
+
+    const response = await DELETE(new Request("http://localhost/api/admin/packages?id=pkg-2"));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.ok).toBe(true);
+    expect(data.migratedCanceledLinksTo).toBe("removed-pkg");
+  });
 });

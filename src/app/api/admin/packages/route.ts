@@ -9,6 +9,7 @@ function normalizePackageName(name: string) {
 }
 
 const REMOVED_PACKAGE_NAME = "PACOTE REMOVIDO (HISTÓRICO)";
+const OPEN_PAYMENT_STATUSES: Array<"PENDING" | "OVERDUE"> = ["PENDING", "OVERDUE"];
 
 async function getOrCreateRemovedPackageId() {
   const existing = await prisma.sessionPackage.findUnique({
@@ -149,7 +150,7 @@ export async function DELETE(request: Request) {
 
   const [activeSubscriptions, activePayments] = await Promise.all([
     prisma.asaasSubscription.count({ where: { packageId: id, status: { not: "CANCELED" } } }),
-    prisma.asaasPayment.count({ where: { packageId: id, status: { not: "CANCELED" } } })
+    prisma.asaasPayment.count({ where: { packageId: id, status: { in: OPEN_PAYMENT_STATUSES } } })
   ]);
 
   if (activeSubscriptions > 0 || activePayments > 0) {
