@@ -91,10 +91,10 @@ export default function AdminPackagesClient({
     window.location.reload();
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, force = false) {
     setListMessage(null);
     setListMessageTone("error");
-    const response = await fetch(`/api/admin/packages?id=${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/admin/packages?id=${id}${force ? "&force=1" : ""}`, { method: "DELETE" });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       if (data?.links) {
@@ -122,7 +122,7 @@ export default function AdminPackagesClient({
       return;
     }
     setListMessageTone("success");
-    setListMessage("Pacote excluído com sucesso.");
+    setListMessage(force ? "Pacote excluído à força com sucesso." : "Pacote excluído com sucesso.");
     window.location.reload();
   }
 
@@ -257,7 +257,7 @@ function PackageRow({
 }: {
   item: SessionPackage;
   onUpdate: (item: SessionPackage) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string, force?: boolean) => Promise<void>;
   subjects: SubjectOption[];
 }) {
   const [name, setName] = useState(item.name);
@@ -357,6 +357,14 @@ function PackageRow({
           className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:border-slate-300"
         >
           Excluir
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(item.id, true)}
+          className="rounded-lg border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:border-rose-300"
+          title="Força a exclusão movendo vínculos para histórico e cancelando os ativos"
+        >
+          Excluir à força
         </button>
       </div>
       <p className="md:col-span-7 text-xs text-slate-500">

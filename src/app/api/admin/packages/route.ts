@@ -135,6 +135,7 @@ export async function DELETE(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
+  const forceDelete = searchParams.get("force") === "1";
   if (!id) {
     return NextResponse.json({ message: "ID obrigatório" }, { status: 400 });
   }
@@ -153,7 +154,7 @@ export async function DELETE(request: Request) {
     prisma.asaasPayment.count({ where: { packageId: id, status: { in: OPEN_PAYMENT_STATUSES } } })
   ]);
 
-  if (activeSubscriptions > 0 || activePayments > 0) {
+  if (!forceDelete && (activeSubscriptions > 0 || activePayments > 0)) {
     const [blockingSubscriptions, blockingPayments] = await Promise.all([
       prisma.asaasSubscription.findMany({
         where: { packageId: id, status: { not: "CANCELED" } },
@@ -201,25 +202,39 @@ export async function DELETE(request: Request) {
 
   const removedPackageId = await getOrCreateRemovedPackageId();
 
-  await prisma.$transaction([
-    prisma.asaasPayment.updateMany({
-      where: { packageId: id, status: "CANCELED" },
-      data: { packageId: removedPackageId }
-    }),
-    prisma.asaasSubscription.updateMany({
-      where: { packageId: id, status: "CANCELED" },
-      data: { packageId: removedPackageId }
-    }),
-    prisma.sessionPackage.delete({ where: { id } })
-  ]);
+  const [migratedPayments, migratedSubscriptions] = await prisma.$transaction(async (tx) => {
+    const paymentResult = await tx.asaasPayment.updateMany({
+      where: { packageId: id },
+      data: {
+        packageId: removedPackageId,
+        ...(forceDelete ? { status: "CANCELED" as const } : {})
+      }
+    });
+    const subscriptionResult = await tx.asaasSubscription.updateMany({
+      where: { packageId: id },
+      data: {
+        packageId: removedPackageId,
+        ...(forceDelete ? { status: "CANCELED" as const } : {})
+      }
+    });
+    await tx.sessionPackage.delete({ where: { id } });
+
+    return [paymentResult.count, subscriptionResult.count] as const;
+  });
 
   await logAudit({
     actorUserId: session.user.id,
     action: "DELETE_PACKAGE",
     entityType: "SessionPackage",
     entityId: id,
-    payload: { id, migratedCanceledLinksTo: removedPackageId }
+    payload: { id, forceDelete, migratedCanceledLinksTo: removedPackageId, migratedPayments, migratedSubscriptions }
   });
 
-  return NextResponse.json({ ok: true, migratedCanceledLinksTo: removedPackageId });
+  return NextResponse.json({
+    ok: true,
+    forceDelete,
+    migratedCanceledLinksTo: removedPackageId,
+    migratedPayments,
+    migratedSubscriptions
+  });
 }

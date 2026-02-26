@@ -44,6 +44,16 @@ describe("admin packages delete", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     requireApiRoleMock.mockResolvedValue({ session: { user: { id: "admin-1" } }, response: null });
+    txMock.mockImplementation(async (arg: unknown) => {
+      if (typeof arg === "function") {
+        return arg({
+          asaasPayment: { updateMany: paymentRepo.updateMany },
+          asaasSubscription: { updateMany: subscriptionRepo.updateMany },
+          sessionPackage: { delete: packageRepo.delete }
+        });
+      }
+      return [];
+    });
   });
 
   it("deletes package when only canceled links exist by migrating history", async () => {
@@ -53,7 +63,9 @@ describe("admin packages delete", () => {
     paymentRepo.count.mockResolvedValue(0);
     subscriptionRepo.count.mockResolvedValue(0);
     packageRepo.create.mockResolvedValue({ id: "removed-pkg" });
-    txMock.mockResolvedValue([{ count: 3 }, { count: 2 }, { id: "pkg-1" }]);
+    paymentRepo.updateMany.mockResolvedValue({ count: 3 });
+    subscriptionRepo.updateMany.mockResolvedValue({ count: 2 });
+    packageRepo.delete.mockResolvedValue({ id: "pkg-1" });
 
     const response = await DELETE(new Request("http://localhost/api/admin/packages?id=pkg-1"));
     const data = await response.json();
@@ -92,6 +104,9 @@ describe("admin packages delete", () => {
     paymentRepo.count.mockResolvedValue(0);
     subscriptionRepo.count.mockResolvedValue(0);
     txMock.mockResolvedValue([{ count: 6 }, { count: 0 }, { id: "pkg-2" }]);
+    paymentRepo.updateMany.mockResolvedValue({ count: 6 });
+    subscriptionRepo.updateMany.mockResolvedValue({ count: 0 });
+    packageRepo.delete.mockResolvedValue({ id: "pkg-2" });
 
     const response = await DELETE(new Request("http://localhost/api/admin/packages?id=pkg-2"));
     const data = await response.json();
@@ -99,5 +114,27 @@ describe("admin packages delete", () => {
     expect(response.status).toBe(200);
     expect(data.ok).toBe(true);
     expect(data.migratedCanceledLinksTo).toBe("removed-pkg");
+  });
+
+  it("force deletes package with active links", async () => {
+    packageRepo.findUnique
+      .mockResolvedValueOnce({ name: "Avulso", _count: { subscriptions: 2, payments: 3 } })
+      .mockResolvedValueOnce({ id: "removed-pkg" });
+    paymentRepo.count.mockResolvedValue(2);
+    subscriptionRepo.count.mockResolvedValue(1);
+    paymentRepo.updateMany.mockResolvedValue({ count: 3 });
+    subscriptionRepo.updateMany.mockResolvedValue({ count: 2 });
+    packageRepo.delete.mockResolvedValue({ id: "pkg-force" });
+
+    const response = await DELETE(new Request("http://localhost/api/admin/packages?id=pkg-force&force=1"));
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.forceDelete).toBe(true);
+    expect(data.migratedPayments).toBe(3);
+    expect(data.migratedSubscriptions).toBe(2);
+    expect(paymentRepo.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "CANCELED" }) })
+    );
   });
 });
