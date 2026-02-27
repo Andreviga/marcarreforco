@@ -14,6 +14,8 @@ interface Teacher {
 }
 
 const MONTH_LABELS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const FIXED_START_TIME = "12:30";
+const FIXED_END_TIME = "13:20";
 
 interface SessionItem {
   id: string;
@@ -39,8 +41,8 @@ export default function AdminSessionsClient({
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
   const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("12:30");
-  const [endTime, setEndTime] = useState("13:20");
+  const [startTime] = useState(FIXED_START_TIME);
+  const [endTime] = useState(FIXED_END_TIME);
   const [location, setLocation] = useState("Sala 1");
   const [modality, setModality] = useState("PRESENCIAL");
   const [repeatWeeks, setRepeatWeeks] = useState(1);
@@ -265,9 +267,9 @@ export default function AdminSessionsClient({
               type="time"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={startTime}
-              onChange={(event) => setStartTime(event.target.value)}
+              disabled
             />
-            <span className="mt-1 block text-xs text-slate-400">Horário de início (ex.: 12:30).</span>
+            <span className="mt-1 block text-xs text-slate-400">Horário fixo: 12:30.</span>
           </label>
           <label className="text-sm text-slate-600">
             Fim
@@ -275,9 +277,9 @@ export default function AdminSessionsClient({
               type="time"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={endTime}
-              onChange={(event) => setEndTime(event.target.value)}
+              disabled
             />
-            <span className="mt-1 block text-xs text-slate-400">Horário de término (ex.: 13:20).</span>
+            <span className="mt-1 block text-xs text-slate-400">Horário fixo: 13:20 (50 min).</span>
           </label>
           <label className="text-sm text-slate-600">
             Local
@@ -400,13 +402,13 @@ export default function AdminSessionsClient({
                 type="time"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2"
                 value={startTime}
-                onChange={(event) => setStartTime(event.target.value)}
+                disabled
               />
               <input
                 type="time"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2"
                 value={endTime}
-                onChange={(event) => setEndTime(event.target.value)}
+                disabled
               />
             </div>
             <span className="mt-1 block text-xs text-slate-400">Início e fim da aula.</span>

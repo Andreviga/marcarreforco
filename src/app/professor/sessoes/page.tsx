@@ -5,6 +5,10 @@ import Link from "next/link";
 import { startOfDay } from "date-fns";
 import MonthlyCalendarClient from "@/components/MonthlyCalendarClient";
 
+const CLASS_START_LABEL = "12:30";
+const CLASS_END_LABEL = "13:20";
+const SCHOOL_TIMEZONE = "America/Sao_Paulo";
+
 export default async function ProfessorSessoesPage() {
   const session = await requireRole(["PROFESSOR"]);
 
@@ -26,12 +30,13 @@ export default async function ProfessorSessoesPage() {
     endsAt: item.endsAt,
     title: item.subject.name,
     subtitle: item.status,
+    meta: `${CLASS_START_LABEL} - ${CLASS_END_LABEL}`,
     href: `/professor/sessoes/${item.id}`,
     status: item.status
   }));
 
   return (
-    <AppShell title="Sessões" subtitle="Sua agenda de reforços" role="PROFESSOR">
+    <AppShell title="Sessões" subtitle="Sua agenda de reforços (horário fixo 12:30 às 13:20)" role="PROFESSOR">
       <div className="space-y-6">
         <MonthlyCalendarClient month={month} year={year} items={calendarItems} />
         <div className="grid gap-4">
@@ -52,10 +57,10 @@ export default async function ProfessorSessoesPage() {
                     {new Date(item.startsAt).toLocaleDateString("pt-BR", {
                       weekday: "short",
                       day: "2-digit",
-                      month: "2-digit"
+                      month: "2-digit",
+                      timeZone: SCHOOL_TIMEZONE
                     })}{" "}
-                    {new Date(item.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-                    {new Date(item.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    {CLASS_START_LABEL} - {CLASS_END_LABEL}
                   </p>
                   <p className="text-xs text-slate-400">Status: {item.status}</p>
                 </div>
