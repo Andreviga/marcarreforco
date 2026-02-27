@@ -32,7 +32,7 @@ describe("AppShell", () => {
     expect(screen.getByText("Relatórios")).toBeInTheDocument();
     expect(screen.getByText("Logs")).toBeInTheDocument();
     expect(screen.getByText("Limpeza")).toBeInTheDocument();
-    expect(screen.getByText("Tickets")).toBeInTheDocument();
+    expect(screen.getByText("Dúvidas")).toBeInTheDocument();
     expect(screen.getByText("Conteúdo")).toBeInTheDocument();
   });
 });

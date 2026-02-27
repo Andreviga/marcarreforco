@@ -23,7 +23,7 @@ export default async function AlunoTicketsPage() {
   });
 
   return (
-    <AppShell title="Tickets" subtitle="Envie dúvidas e acompanhe respostas" role="ALUNO">
+    <AppShell title="Central de Dúvidas" subtitle="Envie dúvidas e acompanhe as respostas" role="ALUNO">
       <TicketsClient role="ALUNO" tickets={tickets} teachers={teachers} basePath="/aluno/tickets" />
     </AppShell>
   );

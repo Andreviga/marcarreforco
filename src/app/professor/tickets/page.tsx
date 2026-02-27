@@ -23,7 +23,7 @@ export default async function ProfessorTicketsPage() {
   });
 
   return (
-    <AppShell title="Tickets" subtitle="Registre melhorias e responda alunos" role="PROFESSOR">
+    <AppShell title="Central de Dúvidas" subtitle="Responda dúvidas dos alunos e acompanhe conversas" role="PROFESSOR">
       <TicketsClient role="PROFESSOR" tickets={tickets} students={students} basePath="/professor/tickets" />
     </AppShell>
   );

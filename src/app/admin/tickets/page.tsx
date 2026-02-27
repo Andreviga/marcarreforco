@@ -27,7 +27,7 @@ export default async function AdminTicketsPage() {
   });
 
   return (
-    <AppShell title="Tickets" subtitle="Controle total de dúvidas e melhorias" role="ADMIN">
+    <AppShell title="Central de Dúvidas" subtitle="Acompanhe dúvidas e melhorias de toda a escola" role="ADMIN">
       <TicketsClient
         role="ADMIN"
         tickets={tickets}
