@@ -74,7 +74,7 @@ export default function TicketsClient({ role, tickets, teachers = [], students =
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
-      setFormError(data?.message ?? "Não foi possível criar o ticket.");
+      setFormError(data?.message ?? "Não foi possível enviar a dúvida.");
       setSubmitting(false);
       return;
     }
@@ -91,7 +91,7 @@ export default function TicketsClient({ role, tickets, teachers = [], students =
   return (
     <div className="space-y-6">
       <form onSubmit={handleCreate} className="rounded-xl bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Novo ticket</h2>
+        <h2 className="text-lg font-semibold text-slate-900">Nova dúvida</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <label className="text-sm text-slate-600">
             Título
@@ -166,15 +166,15 @@ export default function TicketsClient({ role, tickets, teachers = [], students =
           className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-60"
           disabled={submitting}
         >
-          Criar ticket
+          Enviar dúvida
         </button>
       </form>
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Tickets</h2>
+        <h2 className="text-lg font-semibold text-slate-900">Dúvidas</h2>
         <div className="mt-3 space-y-3">
           {tickets.length === 0 ? (
-            <p className="text-sm text-slate-500">Nenhum ticket encontrado.</p>
+            <p className="text-sm text-slate-500">Nenhuma dúvida encontrada.</p>
           ) : (
             tickets.map((ticket) => (
               <Link

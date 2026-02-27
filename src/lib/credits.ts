@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const CREDIT_TTL_DAYS = 30;
+const UNIVERSAL_SUBJECT_NAME = "A DEFINIR";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -13,6 +14,21 @@ function addDays(date: Date, days: number) {
 
 function getExpiryDate(base?: Date | null) {
   return addDays(base ?? new Date(), CREDIT_TTL_DAYS);
+}
+
+export async function getUniversalCreditSubjectId(db: DbClient = prisma) {
+  const existing = await db.subject.findFirst({
+    where: { name: { equals: UNIVERSAL_SUBJECT_NAME, mode: "insensitive" } },
+    select: { id: true }
+  });
+
+  if (existing) return existing.id;
+
+  const created = await db.subject.create({
+    data: { name: UNIVERSAL_SUBJECT_NAME, defaultPriceCents: 0 }
+  });
+
+  return created.id;
 }
 
 async function ensureLegacyLot(db: DbClient, studentId: string, subjectId: string, now: Date) {
@@ -115,11 +131,12 @@ export async function addPaymentCredits(params: {
   paymentId?: string;
   paidAt?: Date | null;
 }) {
-  const { studentId, subjectId, amount, paymentId, paidAt } = params;
+  const { studentId, amount, paymentId, paidAt } = params;
   const now = new Date();
   const expiresAt = getExpiryDate(paidAt ?? now);
 
   return prisma.$transaction(async (tx) => {
+    const subjectId = await getUniversalCreditSubjectId(tx);
     await ensureLegacyLot(tx, studentId, subjectId, now);
     const lot = await tx.studentCreditLot.create({
       data: {
@@ -155,11 +172,12 @@ export async function adjustCredits(params: {
   reason: "ADMIN_ADJUST";
   paymentId?: string;
 }) {
-  const { studentId, subjectId, delta, reason, paymentId } = params;
+  const { studentId, delta, reason, paymentId } = params;
   if (!delta) return null;
   const now = new Date();
 
   return prisma.$transaction(async (tx) => {
+    const subjectId = await getUniversalCreditSubjectId(tx);
     await ensureLegacyLot(tx, studentId, subjectId, now);
 
     if (delta > 0) {
@@ -205,11 +223,12 @@ export async function reserveCredit(params: {
   subjectId: string;
   enrollmentId: string;
 }) {
-  const { tx, studentId, subjectId, enrollmentId } = params;
+  const { tx, studentId, enrollmentId } = params;
   const now = new Date();
+  const subjectId = await getUniversalCreditSubjectId(tx);
   const lots = await getAvailableLots(tx, studentId, subjectId, now);
   if (!lots.length) {
-    throw new Error("SEM_CRÉDITO");
+    throw new Error("SEM_CREDITO");
   }
 
   const lot = lots[0];
@@ -279,8 +298,9 @@ export async function releaseCredit(params: {
   return true;
 }
 
-export async function getBalance(studentId: string, subjectId: string) {
+export async function getBalance(studentId: string, _subjectId: string) {
   const now = new Date();
+  const subjectId = await getUniversalCreditSubjectId(prisma);
   const aggregate = await prisma.studentCreditLot.aggregate({
     where: {
       studentId,
@@ -295,24 +315,22 @@ export async function getBalance(studentId: string, subjectId: string) {
 
 export async function getBalancesForStudent(studentId: string) {
   const now = new Date();
-  const subjects = await prisma.subject.findMany();
-  const lots = await prisma.studentCreditLot.findMany({
+  const subjectId = await getUniversalCreditSubjectId(prisma);
+  const subject = await prisma.subject.findUnique({ where: { id: subjectId } });
+  if (!subject) return [];
+
+  const aggregate = await prisma.studentCreditLot.aggregate({
     where: {
       studentId,
+      subjectId,
       remaining: { gt: 0 },
       expiresAt: { gt: now }
-    }
+    },
+    _sum: { remaining: true }
   });
 
-  const bySubject = new Map<string, number>();
-  for (const lot of lots) {
-    bySubject.set(lot.subjectId, (bySubject.get(lot.subjectId) ?? 0) + lot.remaining);
-  }
+  const balance = aggregate._sum.remaining ?? 0;
+  if (balance <= 0) return [];
 
-  return subjects
-    .filter((subject) => bySubject.has(subject.id))
-    .map((subject) => ({
-      subject,
-      balance: bySubject.get(subject.id) ?? 0
-    }));
+  return [{ subject, balance }];
 }

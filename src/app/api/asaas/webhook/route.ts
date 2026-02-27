@@ -35,6 +35,28 @@ const subscriptionStatusMap: Record<string, "ACTIVE" | "INACTIVE" | "CANCELED" |
   OVERDUE: "OVERDUE"
 };
 
+async function getSafeSubscriptionStatus(
+  asaasSubscriptionId: string,
+  asaasStatus: string | undefined
+): Promise<"ACTIVE" | "INACTIVE" | "CANCELED" | "OVERDUE"> {
+  const mappedStatus = subscriptionStatusMap[asaasStatus ?? "INACTIVE"] ?? "INACTIVE";
+
+  // Nunca promovemos INACTIVE -> ACTIVE por evento de assinatura.
+  // Promoção para ACTIVE acontece apenas no fluxo de pagamento CONFIRMED.
+  if (mappedStatus !== "ACTIVE") {
+    return mappedStatus;
+  }
+
+  // Se já estiver ACTIVE localmente, preserva para evitar downgrade
+  // quando o Asaas reenviar updates de assinatura após pagamentos já processados.
+  const existingSubscription = await prisma.asaasSubscription.findUnique({
+    where: { asaasId: asaasSubscriptionId },
+    select: { status: true }
+  });
+
+  return existingSubscription?.status === "ACTIVE" ? "ACTIVE" : "INACTIVE";
+}
+
 function parseExternalReference(value?: string | null) {
   if (!value) return null;
   const match = /package:(.+?):user:(.+)/.exec(value);
@@ -146,10 +168,10 @@ export async function POST(request: Request) {
         where: { paymentId: payment.id, reason: "PAYMENT_CREDIT" }
       });
 
-      if (!alreadyCredited && payment.package.subjectId) {
+      if (!alreadyCredited) {
         await addPaymentCredits({
           studentId: payment.userId,
-          subjectId: payment.package.subjectId,
+          subjectId: payment.package.subjectId ?? "",
           amount: payment.package.sessionCount,
           paymentId: payment.id,
           paidAt: payment.paidAt
@@ -165,10 +187,10 @@ export async function POST(request: Request) {
         where: { paymentId: payment.id, reason: "ADMIN_ADJUST" }
       });
 
-      if (credited && !reversed && payment.package.subjectId) {
+      if (credited && !reversed) {
         await adjustCredits({
           studentId: payment.userId,
-          subjectId: payment.package.subjectId,
+          subjectId: payment.package.subjectId ?? "",
           delta: -payment.package.sessionCount,
           reason: "ADMIN_ADJUST",
           paymentId: payment.id
@@ -178,7 +200,7 @@ export async function POST(request: Request) {
   }
 
   if (payload.subscription?.id) {
-    const status = subscriptionStatusMap[payload.subscription.status ?? "INACTIVE"] ?? "INACTIVE";
+    const status = await getSafeSubscriptionStatus(payload.subscription.id, payload.subscription.status);
     const where =
       status === "CANCELED"
         ? { asaasId: payload.subscription.id }

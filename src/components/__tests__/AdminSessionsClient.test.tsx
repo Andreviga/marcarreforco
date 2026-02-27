@@ -40,11 +40,37 @@ describe("AdminSessionsClient", () => {
   it("updates selected subject", async () => {
     render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
 
-    const subjectSelect = screen.getByLabelText(/Disciplina/i) as HTMLSelectElement;
+    const subjectSelect = screen.getAllByLabelText(/Disciplina/i)[0] as HTMLSelectElement;
 
     await userEvent.selectOptions(subjectSelect, "sub2");
 
     expect(subjectSelect.value).toBe("sub2");
+  });
+
+
+  it("creates monthly sessions using selected professor and discipline", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    // @ts-expect-error - override fetch for test
+    global.fetch = fetchMock;
+
+    render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
+
+    const disciplineSelects = screen.getAllByLabelText(/Disciplina/i);
+    const teacherSelects = screen.getAllByLabelText(/Professor/i);
+
+    await userEvent.selectOptions(disciplineSelects[1], "sub2");
+    await userEvent.selectOptions(teacherSelects[1], "t2");
+
+    await userEvent.click(screen.getByRole("button", { name: "Gerar sessões do mês" }));
+
+    const monthlyPostCalls = fetchMock.mock.calls.filter(
+      (call) => call[0] === "/api/admin/sessions" && call[1]?.method === "POST"
+    );
+
+    expect(monthlyPostCalls.length).toBeGreaterThan(0);
+    const firstPayload = JSON.parse(monthlyPostCalls[0][1].body);
+    expect(firstPayload.subjectId).toBe("sub2");
+    expect(firstPayload.teacherId).toBe("t2");
   });
 
   it("creates repeated sessions and cancels a session", async () => {

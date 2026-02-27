@@ -15,6 +15,9 @@ jest.mock("@/lib/prisma", () => ({
     session: {
       findUnique: jest.fn()
     },
+    studentProfile: {
+      findUnique: jest.fn()
+    },
     subject: {
       findFirst: jest.fn()
     },
@@ -46,6 +49,7 @@ describe("enroll route", () => {
   const getBalanceMock = getBalance as jest.Mock;
   const addPaymentCreditsMock = addPaymentCredits as jest.Mock;
   const sessionRepo = prisma.session as unknown as { findUnique: jest.Mock };
+  const studentProfileRepo = prisma.studentProfile as unknown as { findUnique: jest.Mock };
   const subjectRepo = prisma.subject as unknown as { findFirst: jest.Mock };
   const paymentRepo = prisma.asaasPayment as unknown as { findFirst: jest.Mock };
   const enrollmentRepo = prisma.enrollment as unknown as { findUnique: jest.Mock; upsert: jest.Mock };
@@ -67,6 +71,7 @@ describe("enroll route", () => {
       response: null
     });
     subjectRepo.findFirst.mockResolvedValue(null);
+    studentProfileRepo.findUnique.mockResolvedValue({ serie: "2º ano", turma: "Manhã" });
   });
 
   it("rejects unavailable session", async () => {
@@ -81,7 +86,29 @@ describe("enroll route", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.message).toBe("Sessão indisponível");
+    expect(data.message).toBe("Não foi possível agendar: esta sessão não está disponível.");
+  });
+
+  it("rejects session when series is not eligible", async () => {
+    sessionRepo.findUnique.mockResolvedValue({
+      id: "s1",
+      status: "ATIVA",
+      startsAt: new Date(Date.now() + 86400000),
+      subjectId: "sub1",
+      subject: { name: "Matemática", eligibleSeries: ["7", "8", "9"], eligibleTurmas: [] },
+      teacher: { name: "Ana" }
+    });
+
+    const request = new Request("http://localhost/api/enroll", {
+      method: "POST",
+      body: JSON.stringify({ sessionId: "s1" })
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.message).toBe("Não foi possível agendar: esta aula não está disponível para a sua série.");
   });
 
   it("enrolls student", async () => {
@@ -90,7 +117,7 @@ describe("enroll route", () => {
       status: "ATIVA",
       startsAt: new Date(Date.now() + 86400000),
       subjectId: "sub1",
-      subject: { name: "Matemática" },
+      subject: { name: "Matemática", eligibleSeries: [], eligibleTurmas: [] },
       teacher: { name: "Ana" }
     });
     enrollmentRepo.findUnique.mockResolvedValue(null);
@@ -121,13 +148,40 @@ describe("enroll route", () => {
     );
   });
 
+  it("returns friendly insufficient credits message", async () => {
+    sessionRepo.findUnique.mockResolvedValue({
+      id: "s1",
+      status: "ATIVA",
+      startsAt: new Date(Date.now() + 86400000),
+      subjectId: "sub1",
+      subject: { name: "Matemática", eligibleSeries: [], eligibleTurmas: [] },
+      teacher: { name: "Ana" }
+    });
+    enrollmentRepo.findUnique.mockResolvedValue(null);
+    getBalanceMock.mockResolvedValue(0);
+    paymentRepo.findFirst.mockResolvedValue(null);
+    txMock.enrollment.upsert.mockResolvedValue({ id: "e1", sessionId: "s1" });
+    reserveCreditMock.mockRejectedValue(new Error("SEM_CREDITO"));
+
+    const request = new Request("http://localhost/api/enroll", {
+      method: "POST",
+      body: JSON.stringify({ sessionId: "s1" })
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.message).toBe("Não foi possível agendar: você não tem créditos disponíveis para essa disciplina.");
+  });
+
   it("allocates credits from pending payment when balance is zero", async () => {
     sessionRepo.findUnique.mockResolvedValue({
       id: "s1",
       status: "ATIVA",
       startsAt: new Date(Date.now() + 86400000),
       subjectId: "sub1",
-      subject: { name: "Matemática" },
+      subject: { name: "Matemática", eligibleSeries: [], eligibleTurmas: [] },
       teacher: { name: "Ana" }
     });
     enrollmentRepo.findUnique.mockResolvedValue(null);

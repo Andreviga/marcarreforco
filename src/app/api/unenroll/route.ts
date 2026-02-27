@@ -5,6 +5,13 @@ import { unenrollSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
 import { releaseCredit } from "@/lib/credits";
 
+const CANCEL_WINDOW_HOURS = 48;
+
+function canCancelUntil(startsAt: Date) {
+  const diffMs = startsAt.getTime() - Date.now();
+  return diffMs >= CANCEL_WINDOW_HOURS * 60 * 60 * 1000;
+}
+
 export async function POST(request: Request) {
   const { session, response } = await requireApiRole(["ALUNO"]);
   if (response) return response;
@@ -26,6 +33,13 @@ export async function POST(request: Request) {
 
   if (enrollment.session.status === "CANCELADA") {
     return NextResponse.json({ message: "Sessão cancelada" }, { status: 400 });
+  }
+
+  if (!canCancelUntil(enrollment.session.startsAt)) {
+    return NextResponse.json(
+      { message: "Desmarcação permitida apenas até 48 horas antes da aula." },
+      { status: 400 }
+    );
   }
 
   const updated = await prisma.$transaction(async (tx) => {

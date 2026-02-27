@@ -4,6 +4,45 @@ import { requireApiRole } from "@/lib/api-auth";
 import { packageSchema, packageUpdateSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
 
+function normalizePackageName(name: string) {
+  return name
+    .replace(/\s*\(sem disciplina\)\s*/gi, " ")
+    .replace(/avulso\s*\(1h\)/gi, "Avulso (50min)")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function isUniqueConstraintError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  return "code" in error && (error as { code?: string }).code === "P2002";
+}
+
+const REMOVED_PACKAGE_NAME = "PACOTE REMOVIDO (HISTÓRICO)";
+const OPEN_PAYMENT_STATUSES: Array<"PENDING" | "OVERDUE"> = ["PENDING", "OVERDUE"];
+
+async function getOrCreateRemovedPackageId() {
+  const existing = await prisma.sessionPackage.findUnique({
+    where: { name: REMOVED_PACKAGE_NAME },
+    select: { id: true }
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.sessionPackage.create({
+    data: {
+      name: REMOVED_PACKAGE_NAME,
+      sessionCount: 1,
+      priceCents: 0,
+      active: false,
+      billingType: "PACKAGE",
+      billingCycle: null,
+      subjectId: null
+    },
+    select: { id: true }
+  });
+
+  return created.id;
+}
+
 export async function GET() {
   const { response } = await requireApiRole(["ADMIN"]);
   if (response) return response;
@@ -32,17 +71,27 @@ export async function POST(request: Request) {
     ((parsed.data.billingCycle === "WEEKLY" && sessionCount > 1) ||
       (parsed.data.billingCycle === "MONTHLY" && sessionCount > 4));
 
-  const created = await prisma.sessionPackage.create({
-    data: {
-      name: parsed.data.name,
-      sessionCount: parsed.data.sessionCount,
-      priceCents: parsed.data.priceCents,
-      active: parsed.data.active ?? true,
-      billingType: parsed.data.billingType ?? "PACKAGE",
-      billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
-      subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
+  const normalizedName = normalizePackageName(parsed.data.name);
+
+  let created;
+  try {
+    created = await prisma.sessionPackage.create({
+      data: {
+        name: normalizedName,
+        sessionCount: parsed.data.sessionCount,
+        priceCents: parsed.data.priceCents,
+        active: parsed.data.active ?? true,
+        billingType: parsed.data.billingType ?? "PACKAGE",
+        billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
+        subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
+      }
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return NextResponse.json({ message: `Já existe um pacote com o nome "${normalizedName}".` }, { status: 409 });
     }
-  });
+    throw error;
+  }
 
   await logAudit({
     actorUserId: session.user.id,
@@ -75,18 +124,28 @@ export async function PATCH(request: Request) {
     ((parsed.data.billingCycle === "WEEKLY" && sessionCount > 1) ||
       (parsed.data.billingCycle === "MONTHLY" && sessionCount > 4));
 
-  const updated = await prisma.sessionPackage.update({
-    where: { id: parsed.data.id },
-    data: {
-      name: parsed.data.name,
-      sessionCount: parsed.data.sessionCount,
-      priceCents: parsed.data.priceCents,
-      active: parsed.data.active,
-      billingType: parsed.data.billingType,
-      billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
-      subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
+  const normalizedName = typeof parsed.data.name === "string" ? normalizePackageName(parsed.data.name) : undefined;
+
+  let updated;
+  try {
+    updated = await prisma.sessionPackage.update({
+      where: { id: parsed.data.id },
+      data: {
+        name: normalizedName,
+        sessionCount: parsed.data.sessionCount,
+        priceCents: parsed.data.priceCents,
+        active: parsed.data.active,
+        billingType: parsed.data.billingType,
+        billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
+        subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
+      }
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error) && normalizedName) {
+      return NextResponse.json({ message: `Já existe um pacote com o nome "${normalizedName}".` }, { status: 409 });
     }
-  });
+    throw error;
+  }
 
   await logAudit({
     actorUserId: session.user.id,
@@ -105,19 +164,106 @@ export async function DELETE(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
+  const forceDelete = searchParams.get("force") === "1";
   if (!id) {
     return NextResponse.json({ message: "ID obrigatório" }, { status: 400 });
   }
 
-  await prisma.sessionPackage.delete({ where: { id } });
+  const packageData = await prisma.sessionPackage.findUnique({
+    where: { id },
+    select: { name: true, _count: { select: { subscriptions: true, payments: true } } }
+  });
+
+  if (!packageData) {
+    return NextResponse.json({ message: "Pacote não encontrado." }, { status: 404 });
+  }
+
+  const [activeSubscriptions, activePayments] = await Promise.all([
+    prisma.asaasSubscription.count({ where: { packageId: id, status: { not: "CANCELED" } } }),
+    prisma.asaasPayment.count({ where: { packageId: id, status: { in: OPEN_PAYMENT_STATUSES } } })
+  ]);
+
+  if (!forceDelete && (activeSubscriptions > 0 || activePayments > 0)) {
+    const [blockingSubscriptions, blockingPayments] = await Promise.all([
+      prisma.asaasSubscription.findMany({
+        where: { packageId: id, status: { not: "CANCELED" } },
+        select: {
+          id: true,
+          status: true,
+          asaasId: true,
+          user: { select: { name: true, email: true } },
+          nextDueDate: true
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10
+      }),
+      prisma.asaasPayment.findMany({
+        where: { packageId: id, status: { in: OPEN_PAYMENT_STATUSES } },
+        select: {
+          id: true,
+          status: true,
+          asaasId: true,
+          dueDate: true,
+          user: { select: { name: true, email: true } }
+        },
+        orderBy: { createdAt: "desc" },
+        take: 20
+      })
+    ]);
+
+    return NextResponse.json(
+      {
+        message:
+          "Não foi possível excluir o pacote porque ele possui vínculos ativos. Cancele primeiro as assinaturas/pagamentos em aberto.",
+        package: packageData.name,
+        links: {
+          subscriptions: packageData._count.subscriptions,
+          payments: packageData._count.payments,
+          activeSubscriptions,
+          activePayments
+        },
+        blockingSubscriptions,
+        blockingPayments
+      },
+      { status: 409 }
+    );
+  }
+
+  const removedPackageId = await getOrCreateRemovedPackageId();
+
+  const [migratedPayments, migratedSubscriptions] = await prisma.$transaction(async (tx) => {
+    const paymentResult = await tx.asaasPayment.updateMany({
+      where: { packageId: id },
+      data: {
+        packageId: removedPackageId,
+        ...(forceDelete ? { status: "CANCELED" as const } : {})
+      }
+    });
+    const subscriptionResult = await tx.asaasSubscription.updateMany({
+      where: { packageId: id },
+      data: {
+        packageId: removedPackageId,
+        ...(forceDelete ? { status: "CANCELED" as const } : {})
+      }
+    });
+    await tx.sessionPackage.delete({ where: { id } });
+
+    return [paymentResult.count, subscriptionResult.count] as const;
+  });
 
   await logAudit({
     actorUserId: session.user.id,
     action: "DELETE_PACKAGE",
     entityType: "SessionPackage",
     entityId: id,
-    payload: { id }
+    payload: { id, forceDelete, migratedCanceledLinksTo: removedPackageId, migratedPayments, migratedSubscriptions }
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    forceDelete,
+    migratedCanceledLinksTo: removedPackageId,
+    migratedPayments,
+    migratedSubscriptions
+  });
 }

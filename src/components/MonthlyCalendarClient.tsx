@@ -13,6 +13,7 @@ import {
   startOfMonth,
   startOfWeek
 } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface CalendarItem {
   id: string;
@@ -89,15 +90,14 @@ export default function MonthlyCalendarClient({
 
   return (
     <div className="rounded-xl bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">Calendario do mes</h2>
-        <div className="flex items-center gap-2 text-sm text-slate-500">
+      <div className="mb-3">
+        <div className="flex items-center justify-between gap-2 text-sm text-slate-500">
           <button
             type="button"
             onClick={() => setVisibleDate((prev) => addMonths(prev, -1))}
             className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
           >
-            Anterior
+            ◀ Anterior
           </button>
           <button
             type="button"
@@ -106,19 +106,23 @@ export default function MonthlyCalendarClient({
           >
             Hoje
           </button>
-          <span>{format(monthStart, "MM/yyyy")}</span>
-          {isCurrentMonthView && (
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-              Mes atual
-            </span>
-          )}
           <button
             type="button"
             onClick={() => setVisibleDate((prev) => addMonths(prev, 1))}
             className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
           >
-            Próximo
+            Próximo ▶
           </button>
+        </div>
+        <div className="mt-3 text-center">
+          <h2 className="text-2xl font-bold capitalize text-slate-900 md:text-3xl">
+            {format(monthStart, "MMMM 'de' yyyy", { locale: ptBR })}
+          </h2>
+          {isCurrentMonthView && (
+            <span className="mt-2 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+              Mês atual
+            </span>
+          )}
         </div>
       </div>
       {showLegend && legendItems.length > 0 && (

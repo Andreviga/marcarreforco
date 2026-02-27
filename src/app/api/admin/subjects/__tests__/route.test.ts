@@ -64,18 +64,18 @@ describe("admin subjects route", () => {
   });
 
   it("creates subject and logs audit", async () => {
-    subjectRepo.create.mockResolvedValue({ id: "s1", name: "Física", defaultPriceCents: 3000 });
+    subjectRepo.create.mockResolvedValue({ id: "s1", name: "Física", defaultPriceCents: 3000, eligibleSeries: ["1","2","3"] });
 
     const request = new Request("http://localhost/api/admin/subjects", {
       method: "POST",
-      body: JSON.stringify({ name: "Física", defaultPriceCents: 3000 })
+      body: JSON.stringify({ name: "Física", defaultPriceCents: 3000, eligibleSeries: ["1","2","3"] })
     });
 
     const response = await POST(request);
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.subject).toEqual({ id: "s1", name: "Física", defaultPriceCents: 3000 });
+    expect(data.subject).toEqual({ id: "s1", name: "Física", defaultPriceCents: 3000, eligibleSeries: ["1","2","3"] });
     expect(logAuditMock).toHaveBeenCalledWith(
       expect.objectContaining({
         actorUserId: "user-1",

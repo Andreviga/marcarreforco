@@ -13,6 +13,7 @@ interface UserProfile {
     serie: string | null;
     turma: string | null;
     unidade: string | null;
+    responsavel: string | null;
     document: string | null;
   } | null;
   teacherProfile?: {
@@ -43,6 +44,7 @@ export default function ProfileClient({
   const [serie, setSerie] = useState(initialUser.studentProfile?.serie || "");
   const [turma, setTurma] = useState(initialUser.studentProfile?.turma || "");
   const [unidade, setUnidade] = useState(initialUser.studentProfile?.unidade || "");
+  const [responsavel, setResponsavel] = useState(initialUser.studentProfile?.responsavel || "");
   const [document, setDocument] = useState(initialUser.studentProfile?.document || "");
   const [documentValid, setDocumentValid] = useState<boolean | null>(null);
   const [originalDocumentValid, setOriginalDocumentValid] = useState<boolean>(false);
@@ -156,6 +158,7 @@ export default function ProfileClient({
       updateData.serie = serie || null;
       updateData.turma = turma || null;
       updateData.unidade = unidade || null;
+      updateData.responsavel = responsavel || null;
       updateData.document = document.replace(/\D/g, "") || null;
     }
 
@@ -273,7 +276,18 @@ export default function ProfileClient({
             </label>
 
             <label className="text-sm text-slate-600">
-              CPF/CNPJ
+              Responsável
+              <input
+                type="text"
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                placeholder="Nome do responsável"
+                value={responsavel}
+                onChange={(e) => setResponsavel(e.target.value)}
+              />
+            </label>
+
+            <label className="text-sm text-slate-600">
+              CPF/CNPJ do responsável
               <input
                 type="text"
                 className={`mt-1 w-full rounded-lg border px-3 py-2 ${
@@ -307,7 +321,7 @@ export default function ProfileClient({
               )}
               {documentValid === null && (
                 <span className="mt-1 block text-xs text-slate-500">
-                  Necessário para pagamentos
+                  Necessário para pagamentos (documento do responsável)
                 </span>
               )}
             </label>

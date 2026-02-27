@@ -13,7 +13,8 @@ const registerSchema = z.object({
   accessCode: z.string().min(1),
   serie: serieSchema,
   turma: turmaSchema,
-  unidade: unidadeSchema
+  unidade: unidadeSchema,
+  responsavel: z.string().min(1)
 });
 
 export async function POST(request: Request) {
@@ -45,7 +46,8 @@ export async function POST(request: Request) {
         create: {
           serie: parsed.data.serie ?? "",
           turma: parsed.data.turma ?? "",
-          unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade
+          unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade,
+          responsavel: parsed.data.responsavel.trim()
         }
       }
     }

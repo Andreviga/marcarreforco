@@ -27,7 +27,12 @@ export async function POST(request: Request) {
   }
 
   const created = await prisma.subject.create({
-    data: { name: parsed.data.name, defaultPriceCents: parsed.data.defaultPriceCents ?? 0 }
+    data: {
+      name: parsed.data.name,
+      defaultPriceCents: parsed.data.defaultPriceCents ?? 0,
+      eligibleTurmas: parsed.data.eligibleTurmas ?? [],
+      eligibleSeries: parsed.data.eligibleSeries ?? []
+    }
   });
 
   await logAudit({
@@ -53,7 +58,12 @@ export async function PATCH(request: Request) {
 
   const updated = await prisma.subject.update({
     where: { id: parsed.data.id },
-    data: { name: parsed.data.name, defaultPriceCents: parsed.data.defaultPriceCents ?? 0 }
+    data: {
+      name: parsed.data.name,
+      defaultPriceCents: parsed.data.defaultPriceCents ?? 0,
+      eligibleTurmas: parsed.data.eligibleTurmas ?? [],
+      eligibleSeries: parsed.data.eligibleSeries ?? []
+    }
   });
 
   await logAudit({

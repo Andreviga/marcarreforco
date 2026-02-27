@@ -60,7 +60,6 @@ export default function StudentPaymentsClient({
   const [allocationId, setAllocationId] = useState<string | null>(null);
   const [allocationMessage, setAllocationMessage] = useState<string | null>(null);
   const [allocationSubject, setAllocationSubject] = useState<Record<string, string>>({});
-  const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [isChrome, setIsChrome] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
@@ -120,15 +119,11 @@ export default function StudentPaymentsClient({
   const filteredPackages = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
     return packages.filter((item) => {
-      const subjectId = item.subject?.id ?? "none";
-      if (subjectFilter !== "all" && subjectId !== subjectFilter) {
-        return false;
-      }
       if (!search) return true;
       const haystack = `${item.name} ${item.subject?.name ?? ""}`.toLowerCase();
       return haystack.includes(search);
     });
-  }, [packages, searchTerm, subjectFilter]);
+  }, [packages, searchTerm]);
 
   const groupedPackages = useMemo(() => {
     const groups = new Map<string, { id: string; label: string; items: PackageItem[] }>();
@@ -293,8 +288,8 @@ export default function StudentPaymentsClient({
     <div className="space-y-6">
       {!hasDocument && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <h2 className="text-lg font-semibold text-amber-900">Complete seu CPF/CNPJ</h2>
-          <p className="text-sm text-amber-700">Precisamos do documento para criar a cobranca no Asaas.</p>
+          <h2 className="text-lg font-semibold text-amber-900">Complete o CPF/CNPJ do responsável</h2>
+          <p className="text-sm text-amber-700">Usamos o documento do responsável para criar a cobrança no Asaas.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <input
               className="min-w-[240px] flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"
@@ -391,23 +386,10 @@ export default function StudentPaymentsClient({
           )}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <select
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            value={subjectFilter}
-            onChange={(event) => setSubjectFilter(event.target.value)}
-          >
-            <option value="all">Todas as disciplinas</option>
-            <option value="none">Sem disciplina</option>
-            {subjects.map((subject) => (
-              <option key={subject.id} value={subject.id}>
-                {subject.name}
-              </option>
-            ))}
-          </select>
+        <div className="mt-4">
           <input
-            className="min-w-[240px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            placeholder="Buscar por pacote ou disciplina"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            placeholder="Pesquisar pacote"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
           />
