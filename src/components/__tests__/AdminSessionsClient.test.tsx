@@ -22,7 +22,17 @@ const sessions = [
     priceCents: 4000,
     status: "ATIVA",
     subject: { id: "sub1", name: "Matemática" },
-    teacher: { id: "t1", name: "Ana" }
+    teacher: { id: "t1", name: "Ana" },
+    enrollments: [
+      {
+        id: "en1",
+        status: "AGENDADO",
+        createdAt: new Date("2024-01-09T12:00:00.000Z"),
+        student: { id: "stu1", name: "Aluno 1" },
+        attendance: null
+      }
+    ],
+    _count: { enrollments: 1, attendances: 0 }
   }
 ];
 

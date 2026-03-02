@@ -20,6 +20,7 @@ const FIXED_END_TIME = "13:20";
 interface SessionEnrollment {
   id: string;
   status: string;
+  createdAt: string | Date;
   student: { id: string; name: string };
   attendance: { status: string } | null;
 }
@@ -467,11 +468,21 @@ export default function AdminSessionsClient({
           {sessions.map((session) => {
             const attendance = summarizeAttendance(session.enrollments);
             const isExpanded = expandedSessionId === session.id;
+            const latestEnrollments = [...session.enrollments]
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .slice(0, 3);
+            const lastBookingAt = latestEnrollments[0]?.createdAt;
 
             return (
-              <div key={session.id} className="rounded-lg border border-slate-100 p-3">
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm font-semibold text-slate-900">{session.subject.name}</p>
+              <div key={session.id} className="rounded-xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{session.subject.name}</p>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                      {session.status}
+                    </span>
+                  </div>
+
                   <p className="text-xs text-slate-500">
                     {new Date(session.startsAt).toLocaleDateString("pt-BR", {
                       weekday: "short",
@@ -481,41 +492,66 @@ export default function AdminSessionsClient({
                     {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
                     {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </p>
-                  <p className="text-xs text-slate-500">Professor: {session.teacher.name}</p>
-                  <p className="text-xs text-slate-500">Modalidade: {session.modality} • Local: {session.location}</p>
-                  <p className="text-xs text-slate-500">
-                    Inscrições: {session._count.enrollments} • Chamadas registradas: {session._count.attendances}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Presenças: {attendance.present} • Atrasos: {attendance.late} • Ausências: {attendance.absent} • Sem chamada: {attendance.pending}
-                  </p>
-                  {session.priceCents > 0 && (
-                    <p className="text-xs text-slate-500">Valor: R$ {Number(session.priceCents / 100).toFixed(2)}</p>
-                  )}
-                  <p className="text-xs text-slate-400">Status: {session.status} • ID: {session.id}</p>
-                </div>
 
-                {isExpanded && (
-                  <div className="mt-3 rounded-md bg-slate-50 p-2">
-                    <p className="text-xs font-semibold text-slate-700">Alunos inscritos</p>
-                    {session.enrollments.length === 0 ? (
-                      <p className="mt-1 text-xs text-slate-500">Sem alunos inscritos nesta sessão.</p>
-                    ) : (
-                      <div className="mt-2 space-y-1">
-                        {session.enrollments.map((enrollment) => (
-                          <div key={enrollment.id} className="flex items-center justify-between text-xs">
-                            <span className="text-slate-700">{enrollment.student.name}</span>
-                            <span className="text-slate-500">
-                              Inscrição: {enrollment.status} • Chamada: {enrollment.attendance?.status ?? "NÃO MARCADA"}
-                            </span>
-                          </div>
+                  <div className="grid gap-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600 md:grid-cols-2">
+                    <p>Professor: <strong>{session.teacher.name}</strong></p>
+                    <p>Modalidade: <strong>{session.modality}</strong></p>
+                    <p>Local: <strong>{session.location}</strong></p>
+                    <p>ID: <strong>{session.id}</strong></p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 text-[11px]">
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">Inscrições: {session._count.enrollments}</span>
+                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-700">Chamadas: {session._count.attendances}</span>
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">Presenças: {attendance.present}</span>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">Atrasos: {attendance.late}</span>
+                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700">Ausências: {attendance.absent}</span>
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-slate-700">Sem chamada: {attendance.pending}</span>
+                  </div>
+
+                  {lastBookingAt && (
+                    <p className="text-xs text-slate-500">
+                      Último agendamento: {new Date(lastBookingAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    </p>
+                  )}
+
+                  {latestEnrollments.length > 0 && (
+                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-2">
+                      <p className="text-xs font-semibold text-emerald-800">Últimos alunos agendados</p>
+                      <div className="mt-1 space-y-1">
+                        {latestEnrollments.map((enrollment, index) => (
+                          <p key={enrollment.id} className="text-xs text-emerald-900">
+                            {index === 0 ? "🟢 Mais recente:" : "•"} {enrollment.student.name} — {new Date(enrollment.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                          </p>
                         ))}
                       </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
 
-                <div className="mt-2 flex flex-wrap gap-2">
+                  {isExpanded && (
+                    <div className="mt-1 rounded-md bg-slate-50 p-2">
+                      <p className="text-xs font-semibold text-slate-700">Alunos inscritos</p>
+                      {session.enrollments.length === 0 ? (
+                        <p className="mt-1 text-xs text-slate-500">Sem alunos inscritos nesta sessão.</p>
+                      ) : (
+                        <div className="mt-2 space-y-1">
+                          {[...session.enrollments]
+                            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                            .map((enrollment) => (
+                              <div key={enrollment.id} className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-medium text-slate-700">{enrollment.student.name}</span>
+                                <span className="text-slate-500">
+                                  Agendou em {new Date(enrollment.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} • Inscrição: {enrollment.status} • Chamada: {enrollment.attendance?.status ?? "NÃO MARCADA"}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     onClick={() => setExpandedSessionId((prev) => (prev === session.id ? null : session.id))}
                     className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
