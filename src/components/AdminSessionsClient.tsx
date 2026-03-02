@@ -17,6 +17,13 @@ const MONTH_LABELS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho"
 const FIXED_START_TIME = "12:30";
 const FIXED_END_TIME = "13:20";
 
+interface SessionEnrollment {
+  id: string;
+  status: string;
+  student: { id: string; name: string };
+  attendance: { status: string } | null;
+}
+
 interface SessionItem {
   id: string;
   startsAt: string | Date;
@@ -27,6 +34,11 @@ interface SessionItem {
   status: string;
   subject: Subject;
   teacher: Teacher;
+  enrollments: SessionEnrollment[];
+  _count: {
+    enrollments: number;
+    attendances: number;
+  };
 }
 
 export default function AdminSessionsClient({
@@ -52,6 +64,7 @@ export default function AdminSessionsClient({
   const [monthlySubjectId, setMonthlySubjectId] = useState(subjects[0]?.id ?? "");
   const [monthlyTeacherId, setMonthlyTeacherId] = useState(teachers[0]?.id ?? "");
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
 
   const selectedMonthLabel = `${MONTH_LABELS[Math.max(0, Math.min(11, month - 1))]} de ${year}`;
   const previousMonthDate = new Date(year, month - 2, 1);
@@ -210,6 +223,21 @@ export default function AdminSessionsClient({
 
     await Promise.all(requests);
     window.location.reload();
+  }
+
+
+  function summarizeAttendance(enrollments: SessionEnrollment[]) {
+    return enrollments.reduce(
+      (acc, enrollment) => {
+        const status = enrollment.attendance?.status;
+        if (status === "PRESENTE") acc.present += 1;
+        if (status === "AUSENTE") acc.absent += 1;
+        if (status === "ATRASADO") acc.late += 1;
+        if (!status) acc.pending += 1;
+        return acc;
+      },
+      { present: 0, absent: 0, late: 0, pending: 0 }
+    );
   }
 
   return (
@@ -436,43 +464,82 @@ export default function AdminSessionsClient({
         <h2 className="text-lg font-semibold text-slate-900">Agenda</h2>
         {deleteError && <p className="mt-2 text-sm text-rose-600">{deleteError}</p>}
         <div className="mt-3 grid gap-3">
-          {sessions.map((session) => (
-            <div key={session.id} className="rounded-lg border border-slate-100 p-3">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-semibold text-slate-900">{session.subject.name}</p>
-                <p className="text-xs text-slate-500">
-                  {new Date(session.startsAt).toLocaleDateString("pt-BR", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "2-digit"
-                  })}{" "}
-                  {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-                  {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-                <p className="text-xs text-slate-500">{session.teacher.name}</p>
-                {session.priceCents > 0 && (
-                  <p className="text-xs text-slate-500">Valor: R$ {Number(session.priceCents / 100).toFixed(2)}</p>
+          {sessions.map((session) => {
+            const attendance = summarizeAttendance(session.enrollments);
+            const isExpanded = expandedSessionId === session.id;
+
+            return (
+              <div key={session.id} className="rounded-lg border border-slate-100 p-3">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-semibold text-slate-900">{session.subject.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {new Date(session.startsAt).toLocaleDateString("pt-BR", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "2-digit"
+                    })}{" "}
+                    {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
+                    {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                  <p className="text-xs text-slate-500">Professor: {session.teacher.name}</p>
+                  <p className="text-xs text-slate-500">Modalidade: {session.modality} • Local: {session.location}</p>
+                  <p className="text-xs text-slate-500">
+                    Inscrições: {session._count.enrollments} • Chamadas registradas: {session._count.attendances}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Presenças: {attendance.present} • Atrasos: {attendance.late} • Ausências: {attendance.absent} • Sem chamada: {attendance.pending}
+                  </p>
+                  {session.priceCents > 0 && (
+                    <p className="text-xs text-slate-500">Valor: R$ {Number(session.priceCents / 100).toFixed(2)}</p>
+                  )}
+                  <p className="text-xs text-slate-400">Status: {session.status} • ID: {session.id}</p>
+                </div>
+
+                {isExpanded && (
+                  <div className="mt-3 rounded-md bg-slate-50 p-2">
+                    <p className="text-xs font-semibold text-slate-700">Alunos inscritos</p>
+                    {session.enrollments.length === 0 ? (
+                      <p className="mt-1 text-xs text-slate-500">Sem alunos inscritos nesta sessão.</p>
+                    ) : (
+                      <div className="mt-2 space-y-1">
+                        {session.enrollments.map((enrollment) => (
+                          <div key={enrollment.id} className="flex items-center justify-between text-xs">
+                            <span className="text-slate-700">{enrollment.student.name}</span>
+                            <span className="text-slate-500">
+                              Inscrição: {enrollment.status} • Chamada: {enrollment.attendance?.status ?? "NÃO MARCADA"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
-                <p className="text-xs text-slate-400">Status: {session.status}</p>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {session.status === "ATIVA" && (
+
+                <div className="mt-2 flex flex-wrap gap-2">
                   <button
-                    onClick={() => cancelSession(session.id)}
+                    onClick={() => setExpandedSessionId((prev) => (prev === session.id ? null : session.id))}
                     className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
                   >
-                    Cancelar
+                    {isExpanded ? "Ocultar detalhes" : "Ver detalhes"}
                   </button>
-                )}
-                <button
-                  onClick={() => deleteSession(session.id)}
-                  className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                >
-                  Excluir
-                </button>
+                  {session.status === "ATIVA" && (
+                    <button
+                      onClick={() => cancelSession(session.id)}
+                      className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                  <button
+                    onClick={() => deleteSession(session.id)}
+                    className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                  >
+                    Excluir
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

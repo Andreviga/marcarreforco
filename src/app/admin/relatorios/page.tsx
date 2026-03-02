@@ -11,10 +11,17 @@ function pct(part: number, total: number) {
 export default async function AdminRelatoriosPage() {
   await requireRole(["ADMIN"]);
 
+  const now = new Date();
+  const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
   const [
     totalSessoes,
     sessoesAtivas,
     sessoesCanceladas,
+    sessoesProximos7Dias,
+    sessoesUltimos30Dias,
+    sessoesComInscricoes,
     totalInscricoes,
     inscricoesAgendadas,
     inscricoesDesmarcadas,
@@ -26,11 +33,23 @@ export default async function AdminRelatoriosPage() {
     pagamentosAtrasados,
     assinaturasAtivas,
     topAusencias,
-    ultimosPagamentos
+    ultimosPagamentos,
+    topDisciplinas,
+    topProfessores,
+    pagamentosPorStatus,
+    ultimasSessoes
   ] = await Promise.all([
     prisma.session.count(),
     prisma.session.count({ where: { status: "ATIVA" } }),
     prisma.session.count({ where: { status: "CANCELADA" } }),
+    prisma.session.count({
+      where: {
+        status: "ATIVA",
+        startsAt: { gte: now, lte: in7Days }
+      }
+    }),
+    prisma.session.count({ where: { startsAt: { gte: last30Days } } }),
+    prisma.session.count({ where: { enrollments: { some: {} } } }),
     prisma.enrollment.count(),
     prisma.enrollment.count({ where: { status: "AGENDADO" } }),
     prisma.enrollment.count({ where: { status: "DESMARCADO" } }),
@@ -57,18 +76,65 @@ export default async function AdminRelatoriosPage() {
       include: { user: true, package: true },
       orderBy: { paidAt: "desc" },
       take: 10
+    }),
+    prisma.session.groupBy({
+      by: ["subjectId"],
+      _count: { _all: true },
+      orderBy: { _count: { subjectId: "desc" } },
+      take: 5
+    }),
+    prisma.session.groupBy({
+      by: ["teacherId"],
+      _count: { _all: true },
+      orderBy: { _count: { teacherId: "desc" } },
+      take: 5
+    }),
+    prisma.asaasPayment.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+      _sum: { amountCents: true },
+      orderBy: { _count: { status: "desc" } }
+    }),
+    prisma.session.findMany({
+      include: {
+        subject: { select: { name: true } },
+        teacher: { select: { name: true } },
+        _count: {
+          select: {
+            enrollments: true,
+            attendances: true
+          }
+        }
+      },
+      orderBy: { startsAt: "desc" },
+      take: 12
     })
   ]);
 
-  const topAusenciasComNome =
+  const [topAusenciasComNome, subjectNames, teacherNames] = await Promise.all([
     topAusencias.length === 0
       ? []
-      : await prisma.user.findMany({
+      : prisma.user.findMany({
           where: { id: { in: topAusencias.map((item) => item.studentId) } },
           select: { id: true, name: true }
-        });
+        }),
+    topDisciplinas.length === 0
+      ? []
+      : prisma.subject.findMany({
+          where: { id: { in: topDisciplinas.map((item) => item.subjectId) } },
+          select: { id: true, name: true }
+        }),
+    topProfessores.length === 0
+      ? []
+      : prisma.user.findMany({
+          where: { id: { in: topProfessores.map((item) => item.teacherId) } },
+          select: { id: true, name: true }
+        })
+  ]);
 
   const nomePorAluno = new Map(topAusenciasComNome.map((user) => [user.id, user.name]));
+  const nomePorDisciplina = new Map(subjectNames.map((subject) => [subject.id, subject.name]));
+  const nomePorProfessor = new Map(teacherNames.map((teacher) => [teacher.id, teacher.name]));
 
   return (
     <AppShell title="Relatórios" subtitle="Visão consolidada de frequência, agenda e financeiro" role="ADMIN">
@@ -78,11 +144,14 @@ export default async function AdminRelatoriosPage() {
             <p className="text-xs text-slate-500">Sessões</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900">{totalSessoes}</p>
             <p className="mt-1 text-xs text-slate-500">Ativas: {sessoesAtivas} • Canceladas: {sessoesCanceladas}</p>
+            <p className="text-xs text-slate-500">Próx. 7 dias: {sessoesProximos7Dias}</p>
+            <p className="text-xs text-slate-500">Últimos 30 dias: {sessoesUltimos30Dias}</p>
           </div>
           <div className="rounded-xl bg-white p-4 shadow-sm">
             <p className="text-xs text-slate-500">Inscrições</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900">{totalInscricoes}</p>
             <p className="mt-1 text-xs text-slate-500">Agendadas: {inscricoesAgendadas} • Desmarcadas: {inscricoesDesmarcadas}</p>
+            <p className="text-xs text-slate-500">Sessões com inscritos: {sessoesComInscricoes}</p>
           </div>
           <div className="rounded-xl bg-white p-4 shadow-sm">
             <p className="text-xs text-slate-500">Frequência</p>
@@ -134,6 +203,81 @@ export default async function AdminRelatoriosPage() {
             </div>
           </section>
         </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <section className="rounded-xl bg-white p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Disciplinas com mais sessões</h2>
+            <div className="mt-3 space-y-2 text-sm">
+              {topDisciplinas.length === 0 ? (
+                <p className="text-slate-500">Sem dados suficientes.</p>
+              ) : (
+                topDisciplinas.map((item) => (
+                  <div key={item.subjectId} className="rounded-lg border border-slate-100 p-3">
+                    <p className="font-medium text-slate-900">{nomePorDisciplina.get(item.subjectId) ?? item.subjectId}</p>
+                    <p className="text-xs text-slate-500">{item._count._all} sessão(ões)</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-xl bg-white p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Professores com mais sessões</h2>
+            <div className="mt-3 space-y-2 text-sm">
+              {topProfessores.length === 0 ? (
+                <p className="text-slate-500">Sem dados suficientes.</p>
+              ) : (
+                topProfessores.map((item) => (
+                  <div key={item.teacherId} className="rounded-lg border border-slate-100 p-3">
+                    <p className="font-medium text-slate-900">{nomePorProfessor.get(item.teacherId) ?? item.teacherId}</p>
+                    <p className="text-xs text-slate-500">{item._count._all} sessão(ões)</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-xl bg-white p-4 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Pagamentos por status</h2>
+            <div className="mt-3 space-y-2 text-sm">
+              {pagamentosPorStatus.length === 0 ? (
+                <p className="text-slate-500">Sem dados de pagamentos.</p>
+              ) : (
+                pagamentosPorStatus.map((item) => (
+                  <div key={item.status} className="rounded-lg border border-slate-100 p-3">
+                    <p className="font-medium text-slate-900">{item.status}</p>
+                    <p className="text-xs text-slate-500">
+                      {item._count._all} pagamento(s) • {formatCurrency(item._sum.amountCents ?? 0)}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+
+        <section className="rounded-xl bg-white p-4 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Últimas sessões (detalhado)</h2>
+          <p className="text-xs text-slate-500">Resumo com disciplina, professor, status e volume de alunos/chamadas.</p>
+          <div className="mt-3 space-y-2 text-sm">
+            {ultimasSessoes.length === 0 ? (
+              <p className="text-slate-500">Nenhuma sessão encontrada.</p>
+            ) : (
+              ultimasSessoes.map((item) => (
+                <div key={item.id} className="rounded-lg border border-slate-100 p-3">
+                  <p className="font-medium text-slate-900">{item.subject.name}</p>
+                  <p className="text-xs text-slate-500">Professor: {item.teacher.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {new Date(item.startsAt).toLocaleDateString("pt-BR")} {new Date(item.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    {" "}• {new Date(item.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                  <p className="text-xs text-slate-500">Status: {item.status}</p>
+                  <p className="text-xs text-slate-500">Inscrições: {item._count.enrollments} • Chamadas: {item._count.attendances}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
       </div>
     </AppShell>
   );
