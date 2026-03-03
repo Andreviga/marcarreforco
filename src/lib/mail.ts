@@ -3,11 +3,13 @@ import nodemailer from "nodemailer";
 export async function sendEmail({
   to,
   subject,
-  html
+  html,
+  cc
 }: {
   to: string;
   subject: string;
   html: string;
+  cc?: string[];
 }) {
   const host = process.env.SMTP_HOST ?? "smtp.gmail.com";
   const port = Number(process.env.SMTP_PORT ?? 465);
@@ -29,6 +31,7 @@ export async function sendEmail({
   await transporter.sendMail({
     from,
     to,
+    cc,
     subject,
     html
   });
