@@ -13,6 +13,18 @@ interface Teacher {
   name: string;
 }
 
+const MONTH_LABELS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const FIXED_START_TIME = "12:30";
+const FIXED_END_TIME = "13:20";
+
+interface SessionEnrollment {
+  id: string;
+  status: string;
+  createdAt: string | Date;
+  student: { id: string; name: string };
+  attendance: { status: string } | null;
+}
+
 interface SessionItem {
   id: string;
   startsAt: string | Date;
@@ -23,6 +35,11 @@ interface SessionItem {
   status: string;
   subject: Subject;
   teacher: Teacher;
+  enrollments: SessionEnrollment[];
+  _count: {
+    enrollments: number;
+    attendances: number;
+  };
 }
 
 export default function AdminSessionsClient({
@@ -37,15 +54,22 @@ export default function AdminSessionsClient({
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
   const [date, setDate] = useState("");
-  const [startTime, setStartTime] = useState("12:30");
-  const [endTime, setEndTime] = useState("13:30");
+  const [startTime] = useState(FIXED_START_TIME);
+  const [endTime] = useState(FIXED_END_TIME);
   const [location, setLocation] = useState("Sala 1");
   const [modality, setModality] = useState("PRESENCIAL");
   const [repeatWeeks, setRepeatWeeks] = useState(1);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [weekday, setWeekday] = useState(1);
+  const [monthlySubjectId, setMonthlySubjectId] = useState(subjects[0]?.id ?? "");
+  const [monthlyTeacherId, setMonthlyTeacherId] = useState(teachers[0]?.id ?? "");
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+
+  const selectedMonthLabel = `${MONTH_LABELS[Math.max(0, Math.min(11, month - 1))]} de ${year}`;
+  const previousMonthDate = new Date(year, month - 2, 1);
+  const previousMonthLabel = `${MONTH_LABELS[previousMonthDate.getMonth()]} de ${previousMonthDate.getFullYear()}`;
 
   async function createSessions(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -121,8 +145,8 @@ export default function AdminSessionsClient({
     }
 
     const payloadBase = {
-      subjectId,
-      teacherId,
+      subjectId: monthlySubjectId,
+      teacherId: monthlyTeacherId,
       location,
       modality
     };
@@ -148,6 +172,73 @@ export default function AdminSessionsClient({
 
     await Promise.all(requests);
     window.location.reload();
+  }
+
+
+  async function replicatePreviousMonthSchedule() {
+    const targetMonthIndex = month - 1;
+    const targetYear = year;
+    const sourceMonthDate = new Date(targetYear, targetMonthIndex - 1, 1);
+    const sourceMonthIndex = sourceMonthDate.getMonth();
+    const sourceYear = sourceMonthDate.getFullYear();
+
+    const sourceSessions = sessions.filter((session) => {
+      const startsAt = new Date(session.startsAt);
+      return startsAt.getFullYear() === sourceYear && startsAt.getMonth() === sourceMonthIndex;
+    });
+
+    if (sourceSessions.length === 0) {
+      window.alert(`Não há sessões em ${previousMonthLabel} para replicar.`);
+      return;
+    }
+
+    const requests = sourceSessions.map((session) => {
+      const originalStart = new Date(session.startsAt);
+
+      const startsAt = new Date(originalStart);
+      startsAt.setFullYear(targetYear, targetMonthIndex, originalStart.getDate());
+
+      const endsAt = new Date(startsAt);
+      const [startHour, startMinute] = startTime.split(":").map(Number);
+      const [endHour, endMinute] = endTime.split(":").map(Number);
+      startsAt.setHours(startHour, startMinute, 0, 0);
+      endsAt.setHours(endHour, endMinute, 0, 0);
+
+      if (startsAt.getMonth() !== targetMonthIndex || endsAt.getMonth() !== targetMonthIndex) {
+        return Promise.resolve();
+      }
+
+      return fetch("/api/admin/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subjectId: session.subject.id,
+          teacherId: session.teacher.id,
+          location: session.location,
+          modality: session.modality,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString()
+        })
+      });
+    });
+
+    await Promise.all(requests);
+    window.location.reload();
+  }
+
+
+  function summarizeAttendance(enrollments: SessionEnrollment[]) {
+    return enrollments.reduce(
+      (acc, enrollment) => {
+        const status = enrollment.attendance?.status;
+        if (status === "PRESENTE") acc.present += 1;
+        if (status === "AUSENTE") acc.absent += 1;
+        if (status === "ATRASADO") acc.late += 1;
+        if (!status) acc.pending += 1;
+        return acc;
+      },
+      { present: 0, absent: 0, late: 0, pending: 0 }
+    );
   }
 
   return (
@@ -205,9 +296,9 @@ export default function AdminSessionsClient({
               type="time"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={startTime}
-              onChange={(event) => setStartTime(event.target.value)}
+              disabled
             />
-            <span className="mt-1 block text-xs text-slate-400">Horário de início (ex.: 13:30).</span>
+            <span className="mt-1 block text-xs text-slate-400">Horário fixo: 12:30.</span>
           </label>
           <label className="text-sm text-slate-600">
             Fim
@@ -215,9 +306,9 @@ export default function AdminSessionsClient({
               type="time"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={endTime}
-              onChange={(event) => setEndTime(event.target.value)}
+              disabled
             />
-            <span className="mt-1 block text-xs text-slate-400">Horário de término (ex.: 14:30).</span>
+            <span className="mt-1 block text-xs text-slate-400">Horário fixo: 13:20 (50 min).</span>
           </label>
           <label className="text-sm text-slate-600">
             Local
@@ -261,7 +352,35 @@ export default function AdminSessionsClient({
 
       <form onSubmit={createMonthlySessions} className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Gerar sessões por mês</h2>
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-3 lg:grid-cols-4">
+          <label className="text-sm text-slate-600">
+            Disciplina
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={monthlySubjectId}
+              onChange={(event) => setMonthlySubjectId(event.target.value)}
+            >
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm text-slate-600">
+            Professor
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={monthlyTeacherId}
+              onChange={(event) => setMonthlyTeacherId(event.target.value)}
+            >
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="text-sm text-slate-600">
             Mês
             <input
@@ -273,7 +392,7 @@ export default function AdminSessionsClient({
               onChange={(event) => setMonth(Number(event.target.value))}
               placeholder="Ex.: 3"
             />
-            <span className="mt-1 block text-xs text-slate-400">1 a 12.</span>
+            <span className="mt-1 block text-xs text-slate-400">1 a 12 • selecionado: {selectedMonthLabel}</span>
           </label>
           <label className="text-sm text-slate-600">
             Ano
@@ -312,67 +431,151 @@ export default function AdminSessionsClient({
                 type="time"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2"
                 value={startTime}
-                onChange={(event) => setStartTime(event.target.value)}
+                disabled
               />
               <input
                 type="time"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2"
                 value={endTime}
-                onChange={(event) => setEndTime(event.target.value)}
+                disabled
               />
             </div>
-            <span className="mt-1 block text-xs text-slate-400">Inicio e fim da aula.</span>
+            <span className="mt-1 block text-xs text-slate-400">Início e fim da aula.</span>
           </label>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Serão criadas sessões em todas as datas do mês que caem no dia selecionado.
+          Serão criadas sessões em todas as datas de <strong>{selectedMonthLabel}</strong> que caem no dia selecionado.
         </p>
-        <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
-          Gerar sessões do mês
-        </button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
+            Gerar sessões do mês
+          </button>
+          <button
+            type="button"
+            onClick={replicatePreviousMonthSchedule}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            title={`Replicar grade de ${previousMonthLabel} para ${selectedMonthLabel}`}
+          >
+            Replicar mês anterior
+          </button>
+        </div>
       </form>
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Agenda</h2>
         {deleteError && <p className="mt-2 text-sm text-rose-600">{deleteError}</p>}
         <div className="mt-3 grid gap-3">
-          {sessions.map((session) => (
-            <div key={session.id} className="rounded-lg border border-slate-100 p-3">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-semibold text-slate-900">{session.subject.name}</p>
-                <p className="text-xs text-slate-500">
-                  {new Date(session.startsAt).toLocaleDateString("pt-BR", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "2-digit"
-                  })}{" "}
-                  {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-                  {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-                <p className="text-xs text-slate-500">{session.teacher.name}</p>
-                {session.priceCents > 0 && (
-                  <p className="text-xs text-slate-500">Valor: R$ {Number(session.priceCents / 100).toFixed(2)}</p>
-                )}
-                <p className="text-xs text-slate-400">Status: {session.status}</p>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {session.status === "ATIVA" && (
+          {sessions.map((session) => {
+            const attendance = summarizeAttendance(session.enrollments);
+            const isExpanded = expandedSessionId === session.id;
+            const latestEnrollments = [...session.enrollments]
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .slice(0, 3);
+            const lastBookingAt = latestEnrollments[0]?.createdAt;
+
+            return (
+              <div key={session.id} className="rounded-xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{session.subject.name}</p>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                      {session.status}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-500">
+                    {new Date(session.startsAt).toLocaleDateString("pt-BR", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "2-digit"
+                    })}{" "}
+                    {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
+                    {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+
+                  <div className="grid gap-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-600 md:grid-cols-2">
+                    <p>Professor: <strong>{session.teacher.name}</strong></p>
+                    <p>Modalidade: <strong>{session.modality}</strong></p>
+                    <p>Local: <strong>{session.location}</strong></p>
+                    <p>ID: <strong>{session.id}</strong></p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 text-[11px]">
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sky-700">Inscrições: {session._count.enrollments}</span>
+                    <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-indigo-700">Chamadas: {session._count.attendances}</span>
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700">Presenças: {attendance.present}</span>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">Atrasos: {attendance.late}</span>
+                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700">Ausências: {attendance.absent}</span>
+                    <span className="rounded-full bg-slate-200 px-2 py-0.5 text-slate-700">Sem chamada: {attendance.pending}</span>
+                  </div>
+
+                  {lastBookingAt && (
+                    <p className="text-xs text-slate-500">
+                      Último agendamento: {new Date(lastBookingAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    </p>
+                  )}
+
+                  {latestEnrollments.length > 0 && (
+                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-2">
+                      <p className="text-xs font-semibold text-emerald-800">Últimos alunos agendados</p>
+                      <div className="mt-1 space-y-1">
+                        {latestEnrollments.map((enrollment, index) => (
+                          <p key={enrollment.id} className="text-xs text-emerald-900">
+                            {index === 0 ? "🟢 Mais recente:" : "•"} {enrollment.student.name} — {new Date(enrollment.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {isExpanded && (
+                    <div className="mt-1 rounded-md bg-slate-50 p-2">
+                      <p className="text-xs font-semibold text-slate-700">Alunos inscritos</p>
+                      {session.enrollments.length === 0 ? (
+                        <p className="mt-1 text-xs text-slate-500">Sem alunos inscritos nesta sessão.</p>
+                      ) : (
+                        <div className="mt-2 space-y-1">
+                          {[...session.enrollments]
+                            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                            .map((enrollment) => (
+                              <div key={enrollment.id} className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-medium text-slate-700">{enrollment.student.name}</span>
+                                <span className="text-slate-500">
+                                  Agendou em {new Date(enrollment.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} • Inscrição: {enrollment.status} • Chamada: {enrollment.attendance?.status ?? "NÃO MARCADA"}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button
-                    onClick={() => cancelSession(session.id)}
+                    onClick={() => setExpandedSessionId((prev) => (prev === session.id ? null : session.id))}
                     className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
                   >
-                    Cancelar
+                    {isExpanded ? "Ocultar detalhes" : "Ver detalhes"}
                   </button>
-                )}
-                <button
-                  onClick={() => deleteSession(session.id)}
-                  className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                >
-                  Excluir
-                </button>
+                  {session.status === "ATIVA" && (
+                    <button
+                      onClick={() => cancelSession(session.id)}
+                      className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                  <button
+                    onClick={() => deleteSession(session.id)}
+                    className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                  >
+                    Excluir
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

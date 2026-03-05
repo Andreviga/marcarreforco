@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "vercel-build": "prisma generate && PRISMA_MIGRATE_NO_LOCK=1 prisma migrate deploy && next build",
+    "vercel-build": "prisma generate && PRISMA_MIGRATE_NO_LOCK=1 PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 prisma migrate deploy && next build",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

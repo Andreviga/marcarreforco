@@ -28,14 +28,16 @@ export default async function AlunoAgendaPage() {
   });
 
 
+  const enrollmentBySessionId = new Map(enrollments.map((enrollment) => [enrollment.sessionId, enrollment.status]));
+
   const calendarItems = sessions.map((item) => ({
     id: item.id,
     startsAt: item.startsAt,
     endsAt: item.endsAt,
     title: item.subject.name,
     subtitle: `${item.teacher.name} • ${item.modality === "ONLINE" ? "Online" : item.location}`,
-    meta: "1 crédito",
-    status: item.status
+    meta: enrollmentBySessionId.get(item.id) === "AGENDADO" ? "✅ Agendado" : "🗓️ Disponível",
+    status: enrollmentBySessionId.get(item.id) === "AGENDADO" ? "AGENDADO" : item.status
   }));
 
   return (
@@ -79,7 +81,7 @@ export default async function AlunoAgendaPage() {
             <h2 className="text-lg font-semibold text-slate-900">Como agendar e pagar</h2>
             <ol className="mt-3 space-y-2 text-sm text-slate-600">
               <li>1. Acesse Pagamentos e escolha um pacote.</li>
-              <li>2. Pague via PIX e aguarde a confirmacao.</li>
+              <li>2. Pague via PIX e aguarde a confirmação.</li>
               <li>3. Se o pacote for sem disciplina, defina a disciplina em Pagamentos.</li>
               <li>4. Volte aqui e agende suas sessões na agenda.</li>
             </ol>

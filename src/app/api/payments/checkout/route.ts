@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
-import { paymentCheckoutSchema } from "@/lib/validators";
+import { paymentCheckoutSchema, isPackageEligibleForSerie, isSerieEligible } from "@/lib/validators";
 import { asaasFetch, normalizeDocument, isValidDocument } from "@/lib/asaas";
 import { logAudit } from "@/lib/audit";
 
@@ -35,6 +35,13 @@ export async function POST(request: Request) {
 
   if (!studentProfile?.document) {
     return NextResponse.json({ message: "Informe CPF/CNPJ antes do pagamento." }, { status: 400 });
+  }
+
+  const eligibleForSerie = isPackageEligibleForSerie(packageRecord.name, studentProfile.serie);
+  const eligibleForSubjectSerie = isSerieEligible(packageRecord.subject?.eligibleSeries, studentProfile.serie);
+
+  if (!eligibleForSerie || !eligibleForSubjectSerie) {
+    return NextResponse.json({ message: "Pacote indisponível para a sua turma/série." }, { status: 400 });
   }
 
   // Valida o documento antes de enviar para o Asaas
@@ -75,7 +82,8 @@ export async function POST(request: Request) {
       where: {
         userId: session.user.id,
         packageId: packageRecord.id,
-        status: "ACTIVE"
+        status: "ACTIVE",
+        payments: { some: { status: "CONFIRMED" } }
       }
     });
 

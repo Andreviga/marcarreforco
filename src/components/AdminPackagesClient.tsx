@@ -35,6 +35,8 @@ export default function AdminPackagesClient({
   const [subjectId, setSubjectId] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [listMessage, setListMessage] = useState<string | null>(null);
+  const [listMessageTone, setListMessageTone] = useState<"error" | "success">("error");
   const requiresGeneralSubject =
     billingType === "SUBSCRIPTION" &&
     ((billingCycle === "WEEKLY" && sessionCount > 1) || (billingCycle === "MONTHLY" && sessionCount > 4));
@@ -72,16 +74,55 @@ export default function AdminPackagesClient({
   }
 
   async function handleUpdate(item: SessionPackage) {
-    await fetch("/api/admin/packages", {
+    setListMessage(null);
+    setListMessageTone("error");
+    const response = await fetch("/api/admin/packages", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item)
     });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setListMessage(data?.message ?? "Não foi possível salvar o pacote.");
+      return;
+    }
+    setListMessageTone("success");
+    setListMessage("Pacote atualizado com sucesso.");
     window.location.reload();
   }
 
-  async function handleDelete(id: string) {
-    await fetch(`/api/admin/packages?id=${id}`, { method: "DELETE" });
+  async function handleDelete(id: string, force = false) {
+    setListMessage(null);
+    setListMessageTone("error");
+    const response = await fetch(`/api/admin/packages?id=${id}${force ? "&force=1" : ""}`, { method: "DELETE" });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      if (data?.links) {
+        const paymentsDetails = Array.isArray(data?.blockingPayments)
+          ? data.blockingPayments
+              .map((item: { id: string; status: string; user?: { name?: string }; dueDate?: string | null }) => {
+                const due = item.dueDate ? ` (venc.: ${new Date(item.dueDate).toLocaleDateString("pt-BR")})` : "";
+                return `• ${item.id} - ${item.status} - ${item.user?.name ?? "Aluno"}${due}`;
+              })
+              .join(" ")
+          : "";
+
+        const subscriptionsDetails = Array.isArray(data?.blockingSubscriptions)
+          ? data.blockingSubscriptions
+              .map((item: { id: string; status: string; user?: { name?: string } }) => `• ${item.id} - ${item.status} - ${item.user?.name ?? "Aluno"}`)
+              .join(" ")
+          : "";
+
+        setListMessage(
+          `${data.message} Vínculos encontrados — Assinaturas: ${data.links.subscriptions} (ativas: ${data.links.activeSubscriptions}), Pagamentos: ${data.links.payments} (em aberto: ${data.links.activePayments}). ${subscriptionsDetails} ${paymentsDetails}`
+        );
+      } else {
+        setListMessage(data?.message ?? "Não foi possível excluir o pacote.");
+      }
+      return;
+    }
+    setListMessageTone("success");
+    setListMessage(force ? "Pacote excluído à força com sucesso." : "Pacote excluído com sucesso.");
     window.location.reload();
   }
 
@@ -191,6 +232,7 @@ export default function AdminPackagesClient({
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Pacotes cadastrados</h2>
+        {listMessage && <p className={`mt-2 text-sm ${listMessageTone === "error" ? "text-rose-600" : "text-emerald-600"}`}>{listMessage}</p>}
         <div className="mt-3 space-y-3">
           {packages.map((item) => (
             <PackageRow
@@ -215,7 +257,7 @@ function PackageRow({
 }: {
   item: SessionPackage;
   onUpdate: (item: SessionPackage) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: string, force?: boolean) => Promise<void>;
   subjects: SubjectOption[];
 }) {
   const [name, setName] = useState(item.name);
@@ -315,6 +357,14 @@ function PackageRow({
           className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:border-slate-300"
         >
           Excluir
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(item.id, true)}
+          className="rounded-lg border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:border-rose-300"
+          title="Força a exclusão movendo vínculos para histórico e cancelando os ativos"
+        >
+          Excluir à força
         </button>
       </div>
       <p className="md:col-span-7 text-xs text-slate-500">

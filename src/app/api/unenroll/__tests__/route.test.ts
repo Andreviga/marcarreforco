@@ -71,13 +71,34 @@ describe("unenroll route", () => {
     expect(data.message).toBe("Inscrição não encontrada");
   });
 
+  it("blocks cancel when less than 48h left", async () => {
+    enrollmentRepo.findUnique.mockResolvedValue({
+      id: "e1",
+      studentId: "student-1",
+      sessionId: "sess1",
+      creditsReserved: 1,
+      session: { status: "ATIVA", startsAt: new Date(Date.now() + 24 * 60 * 60 * 1000), subjectId: "sub1" }
+    });
+
+    const request = new Request("http://localhost/api/unenroll", {
+      method: "POST",
+      body: JSON.stringify({ enrollmentId: "e1" })
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.message).toBe("Desmarcação permitida apenas até 48 horas antes da aula.");
+  });
+
   it("updates enrollment status", async () => {
     enrollmentRepo.findUnique.mockResolvedValue({
       id: "e1",
       studentId: "student-1",
       sessionId: "sess1",
       creditsReserved: 1,
-      session: { status: "ATIVA", startsAt: new Date(Date.now() + 86400000), subjectId: "sub1" }
+      session: { status: "ATIVA", startsAt: new Date(Date.now() + 72 * 60 * 60 * 1000), subjectId: "sub1" }
     });
     txMock.enrollment.update.mockResolvedValue({ id: "e1", status: "DESMARCADO", sessionId: "sess1", creditsReserved: 1 });
     releaseCreditMock.mockResolvedValue(true);

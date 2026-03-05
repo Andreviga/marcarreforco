@@ -29,6 +29,7 @@ export default function LoginPage() {
   const [serie, setSerie] = useState("");
   const [turma, setTurma] = useState("");
   const [unidade, setUnidade] = useState(defaultUnidade);
+  const [responsavel, setResponsavel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,7 +64,7 @@ export default function LoginPage() {
     const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, accessCode, serie, turma, unidade })
+      body: JSON.stringify({ name, email, password, accessCode, serie, turma, unidade, responsavel })
     });
 
     setLoading(false);
@@ -245,6 +246,19 @@ export default function LoginPage() {
                   onChange={(event) => setAccessCode(event.target.value)}
                   required
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Responsável</label>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={responsavel}
+                  onChange={(event) => setResponsavel(event.target.value)}
+                  placeholder="Nome do responsável"
+                  required
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  O CPF/CNPJ usado nos pagamentos será o do responsável.
+                </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>

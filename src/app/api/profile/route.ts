@@ -21,6 +21,7 @@ export async function GET() {
           serie: true,
           turma: true,
           unidade: true,
+          responsavel: true,
           document: true
         }
       },
@@ -54,7 +55,7 @@ export async function PATCH(request: Request) {
   if (response) return response;
 
   const body = await request.json();
-  const { name, email, currentPassword, newPassword, serie, turma, unidade, document, subjectIds } = body;
+  const { name, email, currentPassword, newPassword, serie, turma, unidade, responsavel, document, subjectIds } = body;
 
   // Validações básicas
   if (name && (typeof name !== "string" || name.trim().length === 0)) {
@@ -166,6 +167,7 @@ export async function PATCH(request: Request) {
       if (serie !== undefined) studentData.serie = serie || null;
       if (turma !== undefined) studentData.turma = turma || null;
       if (unidade !== undefined) studentData.unidade = unidade || null;
+      if (responsavel !== undefined) studentData.responsavel = responsavel || null;
       if (document !== undefined) studentData.document = document || null;
 
       if (Object.keys(studentData).length > 0) {

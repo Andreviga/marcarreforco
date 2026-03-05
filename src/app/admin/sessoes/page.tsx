@@ -13,7 +13,23 @@ export default async function AdminSessoesPage() {
   const year = now.getFullYear();
 
   const sessions = await prisma.session.findMany({
-    include: { subject: true, teacher: true },
+    include: {
+      subject: true,
+      teacher: true,
+      enrollments: {
+        include: {
+          student: { select: { id: true, name: true } },
+          attendance: { select: { status: true } }
+        },
+        orderBy: { createdAt: "asc" }
+      },
+      _count: {
+        select: {
+          enrollments: true,
+          attendances: true
+        }
+      }
+    },
     orderBy: { startsAt: "asc" }
   });
   const subjects = await prisma.subject.findMany({ orderBy: { name: "asc" } });

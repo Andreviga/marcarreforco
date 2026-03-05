@@ -5,6 +5,7 @@ import { requireApiRole } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { addPaymentCredits, getBalance, reserveCredit } from "@/lib/credits";
+import { sendEmail } from "@/lib/mail";
 
 jest.mock("@/lib/api-auth", () => ({
   requireApiRole: jest.fn()
@@ -14,6 +15,13 @@ jest.mock("@/lib/prisma", () => ({
   prisma: {
     session: {
       findUnique: jest.fn()
+    },
+    studentProfile: {
+      findUnique: jest.fn()
+    },
+    user: {
+      findUnique: jest.fn(),
+      findFirst: jest.fn()
     },
     subject: {
       findFirst: jest.fn()
@@ -39,14 +47,21 @@ jest.mock("@/lib/credits", () => ({
   addPaymentCredits: jest.fn()
 }));
 
+jest.mock("@/lib/mail", () => ({
+  sendEmail: jest.fn()
+}));
+
 describe("enroll route", () => {
   const requireApiRoleMock = requireApiRole as jest.Mock;
   const logAuditMock = logAudit as jest.Mock;
   const reserveCreditMock = reserveCredit as jest.Mock;
   const getBalanceMock = getBalance as jest.Mock;
   const addPaymentCreditsMock = addPaymentCredits as jest.Mock;
+  const sendEmailMock = sendEmail as jest.Mock;
   const sessionRepo = prisma.session as unknown as { findUnique: jest.Mock };
+  const studentProfileRepo = prisma.studentProfile as unknown as { findUnique: jest.Mock };
   const subjectRepo = prisma.subject as unknown as { findFirst: jest.Mock };
+  const userRepo = prisma.user as unknown as { findUnique: jest.Mock; findFirst: jest.Mock };
   const paymentRepo = prisma.asaasPayment as unknown as { findFirst: jest.Mock };
   const enrollmentRepo = prisma.enrollment as unknown as { findUnique: jest.Mock; upsert: jest.Mock };
   const transactionMock = prisma.$transaction as jest.Mock;
@@ -67,6 +82,10 @@ describe("enroll route", () => {
       response: null
     });
     subjectRepo.findFirst.mockResolvedValue(null);
+    studentProfileRepo.findUnique.mockResolvedValue({ serie: "2º ano", turma: "Manhã" });
+    userRepo.findUnique.mockResolvedValue({ name: "Aluno Teste", email: "aluno@example.com" });
+    userRepo.findFirst.mockResolvedValue({ email: "admin@example.com" });
+    sendEmailMock.mockResolvedValue(undefined);
   });
 
   it("rejects unavailable session", async () => {
@@ -81,7 +100,30 @@ describe("enroll route", () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.message).toBe("Sessão indisponível");
+    expect(data.message).toBe("Não foi possível agendar: esta sessão não está disponível.");
+  });
+
+  it("rejects session when series is not eligible", async () => {
+    sessionRepo.findUnique.mockResolvedValue({
+      id: "s1",
+      status: "ATIVA",
+      startsAt: new Date(Date.now() + 86400000),
+      endsAt: new Date(Date.now() + 86400000 + 3000000),
+      subjectId: "sub1",
+      subject: { name: "Matemática", eligibleSeries: ["7", "8", "9"], eligibleTurmas: [] },
+      teacher: { name: "Ana", email: "prof@example.com" }
+    });
+
+    const request = new Request("http://localhost/api/enroll", {
+      method: "POST",
+      body: JSON.stringify({ sessionId: "s1" })
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.message).toBe("Não foi possível agendar: esta aula não está disponível para a sua série.");
   });
 
   it("enrolls student", async () => {
@@ -89,9 +131,10 @@ describe("enroll route", () => {
       id: "s1",
       status: "ATIVA",
       startsAt: new Date(Date.now() + 86400000),
+      endsAt: new Date(Date.now() + 86400000 + 3000000),
       subjectId: "sub1",
-      subject: { name: "Matemática" },
-      teacher: { name: "Ana" }
+      subject: { name: "Matemática", eligibleSeries: [], eligibleTurmas: [] },
+      teacher: { name: "Ana", email: "prof@example.com" }
     });
     enrollmentRepo.findUnique.mockResolvedValue(null);
     getBalanceMock.mockResolvedValue(1);
@@ -119,6 +162,40 @@ describe("enroll route", () => {
         entityId: "e1"
       })
     );
+    expect(sendEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "prof@example.com",
+        cc: ["admin@example.com"]
+      })
+    );
+  });
+
+  it("returns friendly insufficient credits message", async () => {
+    sessionRepo.findUnique.mockResolvedValue({
+      id: "s1",
+      status: "ATIVA",
+      startsAt: new Date(Date.now() + 86400000),
+      endsAt: new Date(Date.now() + 86400000 + 3000000),
+      subjectId: "sub1",
+      subject: { name: "Matemática", eligibleSeries: [], eligibleTurmas: [] },
+      teacher: { name: "Ana", email: "prof@example.com" }
+    });
+    enrollmentRepo.findUnique.mockResolvedValue(null);
+    getBalanceMock.mockResolvedValue(0);
+    paymentRepo.findFirst.mockResolvedValue(null);
+    txMock.enrollment.upsert.mockResolvedValue({ id: "e1", sessionId: "s1" });
+    reserveCreditMock.mockRejectedValue(new Error("SEM_CREDITO"));
+
+    const request = new Request("http://localhost/api/enroll", {
+      method: "POST",
+      body: JSON.stringify({ sessionId: "s1" })
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.message).toBe("Não foi possível agendar: você não tem créditos disponíveis para essa disciplina.");
   });
 
   it("allocates credits from pending payment when balance is zero", async () => {
@@ -126,9 +203,10 @@ describe("enroll route", () => {
       id: "s1",
       status: "ATIVA",
       startsAt: new Date(Date.now() + 86400000),
+      endsAt: new Date(Date.now() + 86400000 + 3000000),
       subjectId: "sub1",
-      subject: { name: "Matemática" },
-      teacher: { name: "Ana" }
+      subject: { name: "Matemática", eligibleSeries: [], eligibleTurmas: [] },
+      teacher: { name: "Ana", email: "prof@example.com" }
     });
     enrollmentRepo.findUnique.mockResolvedValue(null);
     getBalanceMock.mockResolvedValue(0);

@@ -7,6 +7,14 @@ const optionalText = () =>
     z.string().trim().min(1).max(60).optional()
   );
 
+const normalizeTurma = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const normalizeSerie = (value: string) =>
   value
     .toLowerCase()
@@ -60,6 +68,64 @@ export function isPackageEligibleForSerie(packageName: string, studentSerie: str
   return true;
 }
 
+export function isTurmaEligible(
+  eligibleTurmas: Array<"MANHA" | "TARDE"> | null | undefined,
+  studentTurma: string | null | undefined
+): boolean {
+  if (!eligibleTurmas || eligibleTurmas.length === 0) return true;
+  if (!studentTurma) return false;
+
+  const turmaNormalized = normalizeTurma(studentTurma);
+  const studentIsManha = turmaNormalized.includes("manha");
+  const studentIsTarde = turmaNormalized.includes("tarde");
+
+  return (eligibleTurmas.includes("MANHA") && studentIsManha) || (eligibleTurmas.includes("TARDE") && studentIsTarde);
+}
+
+export function isSerieEligible(
+  eligibleSeries: string[] | null | undefined,
+  studentSerie: string | null | undefined
+): boolean {
+  if (!eligibleSeries || eligibleSeries.length === 0) return true;
+  if (!studentSerie) return false;
+
+  const normalized = normalizeSerie(studentSerie);
+  const serieNumber = parseInt(normalized.match(/^(\d+)/)?.[1] ?? "0", 10);
+  if (serieNumber < 1 || serieNumber > 9) return false;
+
+  return eligibleSeries.includes(String(serieNumber));
+}
+
+// Função para verificar se um pacote é elegível para a turma do aluno
+export function isPackageEligibleForTurma(packageName: string, studentTurma: string | null | undefined): boolean {
+  if (!studentTurma) return true; // Se não tem turma, mostra todos
+
+  const packageNormalized = normalizeTurma(packageName);
+  const turmaNormalized = normalizeTurma(studentTurma);
+
+  const packageHasManha = packageNormalized.includes("manha");
+  const packageHasTarde = packageNormalized.includes("tarde");
+
+  // Pacote sem recorte de turma
+  if (!packageHasManha && !packageHasTarde) {
+    return true;
+  }
+
+  const studentIsManha = turmaNormalized.includes("manha");
+  const studentIsTarde = turmaNormalized.includes("tarde");
+
+  if (packageHasManha && !packageHasTarde) {
+    return studentIsManha;
+  }
+
+  if (packageHasTarde && !packageHasManha) {
+    return studentIsTarde;
+  }
+
+  // Pacote atende ambas as turmas
+  return true;
+}
+
 export const sessionCreateSchema = z.object({
   subjectId: z.string().min(1),
   teacherId: z.string().min(1),
@@ -108,9 +174,14 @@ export const userDeleteSchema = z.object({
   id: z.string().min(1)
 });
 
+const turmaEligibilitySchema = z.array(z.enum(["MANHA", "TARDE"])).optional();
+const serieEligibilitySchema = z.array(z.enum(["1", "2", "3", "4", "5", "6", "7", "8", "9"])).optional();
+
 export const subjectSchema = z.object({
   name: z.string().min(2),
-  defaultPriceCents: z.number().int().min(0).optional()
+  defaultPriceCents: z.number().int().min(0).optional(),
+  eligibleTurmas: turmaEligibilitySchema,
+  eligibleSeries: serieEligibilitySchema
 });
 
 export const subjectUpdateSchema = subjectSchema.extend({
@@ -123,7 +194,7 @@ export const packageSchema = z.object({
   priceCents: z.number().int().min(0),
   active: z.boolean().optional(),
   billingType: z.enum(["PACKAGE", "SUBSCRIPTION"]).optional(),
-  billingCycle: z.enum(["MONTHLY", "WEEKLY"]).optional(),
+  billingCycle: z.enum(["MONTHLY", "WEEKLY"]).nullable().optional(),
   subjectId: z.string().min(1).nullable().optional()
 });
 
@@ -148,7 +219,7 @@ export const profileDocumentSchema = z.object({
 
 export const creditAllocationSchema = z.object({
   paymentId: z.string().min(1),
-  subjectId: z.string().min(1)
+  subjectId: z.string().min(1).optional()
 });
 
 export const adminCreditAdjustSchema = z.object({
