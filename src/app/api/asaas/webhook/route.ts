@@ -28,12 +28,36 @@ const paymentEventStatusMap: Record<string, "PENDING" | "CONFIRMED" | "OVERDUE" 
   PAYMENT_RECEIVED_IN_CASH_UNDONE: "REFUNDED"
 };
 
+
 const subscriptionStatusMap: Record<string, "ACTIVE" | "INACTIVE" | "CANCELED" | "OVERDUE"> = {
   ACTIVE: "ACTIVE",
   INACTIVE: "INACTIVE",
   CANCELED: "CANCELED",
   OVERDUE: "OVERDUE"
 };
+
+async function getSafeSubscriptionStatus(
+  asaasSubscriptionId: string,
+  asaasStatus: string | undefined
+): Promise<"ACTIVE" | "INACTIVE" | "CANCELED" | "OVERDUE"> {
+  const mappedStatus = subscriptionStatusMap[asaasStatus ?? "INACTIVE"] ?? "INACTIVE";
+
+  // No Asaas, uma assinatura pode nascer como ACTIVE mesmo sem pagamento confirmado.
+  // Para nossa regra de negócio, ACTIVE só é válido após pelo menos 1 pagamento CONFIRMED.
+  if (mappedStatus !== "ACTIVE") {
+    return mappedStatus;
+  }
+
+  const hasConfirmedPayment = await prisma.asaasPayment.findFirst({
+    where: {
+      subscription: { asaasId: asaasSubscriptionId },
+      status: "CONFIRMED"
+    },
+    select: { id: true }
+  });
+
+  return hasConfirmedPayment ? "ACTIVE" : "INACTIVE";
+}
 
 function parseExternalReference(value?: string | null) {
   if (!value) return null;
@@ -178,7 +202,7 @@ export async function POST(request: Request) {
   }
 
   if (payload.subscription?.id) {
-    const status = subscriptionStatusMap[payload.subscription.status ?? "INACTIVE"] ?? "INACTIVE";
+    const status = await getSafeSubscriptionStatus(payload.subscription.id, payload.subscription.status);
     const where =
       status === "CANCELED"
         ? { asaasId: payload.subscription.id }

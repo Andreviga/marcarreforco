@@ -343,67 +343,147 @@ export default function AdminSessionsClient({
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Agenda</h2>
         {deleteError && <p className="mt-2 text-sm text-rose-600">{deleteError}</p>}
-        <div className="mt-3 grid gap-3">
-          {sessions.map((session) => {
+
+        {(() => {
+          const now = new Date();
+          now.setHours(0, 0, 0, 0);
+          const upcoming = sessions.filter((s) => new Date(s.startsAt) >= now);
+          const past = sessions.filter((s) => new Date(s.startsAt) < now).reverse();
+
+          function SessionRow({
+            session,
+            isNext
+          }: {
+            session: (typeof sessions)[number];
+            isNext?: boolean;
+          }) {
+            const isPast = new Date(session.startsAt) < now;
+            const hasStudents = session.enrollments.length > 0;
             const sortedEnrollments = [...session.enrollments].sort((a, b) =>
               a.student.name.localeCompare(b.student.name, "pt-BR", { sensitivity: "base" })
             );
 
+            const cardBg = isPast
+              ? "border-slate-100 bg-slate-50 opacity-75"
+              : isNext
+                ? "border-indigo-300 bg-indigo-50"
+                : hasStudents
+                  ? "border-indigo-100 bg-white"
+                  : "border-slate-100 bg-white";
+
             return (
-            <div key={session.id} className="rounded-lg border border-slate-100 p-3">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-semibold text-slate-900">{session.subject.name}</p>
-                <p className="text-xs text-slate-500">
-                  {new Date(session.startsAt).toLocaleDateString("pt-BR", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "2-digit"
-                  })}{" "}
-                  {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-                  {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-                <p className="text-xs text-slate-500">{session.teacher.name}</p>
-                {session.priceCents > 0 && (
-                  <p className="text-xs text-slate-500">Valor: R$ {Number(session.priceCents / 100).toFixed(2)}</p>
-                )}
-                <p className="text-xs text-slate-400">Status: {session.status}</p>
-                <div className="mt-2 rounded-md bg-slate-50 p-2">
-                  <p className="text-xs font-semibold text-slate-700">
-                    Inscritos por aluno ({sortedEnrollments.length})
+              <div className={`rounded-lg border p-3 ${cardBg}`}>
+                <div className="flex flex-col gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className={`text-sm font-semibold ${isPast ? "text-slate-400" : "text-slate-900"}`}>
+                      {session.subject.name}
+                    </p>
+                    {isNext && (
+                      <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                        Próxima
+                      </span>
+                    )}
+                    {hasStudents && !isPast && (
+                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                        {session.enrollments.length} aluno{session.enrollments.length > 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {isPast && (
+                      <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] text-slate-500">
+                        Passada
+                      </span>
+                    )}
+                    {session.status === "CANCELADA" && (
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] text-rose-600">
+                        Cancelada
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-xs ${isPast ? "text-slate-400" : "text-slate-500"}`}>
+                    {new Date(session.startsAt).toLocaleDateString("pt-BR", {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "2-digit"
+                    })}{" "}
+                    {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
+                    {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </p>
-                  {sortedEnrollments.length === 0 ? (
-                    <p className="mt-1 text-xs text-slate-500">Sem alunos inscritos nesta sessão.</p>
-                  ) : (
-                    <ul className="mt-1 space-y-1">
-                      {sortedEnrollments.map((enrollment) => (
-                        <li key={enrollment.id} className="text-xs text-slate-600">
-                          {enrollment.student.name} ({enrollment.student.email})
-                        </li>
-                      ))}
-                    </ul>
+                  <p className={`text-xs ${isPast ? "text-slate-400" : "text-slate-500"}`}>{session.teacher.name}</p>
+                  {session.priceCents > 0 && (
+                    <p className="text-xs text-slate-500">
+                      Valor: R$ {Number(session.priceCents / 100).toFixed(2)}
+                    </p>
                   )}
+                  <div className={`mt-2 rounded-md p-2 ${isPast ? "bg-slate-100" : hasStudents ? "bg-indigo-50" : "bg-slate-50"}`}>
+                    <p className={`text-xs font-semibold ${isPast ? "text-slate-400" : hasStudents ? "text-indigo-700" : "text-slate-700"}`}>
+                      Inscritos ({sortedEnrollments.length})
+                    </p>
+                    {sortedEnrollments.length === 0 ? (
+                      <p className="mt-1 text-xs text-slate-400">Sem alunos inscritos.</p>
+                    ) : (
+                      <ul className="mt-1 space-y-0.5">
+                        {sortedEnrollments.map((enrollment) => (
+                          <li key={enrollment.id} className={`text-xs ${isPast ? "text-slate-400" : "text-slate-600"}`}>
+                            {enrollment.student.name}{" "}
+                            <span className="text-slate-400">({enrollment.student.email})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {session.status === "ATIVA" && (
+                    <button
+                      onClick={() => cancelSession(session.id)}
+                      className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                  <button
+                    onClick={() => deleteSession(session.id)}
+                    className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                  >
+                    Excluir
+                  </button>
                 </div>
               </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {session.status === "ATIVA" && (
-                  <button
-                    onClick={() => cancelSession(session.id)}
-                    className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
-                  >
-                    Cancelar
-                  </button>
-                )}
-                <button
-                  onClick={() => deleteSession(session.id)}
-                  className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
-                >
-                  Excluir
-                </button>
-              </div>
-            </div>
             );
-          })}
-        </div>
+          }
+
+          return (
+            <div className="mt-3 space-y-6">
+              {upcoming.length === 0 && past.length === 0 && (
+                <p className="text-sm text-slate-500">Nenhuma sessão cadastrada.</p>
+              )}
+              {upcoming.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Próximas sessões ({upcoming.length})
+                  </p>
+                  <div className="grid gap-3">
+                    {upcoming.map((s, idx) => (
+                      <SessionRow key={s.id} session={s} isNext={idx === 0} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {past.length > 0 && (
+                <details>
+                  <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600">
+                    Sessões passadas ({past.length})
+                  </summary>
+                  <div className="mt-2 grid gap-3">
+                    {past.map((s) => (
+                      <SessionRow key={s.id} session={s} />
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

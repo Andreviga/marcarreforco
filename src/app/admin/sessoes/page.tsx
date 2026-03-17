@@ -45,7 +45,8 @@ export default async function AdminSessoesPage() {
     title: item.subject.name,
     subtitle: item.teacher.name,
     meta: item.priceCents > 0 ? `${formatCurrency(item.priceCents)} • ${item.status}` : `${item.status}`,
-    status: item.status
+    status: item.status,
+    hasEnrollments: item.enrollments.length > 0
   }));
 
   return (
