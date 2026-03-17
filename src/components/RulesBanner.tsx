@@ -87,7 +87,7 @@ export default function RulesBanner({
             <li>Vagas conforme formação de turma.</li>
             <li>Valores promocionais de lançamento.</li>
             <li>Pagamento mensal antecipado.</li>
-            <li>Alterações e solicitações com 2 dias de antecedência.</li>
+            <li>Alterações e solicitações com 48 horas (2 dias) de antecedência.</li>
             <li>Turmas abaixo do mínimo podem ser reagrupadas por nível/horário.</li>
           </ul>
         </div>

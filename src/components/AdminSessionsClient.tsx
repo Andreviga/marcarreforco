@@ -23,6 +23,14 @@ interface SessionItem {
   status: string;
   subject: Subject;
   teacher: Teacher;
+  enrollments: Array<{
+    id: string;
+    student: {
+      id: string;
+      name: string;
+      email: string;
+    };
+  }>;
 }
 
 export default function AdminSessionsClient({
@@ -336,7 +344,12 @@ export default function AdminSessionsClient({
         <h2 className="text-lg font-semibold text-slate-900">Agenda</h2>
         {deleteError && <p className="mt-2 text-sm text-rose-600">{deleteError}</p>}
         <div className="mt-3 grid gap-3">
-          {sessions.map((session) => (
+          {sessions.map((session) => {
+            const sortedEnrollments = [...session.enrollments].sort((a, b) =>
+              a.student.name.localeCompare(b.student.name, "pt-BR", { sensitivity: "base" })
+            );
+
+            return (
             <div key={session.id} className="rounded-lg border border-slate-100 p-3">
               <div className="flex flex-col gap-1">
                 <p className="text-sm font-semibold text-slate-900">{session.subject.name}</p>
@@ -354,6 +367,22 @@ export default function AdminSessionsClient({
                   <p className="text-xs text-slate-500">Valor: R$ {Number(session.priceCents / 100).toFixed(2)}</p>
                 )}
                 <p className="text-xs text-slate-400">Status: {session.status}</p>
+                <div className="mt-2 rounded-md bg-slate-50 p-2">
+                  <p className="text-xs font-semibold text-slate-700">
+                    Inscritos por aluno ({sortedEnrollments.length})
+                  </p>
+                  {sortedEnrollments.length === 0 ? (
+                    <p className="mt-1 text-xs text-slate-500">Sem alunos inscritos nesta sessão.</p>
+                  ) : (
+                    <ul className="mt-1 space-y-1">
+                      {sortedEnrollments.map((enrollment) => (
+                        <li key={enrollment.id} className="text-xs text-slate-600">
+                          {enrollment.student.name} ({enrollment.student.email})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {session.status === "ATIVA" && (
@@ -372,7 +401,8 @@ export default function AdminSessionsClient({
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

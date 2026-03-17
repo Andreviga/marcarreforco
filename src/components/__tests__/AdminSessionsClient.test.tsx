@@ -22,7 +22,25 @@ const sessions = [
     priceCents: 4000,
     status: "ATIVA",
     subject: { id: "sub1", name: "Matemática" },
-    teacher: { id: "t1", name: "Ana" }
+    teacher: { id: "t1", name: "Ana" },
+    enrollments: [
+      {
+        id: "enr1",
+        student: {
+          id: "stu1",
+          name: "Maria Souza",
+          email: "maria@example.com"
+        }
+      },
+      {
+        id: "enr2",
+        student: {
+          id: "stu2",
+          name: "Joao Silva",
+          email: "joao@example.com"
+        }
+      }
+    ]
   }
 ];
 
@@ -49,8 +67,7 @@ describe("AdminSessionsClient", () => {
 
   it("creates repeated sessions and cancels a session", async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true });
-    // @ts-expect-error - override fetch for test
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as unknown as typeof fetch;
 
     render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
 
@@ -75,5 +92,15 @@ describe("AdminSessionsClient", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: "sess1", status: "CANCELADA" })
     });
+  });
+
+  it("shows enrolled students per session", () => {
+    render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
+
+    expect(screen.getByText("Inscritos por aluno (2)")).toBeInTheDocument();
+
+    const items = screen.getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("Joao Silva (joao@example.com)");
+    expect(items[1]).toHaveTextContent("Maria Souza (maria@example.com)");
   });
 });

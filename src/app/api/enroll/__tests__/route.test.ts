@@ -5,6 +5,7 @@ import { requireApiRole } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { addPaymentCredits, getBalance, reserveCredit } from "@/lib/credits";
+import { sendEmail } from "@/lib/mail";
 
 jest.mock("@/lib/api-auth", () => ({
   requireApiRole: jest.fn()
@@ -39,12 +40,17 @@ jest.mock("@/lib/credits", () => ({
   addPaymentCredits: jest.fn()
 }));
 
+jest.mock("@/lib/mail", () => ({
+  sendEmail: jest.fn()
+}));
+
 describe("enroll route", () => {
   const requireApiRoleMock = requireApiRole as jest.Mock;
   const logAuditMock = logAudit as jest.Mock;
   const reserveCreditMock = reserveCredit as jest.Mock;
   const getBalanceMock = getBalance as jest.Mock;
   const addPaymentCreditsMock = addPaymentCredits as jest.Mock;
+  const sendEmailMock = sendEmail as jest.Mock;
   const sessionRepo = prisma.session as unknown as { findUnique: jest.Mock };
   const subjectRepo = prisma.subject as unknown as { findFirst: jest.Mock };
   const paymentRepo = prisma.asaasPayment as unknown as { findFirst: jest.Mock };
@@ -63,10 +69,11 @@ describe("enroll route", () => {
       callback(txMock)
     );
     requireApiRoleMock.mockResolvedValue({
-      session: { user: { id: "student-1" } },
+      session: { user: { id: "student-1", email: "aluno@example.com", name: "Aluno" } },
       response: null
     });
     subjectRepo.findFirst.mockResolvedValue(null);
+    sendEmailMock.mockResolvedValue(undefined);
   });
 
   it("rejects unavailable session", async () => {
@@ -88,7 +95,10 @@ describe("enroll route", () => {
     sessionRepo.findUnique.mockResolvedValue({
       id: "s1",
       status: "ATIVA",
-      startsAt: new Date(Date.now() + 86400000),
+      startsAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+      endsAt: new Date(Date.now() + 73 * 60 * 60 * 1000),
+      location: "Unidade Centro",
+      modality: "PRESENCIAL",
       subjectId: "sub1",
       subject: { name: "Matemática" },
       teacher: { name: "Ana" }
@@ -119,13 +129,22 @@ describe("enroll route", () => {
         entityId: "e1"
       })
     );
+    expect(sendEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "aluno@example.com",
+        subject: "Agendamento confirmado"
+      })
+    );
   });
 
   it("allocates credits from pending payment when balance is zero", async () => {
     sessionRepo.findUnique.mockResolvedValue({
       id: "s1",
       status: "ATIVA",
-      startsAt: new Date(Date.now() + 86400000),
+      startsAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+      endsAt: new Date(Date.now() + 73 * 60 * 60 * 1000),
+      location: "Unidade Centro",
+      modality: "PRESENCIAL",
       subjectId: "sub1",
       subject: { name: "Matemática" },
       teacher: { name: "Ana" }
@@ -159,5 +178,32 @@ describe("enroll route", () => {
       })
     );
     expect(reserveCreditMock).toHaveBeenCalled();
+  });
+
+  it("rejects enrollment when session is within 48 hours", async () => {
+    sessionRepo.findUnique.mockResolvedValue({
+      id: "s1",
+      status: "ATIVA",
+      startsAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      endsAt: new Date(Date.now() + 25 * 60 * 60 * 1000),
+      location: "Unidade Centro",
+      modality: "PRESENCIAL",
+      subjectId: "sub1",
+      subject: { name: "Matemática" },
+      teacher: { name: "Ana" }
+    });
+
+    const request = new Request("http://localhost/api/enroll", {
+      method: "POST",
+      body: JSON.stringify({ sessionId: "s1" })
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.message).toBe("Agendamento disponível somente com 48 horas de antecedência.");
+    expect(reserveCreditMock).not.toHaveBeenCalled();
+    expect(sendEmailMock).not.toHaveBeenCalled();
   });
 });

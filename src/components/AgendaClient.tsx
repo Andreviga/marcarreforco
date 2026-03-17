@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { format } from "date-fns";
 
+const MIN_ENROLL_ADVANCE_MS = 48 * 60 * 60 * 1000;
+
 interface SessionItem {
   id: string;
   startsAt: string | Date;
@@ -78,6 +80,9 @@ export default function AgendaClient({
     <div className="space-y-4">
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Filtros</h2>
+        <p className="mt-2 text-xs text-amber-700">
+          Agendamentos são permitidos somente com 48 horas de antecedência.
+        </p>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
           <input
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
@@ -111,6 +116,8 @@ export default function AgendaClient({
       <div className="grid gap-4">
         {filtered.map((session) => {
           const enrollment = enrolledMap.get(session.id);
+          const startsAt = new Date(session.startsAt);
+          const requiresAdvance = startsAt.getTime() - Date.now() < MIN_ENROLL_ADVANCE_MS;
           return (
             <div key={session.id} className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -136,6 +143,10 @@ export default function AgendaClient({
                   {enrollment?.status === "AGENDADO" ? (
                     <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">
                       Agendado
+                    </span>
+                  ) : requiresAdvance ? (
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-700">
+                      Disponível com 48h de antecedência
                     </span>
                   ) : (
                     <button
