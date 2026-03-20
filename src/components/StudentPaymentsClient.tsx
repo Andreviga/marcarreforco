@@ -37,12 +37,26 @@ interface PendingCreditItem {
   package: { name: string; sessionCount: number };
 }
 
+interface PendingOneTimePaymentItem {
+  id: string;
+  status: "PENDING" | "OVERDUE";
+  dueDate: string | null;
+  createdAt: string;
+  package: {
+    id: string;
+    name: string;
+    sessionCount: number;
+    subject: SubjectOption | null;
+  };
+}
+
 export default function StudentPaymentsClient({
   packages,
   balances,
   subscriptions,
   subjects,
   pendingCredits,
+  pendingOneTimePayments,
   document
 }: {
   packages: PackageItem[];
@@ -50,6 +64,7 @@ export default function StudentPaymentsClient({
   subscriptions: SubscriptionItem[];
   subjects: SubjectOption[];
   pendingCredits: PendingCreditItem[];
+  pendingOneTimePayments: PendingOneTimePaymentItem[];
   document: string | null;
 }) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -64,6 +79,7 @@ export default function StudentPaymentsClient({
   const [searchTerm, setSearchTerm] = useState("");
   const [isChrome, setIsChrome] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [cancelingOneTimePaymentId, setCancelingOneTimePaymentId] = useState<string | null>(null);
 
   // Função para formatar CPF/CNPJ com máscara
   function formatDocument(value: string) {
@@ -289,6 +305,35 @@ export default function StudentPaymentsClient({
     window.location.reload();
   }
 
+  async function handleCancelOneTimePayment(paymentId: string) {
+    if (!confirm("Tem certeza que deseja cancelar esta cobrança avulsa?")) {
+      return;
+    }
+
+    setCancelingOneTimePaymentId(paymentId);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/payments/${paymentId}`, {
+        method: "DELETE"
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setMessage(data?.message ?? "Falha ao cancelar cobrança avulsa.");
+        return;
+      }
+
+      const data = await response.json().catch(() => ({}));
+      setMessage(data?.message ?? "Cobrança avulsa cancelada com sucesso.");
+      window.location.reload();
+    } catch {
+      setMessage("Falha ao cancelar cobrança avulsa. Verifique sua conexão e tente novamente.");
+    } finally {
+      setCancelingOneTimePaymentId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {!hasDocument && (
@@ -378,6 +423,50 @@ export default function StudentPaymentsClient({
             ))}
           </div>
           {allocationMessage && <p className="mt-3 text-sm text-amber-700">{allocationMessage}</p>}
+        </div>
+      )}
+
+      {pendingOneTimePayments.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <h2 className="text-lg font-semibold text-amber-900">Compras avulsas pendentes</h2>
+          <p className="text-sm text-amber-700">Se o PIX anterior não foi pago, você pode gerar novamente ou cancelar a cobrança.</p>
+          <div className="mt-4 space-y-3">
+            {pendingOneTimePayments.map((payment) => (
+              <div key={payment.id} className="rounded-lg border border-amber-200 bg-white p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900">{payment.package.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {payment.package.sessionCount} aula(s)
+                      {payment.package.subject ? ` • ${payment.package.subject.name}` : ""}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {payment.status === "OVERDUE" ? "Pagamento vencido" : "Aguardando pagamento"}
+                      {payment.dueDate ? ` • Vence em ${new Date(payment.dueDate).toLocaleDateString("pt-BR")}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCheckout(payment.package.id)}
+                      disabled={loadingId === payment.package.id || !hasDocument}
+                      className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                    >
+                      {loadingId === payment.package.id ? "Gerando PIX..." : "Gerar PIX novamente"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCancelOneTimePayment(payment.id)}
+                      disabled={cancelingOneTimePaymentId === payment.id}
+                      className="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                    >
+                      {cancelingOneTimePaymentId === payment.id ? "Cancelando..." : "Cancelar cobrança"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

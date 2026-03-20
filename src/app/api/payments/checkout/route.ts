@@ -45,6 +45,33 @@ async function cancelOpenSubscriptionPayments(asaasSubscriptionId: string) {
   return openPaymentIds.length;
 }
 
+async function cancelOpenOneTimePayments(userId: string, packageId: string) {
+  const openPayments = await prisma.asaasPayment.findMany({
+    where: {
+      userId,
+      packageId,
+      subscriptionId: null,
+      status: { in: ["PENDING", "OVERDUE"] }
+    },
+    select: { id: true, asaasId: true }
+  });
+
+  for (const payment of openPayments) {
+    await asaasFetch(`/payments/${payment.asaasId}`, {
+      method: "DELETE"
+    });
+  }
+
+  if (openPayments.length > 0) {
+    await prisma.asaasPayment.updateMany({
+      where: { id: { in: openPayments.map((payment) => payment.id) } },
+      data: { status: "CANCELED" }
+    });
+  }
+
+  return openPayments.length;
+}
+
 export async function POST(request: Request) {
   const { session, response } = await requireApiRole(["ALUNO"]);
   if (response) return response;
@@ -200,6 +227,8 @@ export async function POST(request: Request) {
     });
   }
 
+  const canceledOpenPaymentsCount = await cancelOpenOneTimePayments(session.user.id, packageRecord.id);
+
   const payment = await asaasFetch<{ id: string; status: string; invoiceUrl?: string; bankSlipUrl?: string; dueDate?: string; value: number; billingType: string }>(
     "/payments",
     {
@@ -233,7 +262,7 @@ export async function POST(request: Request) {
     action: "CREATE_PAYMENT",
     entityType: "AsaasPayment",
     entityId: createdPayment.id,
-    payload: { packageId: packageRecord.id }
+    payload: { packageId: packageRecord.id, canceledOpenPaymentsCount }
   });
 
   return NextResponse.json({

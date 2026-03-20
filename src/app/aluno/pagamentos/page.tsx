@@ -19,7 +19,7 @@ export default async function AlunoPagamentosPage() {
   });
   const activeSubjectIds = activeSessions.map((s) => s.subjectId);
 
-  const [allPackages, balances, subscriptions, subjects, pendingPayments] = await Promise.all([
+  const [allPackages, balances, subscriptions, subjects, pendingPayments, pendingOneTimePayments] = await Promise.all([
     prisma.sessionPackage.findMany({
       where: {
         active: true,
@@ -49,6 +49,17 @@ export default async function AlunoPagamentosPage() {
       },
       include: { package: true },
       orderBy: { createdAt: "desc" }
+    }),
+    prisma.asaasPayment.findMany({
+      where: {
+        userId: session.user.id,
+        subscriptionId: null,
+        status: { in: ["PENDING", "OVERDUE"] },
+        package: { billingType: "PACKAGE" }
+      },
+      include: { package: { include: { subject: true } } },
+      orderBy: { createdAt: "desc" },
+      distinct: ["packageId"]
     })
   ]);
 
@@ -84,6 +95,18 @@ export default async function AlunoPagamentosPage() {
           package: {
             name: payment.package.name,
             sessionCount: payment.package.sessionCount
+          }
+        }))}
+        pendingOneTimePayments={pendingOneTimePayments.map((payment) => ({
+          id: payment.id,
+          status: payment.status === "OVERDUE" ? "OVERDUE" : "PENDING",
+          createdAt: payment.createdAt.toISOString(),
+          dueDate: payment.dueDate ? payment.dueDate.toISOString() : null,
+          package: {
+            id: payment.package.id,
+            name: payment.package.name,
+            sessionCount: payment.package.sessionCount,
+            subject: payment.package.subject ? { id: payment.package.subject.id, name: payment.package.subject.name } : null
           }
         }))}
         document={profile?.document ?? null}
