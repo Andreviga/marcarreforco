@@ -47,3 +47,11 @@ Sistema web para agendamento de aulas de reforço com pagamento antecipado via A
 - `ASAAS_API_KEY` (sandbox ou produção)
 - `ASAAS_ENV` (`sandbox` ou `production`)
 - `ASAAS_WEBHOOK_TOKEN` (opcional, usado para validar webhook)
+
+## Banco em produção (Vercel + Neon)
+- `DATABASE_URL`: use a URL com pool (runtime da aplicação).
+- `DIRECT_URL`: use a URL direta (sem pool) para Prisma Migrate no deploy.
+
+Exemplo prático no Vercel:
+- `DATABASE_URL` = endpoint `-pooler`.
+- `DIRECT_URL` = endpoint direto do Neon (sem `-pooler`).
