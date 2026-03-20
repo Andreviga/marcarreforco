@@ -97,7 +97,7 @@ describe("AdminSessionsClient", () => {
   it("shows enrolled students per session", () => {
     render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
 
-    expect(screen.getByText("Inscritos por aluno (2)")).toBeInTheDocument();
+    expect(screen.getByText("Inscritos (2)")).toBeInTheDocument();
 
     const items = screen.getAllByRole("listitem");
     expect(items[0]).toHaveTextContent("Joao Silva (joao@example.com)");

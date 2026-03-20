@@ -41,7 +41,8 @@ describe("ProfessorSessoesPage", () => {
         subject: { name: "Matemática" },
         startsAt: new Date("2024-01-10T10:00:00.000Z"),
         endsAt: new Date("2024-01-10T11:00:00.000Z"),
-        status: "ATIVA"
+        status: "ATIVA",
+        enrollments: []
       }
     ]);
   });

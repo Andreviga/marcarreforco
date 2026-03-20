@@ -1,70 +1,80 @@
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
-import { formatCurrency } from "@/lib/format";
+import AdminPaymentsClient from "@/components/AdminPaymentsClient";
 
 export default async function AdminPagamentosPage() {
   await requireRole(["ADMIN"]);
 
-  const [payments, subscriptions] = await Promise.all([
+  const [payments, subscriptions, auditLogs] = await Promise.all([
     prisma.asaasPayment.findMany({
-      include: { user: true, package: { include: { subject: true } } },
+      include: { user: { select: { id: true, name: true, email: true } }, package: { include: { subject: true } } },
       orderBy: { createdAt: "desc" },
-      take: 50
+      take: 100
     }),
     prisma.asaasSubscription.findMany({
-      include: { user: true, package: { include: { subject: true } } },
+      include: { user: { select: { id: true, name: true, email: true } }, package: { include: { subject: true } } },
       orderBy: { createdAt: "desc" },
-      take: 50
+      take: 100
+    }),
+    prisma.auditLog.findMany({
+      where: {
+        entityType: "AsaasSubscription"
+      },
+      include: { actor: { select: { id: true, name: true, email: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 100
     })
   ]);
 
+  const paymentsData = payments.map((p) => ({
+    id: p.id,
+    asaasId: p.asaasId,
+    status: p.status,
+    amountCents: p.amountCents,
+    billingType: p.billingType,
+    dueDate: p.dueDate ? p.dueDate.toISOString() : null,
+    paidAt: p.paidAt ? p.paidAt.toISOString() : null,
+    createdAt: p.createdAt.toISOString(),
+    user: p.user,
+    package: {
+      id: p.package.id,
+      name: p.package.name,
+      subject: p.package.subject ? { name: p.package.subject.name } : null
+    }
+  }));
+
+  const subscriptionsData = subscriptions.map((s) => ({
+    id: s.id,
+    asaasId: s.asaasId,
+    status: s.status,
+    nextDueDate: s.nextDueDate ? s.nextDueDate.toISOString() : null,
+    createdAt: s.createdAt.toISOString(),
+    user: s.user,
+    package: {
+      id: s.package.id,
+      name: s.package.name,
+      subject: s.package.subject ? { name: s.package.subject.name } : null
+    }
+  }));
+
+  const auditLogsData = auditLogs.map((l) => ({
+    id: l.id,
+    action: l.action,
+    entityType: l.entityType,
+    entityId: l.entityId,
+    payloadJson: l.payloadJson as Record<string, unknown>,
+    createdAt: l.createdAt.toISOString(),
+    actor: l.actor
+  }));
+
   return (
-    <AppShell title="Pagamentos" subtitle="Acompanhe cobrancas e assinaturas" role="ADMIN">
-      <div className="space-y-6">
-        <div className="rounded-xl bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Pagamentos recentes</h2>
-          <div className="mt-3 grid gap-2 text-sm">
-            {payments.length === 0 ? (
-              <p className="text-slate-500">Nenhum pagamento registrado.</p>
-            ) : (
-              payments.map((payment) => (
-                <div key={payment.id} className="rounded-lg border border-slate-100 p-3">
-                  <p className="font-semibold text-slate-900">{payment.user.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {payment.package.name} • {payment.package.subject?.name ?? "Disciplina"} • {payment.status}
-                  </p>
-                  <p className="text-xs text-slate-500">{formatCurrency(payment.amountCents)}</p>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-xl bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Assinaturas</h2>
-          <div className="mt-3 grid gap-2 text-sm">
-            {subscriptions.length === 0 ? (
-              <p className="text-slate-500">Nenhuma assinatura registrada.</p>
-            ) : (
-              subscriptions.map((subscription) => (
-                <div key={subscription.id} className="rounded-lg border border-slate-100 p-3">
-                  <p className="font-semibold text-slate-900">{subscription.user.name}</p>
-                  <p className="text-xs text-slate-500">
-                    {subscription.package.name} • {subscription.package.subject?.name ?? "Disciplina"} • {subscription.status}
-                  </p>
-                  {subscription.nextDueDate && (
-                    <p className="text-xs text-slate-500">
-                      Proxima cobranca: {subscription.nextDueDate.toLocaleDateString("pt-BR")}
-                    </p>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-      </div>
+    <AppShell title="Pagamentos" subtitle="Assinaturas, cobranças e log de auditoria" role="ADMIN">
+      <AdminPaymentsClient
+        payments={paymentsData}
+        subscriptions={subscriptionsData}
+        auditLogs={auditLogsData}
+      />
     </AppShell>
   );
 }
