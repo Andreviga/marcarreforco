@@ -454,6 +454,16 @@ export default function StudentPaymentsClient({
                                     ? "Assinatura ativa" 
                                     : "Aguardando pagamento"}
                                 </span>
+                                {subscription.status === "INACTIVE" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCheckout(item.id)}
+                                    disabled={loadingId === item.id || !hasDocument}
+                                    className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                                  >
+                                    {loadingId === item.id ? "Gerando PIX..." : "Gerar PIX novamente"}
+                                  </button>
+                                )}
                                 {(subscription.status === "ACTIVE" || subscription.status === "INACTIVE") && (
                                   <button
                                     type="button"

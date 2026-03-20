@@ -6,8 +6,43 @@ import { paymentCheckoutSchema } from "@/lib/validators";
 import { asaasFetch, normalizeDocument, isValidDocument } from "@/lib/asaas";
 import { logAudit } from "@/lib/audit";
 
+type AsaasPaymentListResponse = {
+  data?: Array<{
+    id: string;
+    status?: string;
+  }>;
+};
+
+const OPEN_PAYMENT_STATUSES = new Set(["PENDING", "OVERDUE", "AWAITING_RISK_ANALYSIS"]);
+
 function formatValue(priceCents: number) {
   return Number((priceCents / 100).toFixed(2));
+}
+
+async function cancelOpenSubscriptionPayments(asaasSubscriptionId: string) {
+  const payments = await asaasFetch<AsaasPaymentListResponse>(
+    `/payments?subscription=${asaasSubscriptionId}&limit=100`,
+    { method: "GET" }
+  );
+
+  const openPaymentIds = (payments.data ?? [])
+    .filter((payment) => OPEN_PAYMENT_STATUSES.has(payment.status ?? ""))
+    .map((payment) => payment.id);
+
+  for (const paymentId of openPaymentIds) {
+    await asaasFetch(`/payments/${paymentId}`, {
+      method: "DELETE"
+    });
+  }
+
+  if (openPaymentIds.length > 0) {
+    await prisma.asaasPayment.updateMany({
+      where: { asaasId: { in: openPaymentIds } },
+      data: { status: "CANCELED" }
+    });
+  }
+
+  return openPaymentIds.length;
 }
 
 export async function POST(request: Request) {
@@ -83,6 +118,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Assinatura já ativa." }, { status: 400 });
     }
 
+    const staleSubscriptions = await prisma.asaasSubscription.findMany({
+      where: {
+        userId: session.user.id,
+        packageId: packageRecord.id,
+        status: { in: ["INACTIVE", "OVERDUE"] }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    let canceledOpenPaymentsCount = 0;
+    for (const stale of staleSubscriptions) {
+      canceledOpenPaymentsCount += await cancelOpenSubscriptionPayments(stale.asaasId);
+
+      await asaasFetch(`/subscriptions/${stale.asaasId}`, {
+        method: "DELETE"
+      });
+
+      await prisma.asaasSubscription.update({
+        where: { id: stale.id },
+        data: { status: "CANCELED" }
+      });
+    }
+
     const subscription = await asaasFetch<{ id: string; status: string; nextDueDate?: string }>("/subscriptions", {
       method: "POST",
       body: {
@@ -133,7 +191,7 @@ export async function POST(request: Request) {
       action: "CREATE_SUBSCRIPTION",
       entityType: "AsaasSubscription",
       entityId: createdSubscription.id,
-      payload: { packageId: packageRecord.id }
+      payload: { packageId: packageRecord.id, canceledOpenPaymentsCount }
     });
 
     return NextResponse.json({
