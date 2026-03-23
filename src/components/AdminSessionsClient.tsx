@@ -33,6 +33,49 @@ interface SessionItem {
   }>;
 }
 
+interface ReplicationTemplate {
+  subjectId: string;
+  subjectName: string;
+  teacherId: string;
+  teacherName: string;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  location: string;
+  modality: string;
+  priceCents: number;
+}
+
+const weekdayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+
+function pad(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function toDate(value: string | Date) {
+  return value instanceof Date ? value : new Date(value);
+}
+
+function monthLabel(month: number, year: number) {
+  return `${pad(month)}/${year}`;
+}
+
+function isInMonth(date: Date, month: number, year: number) {
+  return date.getMonth() + 1 === month && date.getFullYear() === year;
+}
+
+function getTargetDatesForWeekday(month: number, year: number, weekday: number) {
+  const list: Date[] = [];
+  const cursor = new Date(`${year}-${pad(month)}-01T00:00:00`);
+  while (cursor.getMonth() + 1 === month) {
+    if (cursor.getDay() === weekday) {
+      list.push(new Date(cursor));
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return list;
+}
+
 export default function AdminSessionsClient({
   sessions,
   subjects,
@@ -54,6 +97,205 @@ export default function AdminSessionsClient({
   const [year, setYear] = useState(new Date().getFullYear());
   const [weekday, setWeekday] = useState(1);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [replicateSourceMonth, setReplicateSourceMonth] = useState(new Date().getMonth() + 1);
+  const [replicateSourceYear, setReplicateSourceYear] = useState(new Date().getFullYear());
+  const [replicateTargetMonth, setReplicateTargetMonth] = useState(((new Date().getMonth() + 1) % 12) + 1);
+  const [replicateTargetYear, setReplicateTargetYear] = useState(
+    new Date().getMonth() + 1 === 12 ? new Date().getFullYear() + 1 : new Date().getFullYear()
+  );
+  const [replicateTeacherFilter, setReplicateTeacherFilter] = useState("");
+  const [replicatePreview, setReplicatePreview] = useState<Array<ReplicationTemplate & { occurrences: number }>>([]);
+  const [replicateFeedback, setReplicateFeedback] = useState<string | null>(null);
+  const [replicateError, setReplicateError] = useState<string | null>(null);
+  const [isReplicating, setIsReplicating] = useState(false);
+
+  function buildTemplatesFromSourceMonth() {
+    const sourceSessions = sessions.filter((item) => {
+      const startsAt = toDate(item.startsAt);
+      const byMonth = item.status === "ATIVA" && isInMonth(startsAt, replicateSourceMonth, replicateSourceYear);
+      const byTeacher = replicateTeacherFilter ? item.teacher.id === replicateTeacherFilter : true;
+      return byMonth && byTeacher;
+    });
+
+    const templateMap = new Map<string, ReplicationTemplate>();
+    sourceSessions.forEach((item) => {
+      const startsAt = toDate(item.startsAt);
+      const endsAt = toDate(item.endsAt);
+      const startTime = `${pad(startsAt.getHours())}:${pad(startsAt.getMinutes())}`;
+      const endTime = `${pad(endsAt.getHours())}:${pad(endsAt.getMinutes())}`;
+      const weekDay = startsAt.getDay();
+
+      const key = [
+        item.subject.id,
+        item.teacher.id,
+        weekDay,
+        startTime,
+        endTime,
+        item.location,
+        item.modality,
+        item.priceCents
+      ].join("|");
+
+      if (!templateMap.has(key)) {
+        templateMap.set(key, {
+          subjectId: item.subject.id,
+          subjectName: item.subject.name,
+          teacherId: item.teacher.id,
+          teacherName: item.teacher.name,
+          weekday: weekDay,
+          startTime,
+          endTime,
+          location: item.location,
+          modality: item.modality,
+          priceCents: item.priceCents
+        });
+      }
+    });
+
+    return Array.from(templateMap.values());
+  }
+
+  function simulateReplication() {
+    setReplicateError(null);
+    setReplicateFeedback(null);
+
+    if (
+      replicateSourceMonth === replicateTargetMonth &&
+      replicateSourceYear === replicateTargetYear
+    ) {
+      setReplicatePreview([]);
+      setReplicateError("Selecione meses diferentes para origem e destino.");
+      return;
+    }
+
+    const templates = buildTemplatesFromSourceMonth();
+    if (templates.length === 0) {
+      setReplicatePreview([]);
+      setReplicateError("Nenhuma sessão ativa encontrada no mês de origem.");
+      return;
+    }
+
+    const nextPreview = templates
+      .map((template) => ({
+        ...template,
+        occurrences: getTargetDatesForWeekday(replicateTargetMonth, replicateTargetYear, template.weekday).length
+      }))
+      .filter((template) => template.occurrences > 0)
+      .sort((a, b) => a.teacherName.localeCompare(b.teacherName, "pt-BR", { sensitivity: "base" }));
+
+    if (nextPreview.length === 0) {
+      setReplicatePreview([]);
+      setReplicateError("O mês de destino não possui datas compatíveis com os padrões da origem.");
+      return;
+    }
+
+    setReplicatePreview(nextPreview);
+    setReplicateFeedback(
+      `Prévia pronta: ${nextPreview.length} padrão(ões) serão replicados de ${monthLabel(
+        replicateSourceMonth,
+        replicateSourceYear
+      )} para ${monthLabel(replicateTargetMonth, replicateTargetYear)}.`
+    );
+  }
+
+  async function replicateMonthlyPattern(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isReplicating) return;
+
+    setReplicateError(null);
+    setReplicateFeedback(null);
+
+    if (
+      replicateSourceMonth === replicateTargetMonth &&
+      replicateSourceYear === replicateTargetYear
+    ) {
+      setReplicateError("Selecione meses diferentes para origem e destino.");
+      return;
+    }
+
+    const templates = buildTemplatesFromSourceMonth();
+    if (templates.length === 0) {
+      setReplicateError("Nenhuma sessão ativa encontrada no mês de origem.");
+      return;
+    }
+
+    const targetSessions = sessions.filter((item) => {
+      const startsAt = toDate(item.startsAt);
+      return isInMonth(startsAt, replicateTargetMonth, replicateTargetYear);
+    });
+
+    const occupiedByTeacher = new Set(
+      targetSessions.map((item) => {
+        const startsAtIso = toDate(item.startsAt).toISOString();
+        const endsAtIso = toDate(item.endsAt).toISOString();
+        return `${item.teacher.id}|${startsAtIso}|${endsAtIso}`;
+      })
+    );
+
+    const requests: Array<Promise<Response>> = [];
+    let skipped = 0;
+
+    templates.forEach((template) => {
+      const dates = getTargetDatesForWeekday(replicateTargetMonth, replicateTargetYear, template.weekday);
+      const [startHour, startMinute] = template.startTime.split(":").map(Number);
+      const [endHour, endMinute] = template.endTime.split(":").map(Number);
+
+      dates.forEach((date) => {
+        const startsAt = new Date(date);
+        const endsAt = new Date(date);
+        startsAt.setHours(startHour, startMinute, 0, 0);
+        endsAt.setHours(endHour, endMinute, 0, 0);
+
+        const startsAtIso = startsAt.toISOString();
+        const endsAtIso = endsAt.toISOString();
+        const teacherSlotKey = `${template.teacherId}|${startsAtIso}|${endsAtIso}`;
+
+        if (occupiedByTeacher.has(teacherSlotKey)) {
+          skipped += 1;
+          return;
+        }
+
+        occupiedByTeacher.add(teacherSlotKey);
+        requests.push(
+          fetch("/api/admin/sessions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              subjectId: template.subjectId,
+              teacherId: template.teacherId,
+              startsAt: startsAtIso,
+              endsAt: endsAtIso,
+              location: template.location,
+              modality: template.modality,
+              priceCents: template.priceCents
+            })
+          })
+        );
+      });
+    });
+
+    if (requests.length === 0) {
+      setReplicateError("Nenhuma sessão nova para criar (os horários do professor já existem no mês destino).");
+      return;
+    }
+
+    setIsReplicating(true);
+    const settled = await Promise.allSettled(requests);
+    setIsReplicating(false);
+
+    const okCount = settled.filter((item) => item.status === "fulfilled" && item.value.ok).length;
+    const failCount = settled.length - okCount;
+
+    if (failCount > 0) {
+      setReplicateError(
+        `Replicação parcial: ${okCount} criada(s), ${failCount} com erro e ${skipped} ignorada(s) por conflito de horário.`
+      );
+      return;
+    }
+
+    setReplicateFeedback(`Replicação concluída: ${okCount} sessão(ões) criada(s) e ${skipped} ignorada(s) por conflito.`);
+    window.location.reload();
+  }
 
   async function createSessions(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -338,6 +580,110 @@ export default function AdminSessionsClient({
         <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
           Gerar sessões do mês
         </button>
+      </form>
+
+      <form onSubmit={replicateMonthlyPattern} className="rounded-xl bg-white p-4 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Replicar padrão de sessões entre meses</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Mantém professor + dia da semana + horário e replica todos os padrões ativos do mês de origem.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <label className="text-sm text-slate-600">
+            Mês origem
+            <input
+              type="number"
+              min={1}
+              max={12}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={replicateSourceMonth}
+              onChange={(event) => setReplicateSourceMonth(Number(event.target.value))}
+            />
+          </label>
+          <label className="text-sm text-slate-600">
+            Ano origem
+            <input
+              type="number"
+              min={2020}
+              max={2100}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={replicateSourceYear}
+              onChange={(event) => setReplicateSourceYear(Number(event.target.value))}
+            />
+          </label>
+          <label className="text-sm text-slate-600">
+            Mês destino
+            <input
+              type="number"
+              min={1}
+              max={12}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={replicateTargetMonth}
+              onChange={(event) => setReplicateTargetMonth(Number(event.target.value))}
+            />
+          </label>
+          <label className="text-sm text-slate-600">
+            Ano destino
+            <input
+              type="number"
+              min={2020}
+              max={2100}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={replicateTargetYear}
+              onChange={(event) => setReplicateTargetYear(Number(event.target.value))}
+            />
+          </label>
+          <label className="text-sm text-slate-600 md:col-span-2">
+            Professor (filtro opcional)
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={replicateTeacherFilter}
+              onChange={(event) => setReplicateTeacherFilter(event.target.value)}
+            >
+              <option value="">Todos os professores</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={simulateReplication}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+          >
+            Simular replicação
+          </button>
+          <button
+            type="submit"
+            disabled={isReplicating}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isReplicating ? "Replicando..." : "Replicar sessões do mês"}
+          </button>
+        </div>
+
+        {replicateFeedback && <p className="mt-3 text-sm text-emerald-700">{replicateFeedback}</p>}
+        {replicateError && <p className="mt-3 text-sm text-rose-600">{replicateError}</p>}
+
+        {replicatePreview.length > 0 && (
+          <div className="mt-4 rounded-lg border border-slate-200 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Prévia (exemplo)</p>
+            <ul className="mt-2 space-y-1">
+              {replicatePreview.slice(0, 8).map((item, index) => (
+                <li key={`${item.teacherId}-${item.subjectId}-${index}`} className="text-sm text-slate-700">
+                  {item.teacherName} • {item.subjectName} • {weekdayLabels[item.weekday]} • {item.startTime}-{item.endTime} • {item.occurrences} ocorrência(s)
+                </li>
+              ))}
+            </ul>
+            {replicatePreview.length > 8 && (
+              <p className="mt-2 text-xs text-slate-400">Mostrando 8 de {replicatePreview.length} padrão(ões).</p>
+            )}
+          </div>
+        )}
       </form>
 
       <div className="rounded-xl bg-white p-4 shadow-sm">

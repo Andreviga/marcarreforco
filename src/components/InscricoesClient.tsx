@@ -17,6 +17,21 @@ interface EnrollmentView {
 export default function InscricoesClient({ enrollments }: { enrollments: EnrollmentView[] }) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const orderedEnrollments = [...enrollments].sort((a, b) => {
+    const aStarts = new Date(a.session.startsAt);
+    const bStarts = new Date(b.session.startsAt);
+    const aUpcoming = aStarts >= today;
+    const bUpcoming = bStarts >= today;
+
+    if (aUpcoming && !bUpcoming) return -1;
+    if (!aUpcoming && bUpcoming) return 1;
+    if (aUpcoming && bUpcoming) return aStarts.getTime() - bStarts.getTime();
+    return bStarts.getTime() - aStarts.getTime();
+  });
+
   async function handleUnenroll(enrollmentId: string) {
     setLoadingId(enrollmentId);
     await fetch("/api/unenroll", {
@@ -29,7 +44,7 @@ export default function InscricoesClient({ enrollments }: { enrollments: Enrollm
 
   return (
     <div className="grid gap-4">
-      {enrollments.map((enrollment) => (
+      {orderedEnrollments.map((enrollment) => (
         <div key={enrollment.id} className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>

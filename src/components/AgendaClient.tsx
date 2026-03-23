@@ -76,6 +76,24 @@ export default function AgendaClient({
     return subjectMatch && teacherMatch && locationMatch && dateMatch;
   });
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const ordered = [...filtered].sort((a, b) => {
+    const aStarts = new Date(a.startsAt);
+    const bStarts = new Date(b.startsAt);
+    const aUpcoming = aStarts >= today;
+    const bUpcoming = bStarts >= today;
+
+    if (aUpcoming && !bUpcoming) return -1;
+    if (!aUpcoming && bUpcoming) return 1;
+    if (aUpcoming && bUpcoming) return aStarts.getTime() - bStarts.getTime();
+    return bStarts.getTime() - aStarts.getTime();
+  });
+
+  const upcoming = ordered.filter((session) => new Date(session.startsAt) >= today);
+  const past = ordered.filter((session) => new Date(session.startsAt) < today);
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl bg-white p-4 shadow-sm">
@@ -113,55 +131,98 @@ export default function AgendaClient({
           <p className="mt-3 text-sm text-red-600">{errorMessage}</p>
         )}
       </div>
-      <div className="grid gap-4">
-        {filtered.map((session) => {
-          const enrollment = enrolledMap.get(session.id);
-          const startsAt = new Date(session.startsAt);
-          const requiresAdvance = startsAt.getTime() - Date.now() < MIN_ENROLL_ADVANCE_MS;
-          return (
-            <div key={session.id} className="rounded-xl bg-white p-4 shadow-sm">
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    {session.subject.name}
-                  </h3>
-                  <p className="text-sm text-slate-500">
-                    {session.teacher.name} • {new Date(session.startsAt).toLocaleDateString("pt-BR", {
-                      weekday: "short",
-                      day: "2-digit",
-                      month: "2-digit"
-                    })}{" "}
-                    {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-                    {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {session.modality === "ONLINE" ? "Online" : session.location}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-slate-700">1 crédito</span>
-                  {enrollment?.status === "AGENDADO" ? (
-                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">
-                      Agendado
-                    </span>
-                  ) : requiresAdvance ? (
-                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-700">
-                      Disponível com 48h de antecedência
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => handleEnroll(session.id)}
-                      disabled={loadingId === session.id}
-                      className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800"
-                    >
-                      {loadingId === session.id ? "Agendando..." : "Agendar"}
-                    </button>
-                  )}
-                </div>
-              </div>
+      <div className="space-y-6">
+        {ordered.length === 0 && (
+          <div className="rounded-xl bg-white p-4 text-sm text-slate-500 shadow-sm">Nenhuma sessão encontrada.</div>
+        )}
+
+        {upcoming.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Próximas sessões</h2>
+            <div className="grid gap-4">
+              {upcoming.map((session) => {
+                const enrollment = enrolledMap.get(session.id);
+                const startsAt = new Date(session.startsAt);
+                const requiresAdvance = startsAt.getTime() - Date.now() < MIN_ENROLL_ADVANCE_MS;
+                return (
+                  <div key={session.id} className="rounded-xl bg-white p-4 shadow-sm">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">{session.subject.name}</h3>
+                        <p className="text-sm text-slate-500">
+                          {session.teacher.name} • {new Date(session.startsAt).toLocaleDateString("pt-BR", {
+                            weekday: "short",
+                            day: "2-digit",
+                            month: "2-digit"
+                          })}{" "}
+                          {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
+                          {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                        <p className="text-sm text-slate-500">{session.modality === "ONLINE" ? "Online" : session.location}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-slate-700">1 crédito</span>
+                        {enrollment?.status === "AGENDADO" ? (
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">Agendado</span>
+                        ) : requiresAdvance ? (
+                          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-700">
+                            Disponível com 48h de antecedência
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleEnroll(session.id)}
+                            disabled={loadingId === session.id}
+                            className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800"
+                          >
+                            {loadingId === session.id ? "Agendando..." : "Agendar"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        )}
+
+        {past.length > 0 && (
+          <details className="group">
+            <summary className="cursor-pointer select-none text-sm font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600">
+              Sessões passadas ({past.length})
+            </summary>
+            <div className="mt-3 grid gap-4">
+              {past.map((session) => {
+                const enrollment = enrolledMap.get(session.id);
+                return (
+                  <div key={session.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4 shadow-sm">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-500">{session.subject.name}</h3>
+                        <p className="text-sm text-slate-400">
+                          {session.teacher.name} • {new Date(session.startsAt).toLocaleDateString("pt-BR", {
+                            weekday: "short",
+                            day: "2-digit",
+                            month: "2-digit"
+                          })}{" "}
+                          {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
+                          {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                        <p className="text-sm text-slate-400">{session.modality === "ONLINE" ? "Online" : session.location}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-slate-500">1 crédito</span>
+                        {enrollment?.status === "AGENDADO" && (
+                          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">Agendado</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+        )}
       </div>
     </div>
   );
