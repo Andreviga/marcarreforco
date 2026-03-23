@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getBalancesForStudent } from "@/lib/credits";
 
 const AppShellMock = jest.fn(({ children }: { children: React.ReactNode }) => <div>{children}</div>);
-const AgendaClientMock = jest.fn(() => null);
+const AgendaClientMock = jest.fn((_props: unknown) => null);
 
 jest.mock("@/lib/rbac", () => ({
   requireRole: jest.fn()
@@ -15,7 +15,8 @@ jest.mock("@/lib/rbac", () => ({
 jest.mock("@/lib/prisma", () => ({
   prisma: {
     session: { findMany: jest.fn() },
-    enrollment: { findMany: jest.fn() }
+    enrollment: { findMany: jest.fn() },
+    asaasPayment: { findMany: jest.fn() }
   }
 }));
 
@@ -40,6 +41,7 @@ describe("AlunoAgendaPage", () => {
   const requireRoleMock = requireRole as jest.Mock;
   const sessionRepo = prisma.session as unknown as { findMany: jest.Mock };
   const enrollmentRepo = prisma.enrollment as unknown as { findMany: jest.Mock };
+  const paymentRepo = prisma.asaasPayment as unknown as { findMany: jest.Mock };
   const balancesRepo = getBalancesForStudent as jest.Mock;
 
   beforeEach(() => {
@@ -59,6 +61,7 @@ describe("AlunoAgendaPage", () => {
       }
     ]);
     enrollmentRepo.findMany.mockResolvedValue([{ id: "enr1" }]);
+    paymentRepo.findMany.mockResolvedValue([]);
     balancesRepo.mockResolvedValue([]);
   });
 

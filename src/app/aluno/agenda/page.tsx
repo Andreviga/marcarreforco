@@ -20,7 +20,27 @@ export default async function AlunoAgendaPage() {
     orderBy: { startsAt: "asc" }
   });
 
-  const balances = await getBalancesForStudent(session.user.id);
+  const [balances, pendingConfirmedPayments] = await Promise.all([
+    getBalancesForStudent(session.user.id),
+    prisma.asaasPayment.findMany({
+      where: {
+        userId: session.user.id,
+        status: "CONFIRMED",
+        creditLedger: { none: { reason: "PAYMENT_CREDIT" } }
+      },
+      select: {
+        id: true,
+        package: {
+          select: {
+            subjectId: true
+          }
+        }
+      }
+    })
+  ]);
+
+  const pendingNeedsSubject = pendingConfirmedPayments.filter((item) => !item.package.subjectId).length;
+  const pendingProcessing = pendingConfirmedPayments.filter((item) => !!item.package.subjectId).length;
 
   const enrollments = await prisma.enrollment.findMany({
     where: { studentId: session.user.id },
@@ -75,6 +95,29 @@ export default async function AlunoAgendaPage() {
               )}
             </div>
           </div>
+
+          {(pendingNeedsSubject > 0 || pendingProcessing > 0) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <h2 className="text-lg font-semibold text-amber-900">Pagamento confirmado em análise</h2>
+              <div className="mt-2 space-y-1 text-sm text-amber-800">
+                {pendingNeedsSubject > 0 && (
+                  <p>
+                    Você tem {pendingNeedsSubject} pagamento(s) confirmado(s) sem disciplina definida. Acesse Pagamentos e aplique os créditos.
+                  </p>
+                )}
+                {pendingProcessing > 0 && (
+                  <p>Você tem {pendingProcessing} pagamento(s) confirmado(s) aguardando liberação de crédito. Se demorar, avise o suporte.</p>
+                )}
+              </div>
+              <Link
+                href="/aluno/pagamentos"
+                className="mt-3 inline-flex rounded-full bg-amber-700 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-800"
+              >
+                Ir para pagamentos
+              </Link>
+            </div>
+          )}
+
           <div className="rounded-xl bg-white p-4 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Como agendar e pagar</h2>
             <ol className="mt-3 space-y-2 text-sm text-slate-600">
