@@ -295,24 +295,47 @@ export async function getBalance(studentId: string, subjectId: string) {
 
 export async function getBalancesForStudent(studentId: string) {
   const now = new Date();
-  const subjects = await prisma.subject.findMany();
-  const lots = await prisma.studentCreditLot.findMany({
-    where: {
-      studentId,
-      remaining: { gt: 0 },
-      expiresAt: { gt: now }
-    }
-  });
+  const [lots, legacyBalances] = await Promise.all([
+    prisma.studentCreditLot.findMany({
+      where: {
+        studentId,
+        remaining: { gt: 0 },
+        expiresAt: { gt: now }
+      }
+    }),
+    prisma.studentCreditBalance.findMany({
+      where: {
+        studentId,
+        balance: { gt: 0 }
+      }
+    })
+  ]);
 
-  const bySubject = new Map<string, number>();
+  const lotBySubject = new Map<string, number>();
   for (const lot of lots) {
-    bySubject.set(lot.subjectId, (bySubject.get(lot.subjectId) ?? 0) + lot.remaining);
+    lotBySubject.set(lot.subjectId, (lotBySubject.get(lot.subjectId) ?? 0) + lot.remaining);
   }
 
+  const legacyBySubject = new Map<string, number>();
+  for (const item of legacyBalances) {
+    legacyBySubject.set(item.subjectId, item.balance);
+  }
+
+  const subjectIds = Array.from(new Set([...lotBySubject.keys(), ...legacyBySubject.keys()]));
+  if (!subjectIds.length) return [];
+
+  const subjects = await prisma.subject.findMany({
+    where: { id: { in: subjectIds } },
+    orderBy: { name: "asc" }
+  });
+
   return subjects
-    .filter((subject) => bySubject.has(subject.id))
     .map((subject) => ({
       subject,
-      balance: bySubject.get(subject.id) ?? 0
-    }));
+      // Preferir lotes ativos e válidos; usar legado apenas como fallback.
+      balance: lotBySubject.has(subject.id)
+        ? lotBySubject.get(subject.id) ?? 0
+        : legacyBySubject.get(subject.id) ?? 0
+    }))
+    .filter((item) => item.balance > 0);
 }
