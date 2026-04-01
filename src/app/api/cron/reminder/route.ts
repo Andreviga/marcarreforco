@@ -62,13 +62,15 @@ export async function GET(request: Request) {
     }
   }
 
-  // Tomorrow window (America/Sao_Paulo → just use UTC day boundaries that cover tomorrow in Brazil)
-  const nowUtc = new Date();
-  const tomorrowStart = new Date(nowUtc);
-  tomorrowStart.setUTCHours(0, 0, 0, 0);
-  tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
-  const tomorrowEnd = new Date(tomorrowStart);
-  tomorrowEnd.setUTCDate(tomorrowEnd.getUTCDate() + 1);
+  // Tomorrow window in Brazil (America/Sao_Paulo, UTC-3, no DST since 2019).
+  // We subtract 3 hours to get the "local" brazil time, find midnight in that frame,
+  // then add back the 3-hour offset to convert to real UTC for the DB query.
+  // This correctly covers 00:00–23:59 Brazil time (not UTC), so sessions at 22:00+ Brazil are never missed.
+  const BRAZIL_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC-3
+  const nowBrazil = new Date(Date.now() - BRAZIL_OFFSET_MS);
+  const todayBrazilMidnightMs = new Date(nowBrazil).setUTCHours(0, 0, 0, 0);
+  const tomorrowStart = new Date(todayBrazilMidnightMs + 24 * 60 * 60 * 1000 + BRAZIL_OFFSET_MS);
+  const tomorrowEnd   = new Date(todayBrazilMidnightMs + 48 * 60 * 60 * 1000 + BRAZIL_OFFSET_MS);
 
   // Sessions starting tomorrow that have at least one AGENDADO enrollment
   const sessions = await prisma.session.findMany({
@@ -99,7 +101,7 @@ export async function GET(request: Request) {
     select: { email: true, name: true }
   });
 
-  const results: { sessionId: string; recipients: string[]; ok: boolean }[] = [];
+  const results: { sessionId: string; recipients: string[]; ok: boolean; errors: string[] }[] = [];
 
   for (const sess of sessions) {
     const startsAtLabel = sess.startsAt.toLocaleDateString("pt-BR", {
@@ -172,6 +174,7 @@ export async function GET(request: Request) {
     }
 
     let ok = true;
+    const errors: string[] = [];
     for (const to of recipients) {
       try {
         await sendEmail({
@@ -179,14 +182,61 @@ export async function GET(request: Request) {
           subject: `Lembrete: sessão de ${sess.subject.name} amanhã (${startTimeLabel})`,
           html
         });
-      } catch {
+      } catch (err) {
+        const msg = `[professor/admin] to=${to}: ${String(err)}`;
+        console.error("[cron/reminder] Falha ao enviar e-mail", { sessionId: sess.id, to, error: err });
+        errors.push(msg);
         ok = false;
       }
     }
 
-    results.push({ sessionId: sess.id, recipients, ok });
+    // Send a personal reminder to each enrolled student (separate without listing other students)
+    for (const enr of sess.enrollments) {
+      if (!enr.student.email) continue;
+      const studentHtml = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><title>Lembrete de Aula</title></head>
+<body style="font-family:sans-serif;background:#f8fafc;margin:0;padding:0">
+  <div style="max-width:540px;margin:32px auto;background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden">
+    <div style="background:#4f46e5;padding:24px 28px">
+      <h1 style="margin:0;color:#fff;font-size:18px;font-weight:700">Lembrete — Aula amanhã</h1>
+    </div>
+    <div style="padding:24px 28px">
+      <p style="color:#334155;font-size:14px;margin:0 0 16px">Olá, ${enr.student.name}!</p>
+      <p style="color:#334155;font-size:14px;margin:0 0 20px">Você tem uma aula de reforço agendada para <strong>amanhã</strong>:</p>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px">
+        <tr><td style="padding:6px 0;color:#64748b;width:120px">Disciplina</td><td style="padding:6px 0;font-weight:600;color:#1e293b">${sess.subject.name}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Professor(a)</td><td style="padding:6px 0;color:#1e293b">${sess.teacher.name}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Data</td><td style="padding:6px 0;color:#1e293b">${startsAtLabel}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Horário</td><td style="padding:6px 0;color:#1e293b">${startTimeLabel} – ${endTimeLabel}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b">Local</td><td style="padding:6px 0;color:#1e293b">${sess.modality === "ONLINE" ? "Online" : sess.location}</td></tr>
+      </table>
+    </div>
+    <div style="padding:16px 28px;border-top:1px solid #f1f5f9;color:#94a3b8;font-size:12px">
+      Este é um lembrete automático do sistema Marcar Reforço.
+    </div>
+  </div>
+</body>
+</html>`;
+      try {
+        await sendEmail({
+          to: enr.student.email,
+          subject: `Lembrete: sua aula de ${sess.subject.name} é amanhã (${startTimeLabel})`,
+          html: studentHtml
+        });
+      } catch (err) {
+        const msg = `[aluno] to=${enr.student.email}: ${String(err)}`;
+        console.error("[cron/reminder] Falha ao enviar e-mail para aluno", { sessionId: sess.id, studentEmail: enr.student.email, error: err });
+        errors.push(msg);
+        ok = false;
+      }
+    }
+
+    results.push({ sessionId: sess.id, recipients, ok, errors });
   }
 
   const sent = results.filter((r) => r.ok).length;
-  return NextResponse.json({ sent, total: sessions.length, results });
+  const failed = results.filter((r) => !r.ok).length;
+  return NextResponse.json({ sent, failed, total: sessions.length, results });
 }
