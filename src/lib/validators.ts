@@ -79,6 +79,11 @@ export const enrollSchema = z.object({
   sessionId: z.string().min(1)
 });
 
+export const adminEnrollSchema = z.object({
+  sessionId: z.string().min(1),
+  studentId: z.string().min(1)
+});
+
 export const unenrollSchema = z.object({
   enrollmentId: z.string().min(1)
 });

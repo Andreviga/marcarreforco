@@ -13,6 +13,12 @@ interface Teacher {
   name: string;
 }
 
+interface StudentOption {
+  id: string;
+  name: string;
+  email: string;
+}
+
 interface SessionItem {
   id: string;
   startsAt: string | Date;
@@ -79,11 +85,13 @@ function getTargetDatesForWeekday(month: number, year: number, weekday: number) 
 export default function AdminSessionsClient({
   sessions,
   subjects,
-  teachers
+  teachers,
+  students
 }: {
   sessions: SessionItem[];
   subjects: Subject[];
   teachers: Teacher[];
+  students: StudentOption[];
 }) {
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
@@ -108,6 +116,35 @@ export default function AdminSessionsClient({
   const [replicateFeedback, setReplicateFeedback] = useState<string | null>(null);
   const [replicateError, setReplicateError] = useState<string | null>(null);
   const [isReplicating, setIsReplicating] = useState(false);
+  const [enrollingSessionId, setEnrollingSessionId] = useState<string | null>(null);
+  const [enrollStudentId, setEnrollStudentId] = useState("");
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+  const [isEnrolling, setIsEnrolling] = useState(false);
+
+  async function handleAdminEnroll(sessionId: string) {
+    if (!enrollStudentId) return;
+    setIsEnrolling(true);
+    setEnrollError(null);
+    try {
+      const res = await fetch("/api/admin/enroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, studentId: enrollStudentId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setEnrollError(data?.message ?? "Erro ao inscrever aluno.");
+      } else {
+        setEnrollingSessionId(null);
+        setEnrollStudentId("");
+        window.location.reload();
+      }
+    } catch {
+      setEnrollError("Falha de conexão.");
+    } finally {
+      setIsEnrolling(false);
+    }
+  }
 
   function buildTemplatesFromSourceMonth() {
     const sourceSessions = sessions.filter((item) => {
@@ -793,7 +830,51 @@ export default function AdminSessionsClient({
                   >
                     Excluir
                   </button>
+                  {session.status === "ATIVA" && (
+                    <button
+                      onClick={() => {
+                        setEnrollingSessionId(enrollingSessionId === session.id ? null : session.id);
+                        setEnrollStudentId(students[0]?.id ?? "");
+                        setEnrollError(null);
+                      }}
+                      className="rounded-md border border-indigo-200 px-2 py-1 text-xs text-indigo-600 hover:bg-indigo-50"
+                    >
+                      Inscrever aluno
+                    </button>
+                  )}
                 </div>
+                {enrollingSessionId === session.id && (
+                  <div className="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-indigo-100 bg-indigo-50 p-3">
+                    <label className="flex-1 text-xs text-slate-600">
+                      Aluno
+                      <select
+                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                        value={enrollStudentId}
+                        onChange={(event) => setEnrollStudentId(event.target.value)}
+                      >
+                        {students.map((student) => (
+                          <option key={student.id} value={student.id}>
+                            {student.name} ({student.email})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      disabled={isEnrolling || !enrollStudentId}
+                      onClick={() => handleAdminEnroll(session.id)}
+                      className="rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isEnrolling ? "Inscrevendo..." : "Confirmar"}
+                    </button>
+                    <button
+                      onClick={() => { setEnrollingSessionId(null); setEnrollError(null); }}
+                      className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                    >
+                      Cancelar
+                    </button>
+                    {enrollError && <p className="w-full text-xs text-rose-600">{enrollError}</p>}
+                  </div>
+                )}
               </div>
             );
           }

@@ -37,6 +37,11 @@ export default async function AdminSessoesPage() {
     where: { role: "PROFESSOR" },
     orderBy: { name: "asc" }
   });
+  const students = await prisma.user.findMany({
+    where: { role: "ALUNO" },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, email: true }
+  });
 
   const calendarItems = sessions.map((item) => ({
     id: item.id,
@@ -53,7 +58,7 @@ export default async function AdminSessoesPage() {
     <AppShell title="Sessões" subtitle="Crie e gerencie sessões de reforço" role="ADMIN">
       <div className="space-y-6">
         <MonthlyCalendarClient month={month} year={year} items={calendarItems} />
-        <AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />
+        <AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} students={students} />
       </div>
     </AppShell>
   );

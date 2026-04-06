@@ -12,6 +12,11 @@ const teachers = [
   { id: "t2", name: "Bruno" }
 ];
 
+const students = [
+  { id: "stu1", name: "Maria Souza", email: "maria@example.com" },
+  { id: "stu2", name: "Joao Silva", email: "joao@example.com" }
+];
+
 const sessions = [
   {
     id: "sess1",
@@ -56,7 +61,7 @@ describe("AdminSessionsClient", () => {
   });
 
   it("updates selected subject", async () => {
-    render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
+    render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} students={students} />);
 
     const subjectSelect = screen.getByLabelText(/Disciplina/i) as HTMLSelectElement;
 
@@ -69,7 +74,7 @@ describe("AdminSessionsClient", () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
+    render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} students={students} />);
 
     const dateInput = screen.getByLabelText(/^Data/i) as HTMLInputElement;
     fireEvent.change(dateInput, { target: { value: "2024-01-10" } });
@@ -95,7 +100,7 @@ describe("AdminSessionsClient", () => {
   });
 
   it("shows enrolled students per session", () => {
-    render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} />);
+    render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} students={students} />);
 
     expect(screen.getByText("Inscritos (2)")).toBeInTheDocument();
 
