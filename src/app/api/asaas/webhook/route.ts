@@ -170,14 +170,25 @@ export async function POST(request: Request) {
         where: { paymentId: payment.id, reason: "PAYMENT_CREDIT" }
       });
 
-      if (!alreadyCredited && payment.package.subjectId) {
-        await addPaymentCredits({
-          studentId: payment.userId,
-          subjectId: payment.package.subjectId,
-          amount: payment.package.sessionCount,
-          paymentId: payment.id,
-          paidAt: payment.paidAt
-        });
+      if (!alreadyCredited) {
+        let creditSubjectId = payment.package.subjectId;
+        if (!creditSubjectId) {
+          const wildcardSubject = await prisma.subject.findFirst({
+            where: { name: { equals: "A DEFINIR", mode: "insensitive" } },
+            select: { id: true }
+          });
+          creditSubjectId = wildcardSubject?.id ?? null;
+        }
+
+        if (creditSubjectId) {
+          await addPaymentCredits({
+            studentId: payment.userId,
+            subjectId: creditSubjectId,
+            amount: payment.package.sessionCount,
+            paymentId: payment.id,
+            paidAt: payment.paidAt
+          });
+        }
       }
     }
 

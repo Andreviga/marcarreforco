@@ -69,10 +69,10 @@ export async function POST(request: Request) {
       include: { package: true }
     });
 
-    if (pendingPayment) {
+    if (pendingPayment && wildcardSubject) {
       await addPaymentCredits({
         studentId: session.user.id,
-        subjectId: sessionRecord.subjectId,
+        subjectId: wildcardSubject.id,
         amount: pendingPayment.package.sessionCount,
         paymentId: pendingPayment.id,
         paidAt: pendingPayment.paidAt

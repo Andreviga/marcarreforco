@@ -151,6 +151,7 @@ describe("enroll route", () => {
     });
     enrollmentRepo.findUnique.mockResolvedValue(null);
     getBalanceMock.mockResolvedValue(0);
+    subjectRepo.findFirst.mockResolvedValue({ id: "subj_wildcard" });
     paymentRepo.findFirst.mockResolvedValue({
       id: "p1",
       paidAt: new Date(),
@@ -172,7 +173,7 @@ describe("enroll route", () => {
     expect(addPaymentCreditsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         studentId: "student-1",
-        subjectId: "sub1",
+        subjectId: "subj_wildcard",
         amount: 4,
         paymentId: "p1"
       })
