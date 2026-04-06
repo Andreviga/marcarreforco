@@ -7,6 +7,18 @@ interface SubjectEntry {
   subjectName: string;
   balance: number;
   expiresAt: string;
+  received: number;
+  enrolled: number;
+}
+
+interface LedgerEntry {
+  id: string;
+  subjectName: string;
+  delta: number;
+  reason: string;
+  reasonLabel: string;
+  sessionDate: string | null;
+  createdAt: string;
 }
 
 interface StudentRow {
@@ -36,6 +48,10 @@ export default function AdminCreditsClient({
   const [adjusting, setAdjusting] = useState(false);
   const [adjustError, setAdjustError] = useState<string | null>(null);
   const [adjustSuccess, setAdjustSuccess] = useState<string | null>(null);
+  const [historyId, setHistoryId] = useState<string | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<LedgerEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const filtered = students.filter(
     (s) =>
@@ -71,6 +87,30 @@ export default function AdminCreditsClient({
       setAdjustError("Falha de conexão.");
     } finally {
       setAdjusting(false);
+    }
+  }
+
+  async function toggleHistory(studentId: string) {
+    if (historyId === studentId) {
+      setHistoryId(null);
+      return;
+    }
+    setHistoryId(studentId);
+    setHistoryEntries([]);
+    setHistoryError(null);
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/admin/credits/${studentId}/history`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setHistoryError(data?.message ?? "Erro ao carregar histórico.");
+      } else {
+        setHistoryEntries(data);
+      }
+    } catch {
+      setHistoryError("Falha de conexão.");
+    } finally {
+      setHistoryLoading(false);
     }
   }
 
@@ -118,6 +158,16 @@ export default function AdminCreditsClient({
                   {student.total} crédito{student.total !== 1 ? "s" : ""} no total
                 </span>
                 <button
+                  onClick={() => toggleHistory(student.id)}
+                  className={`rounded-md border px-2 py-1 text-xs hover:bg-slate-50 ${
+                    historyId === student.id
+                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
+                      : "border-slate-200 text-slate-600"
+                  }`}
+                >
+                  {historyId === student.id ? "Fechar histórico" : "Ver histórico"}
+                </button>
+                <button
                   onClick={() => {
                     setAdjustingId(adjustingId === student.id ? null : student.id);
                     setAdjustSubjectId(subjects[0]?.id ?? "");
@@ -138,7 +188,9 @@ export default function AdminCreditsClient({
                   <thead>
                     <tr className="border-b text-xs text-slate-400">
                       <th className="pb-1 text-left font-medium">Disciplina</th>
-                      <th className="pb-1 text-right font-medium">Saldo</th>
+                      <th className="pb-1 text-right font-medium">Recebidos</th>
+                      <th className="pb-1 text-right font-medium">Inscritos</th>
+                      <th className="pb-1 text-right font-medium">Saldo atual</th>
                       <th className="pb-1 text-right font-medium">Expira em</th>
                     </tr>
                   </thead>
@@ -146,15 +198,19 @@ export default function AdminCreditsClient({
                     {student.balances.map((b) => (
                       <tr key={b.subjectId} className="border-b border-slate-50">
                         <td className="py-1.5 text-slate-700">{b.subjectName}</td>
+                        <td className="py-1.5 text-right text-slate-600">{b.received}</td>
+                        <td className="py-1.5 text-right text-slate-600">{b.enrolled}</td>
                         <td className="py-1.5 text-right font-semibold text-slate-900">
                           {b.balance}
                         </td>
                         <td className="py-1.5 text-right text-xs text-slate-400">
-                          {new Date(b.expiresAt).toLocaleDateString("pt-BR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric"
-                          })}
+                          {b.balance > 0
+                            ? new Date(b.expiresAt).toLocaleDateString("pt-BR", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric"
+                              })
+                            : "—"}
                         </td>
                       </tr>
                     ))}
@@ -163,6 +219,69 @@ export default function AdminCreditsClient({
               </div>
             ) : (
               <p className="mt-2 text-xs text-slate-400">Sem créditos ativos.</p>
+            )}
+
+            {historyId === student.id && (
+              <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <p className="mb-2 text-xs font-semibold text-slate-600">
+                  Histórico de uso de créditos
+                </p>
+                {historyLoading && (
+                  <p className="text-xs text-slate-400">Carregando...</p>
+                )}
+                {historyError && (
+                  <p className="text-xs text-rose-600">{historyError}</p>
+                )}
+                {!historyLoading && !historyError && historyEntries.length === 0 && (
+                  <p className="text-xs text-slate-400">Sem movimentações.</p>
+                )}
+                {!historyLoading && historyEntries.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b text-slate-400">
+                          <th className="pb-1 text-left font-medium">Data</th>
+                          <th className="pb-1 text-left font-medium">Disciplina</th>
+                          <th className="pb-1 text-left font-medium">Motivo</th>
+                          <th className="pb-1 text-left font-medium">Sessão</th>
+                          <th className="pb-1 text-right font-medium">Créditos</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historyEntries.map((e) => (
+                          <tr key={e.id} className="border-b border-slate-100">
+                            <td className="py-1 text-slate-500">
+                              {new Date(e.createdAt).toLocaleDateString("pt-BR", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric"
+                              })}
+                            </td>
+                            <td className="py-1 text-slate-700">{e.subjectName}</td>
+                            <td className="py-1 text-slate-600">{e.reasonLabel}</td>
+                            <td className="py-1 text-slate-500">
+                              {e.sessionDate
+                                ? new Date(e.sessionDate).toLocaleDateString("pt-BR", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric"
+                                  })
+                                : "—"}
+                            </td>
+                            <td
+                              className={`py-1 text-right font-semibold ${
+                                e.delta > 0 ? "text-emerald-600" : "text-rose-600"
+                              }`}
+                            >
+                              {e.delta > 0 ? `+${e.delta}` : e.delta}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
 
             {adjustingId === student.id && (
