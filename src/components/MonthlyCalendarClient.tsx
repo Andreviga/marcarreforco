@@ -46,12 +46,14 @@ export default function MonthlyCalendarClient({
   month,
   year,
   items,
-  showLegend = true
+  showLegend = true,
+  onClickItem
 }: {
   month: number;
   year: number;
   items: CalendarItem[];
   showLegend?: boolean;
+  onClickItem?: (id: string) => void;
 }) {
   const [visibleDate, setVisibleDate] = useState(new Date(year, month - 1, 1));
   const [showPast, setShowPast] = useState(false);
@@ -282,6 +284,18 @@ export default function MonthlyCalendarClient({
                       <Link key={item.id} href={item.href} className="block hover:opacity-80">
                         {content}
                       </Link>
+                    );
+                  }
+                  if (onClickItem) {
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => onClickItem(item.id)}
+                        className="block w-full text-left hover:opacity-80 focus:outline-none"
+                      >
+                        {content}
+                      </button>
                     );
                   }
                   return <div key={item.id}>{content}</div>;

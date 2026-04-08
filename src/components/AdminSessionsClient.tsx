@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Subject {
   id: string;
@@ -86,12 +86,16 @@ export default function AdminSessionsClient({
   sessions,
   subjects,
   teachers,
-  students
+  students,
+  pendingEditId,
+  onPendingEditHandled
 }: {
   sessions: SessionItem[];
   subjects: Subject[];
   teachers: Teacher[];
   students: StudentOption[];
+  pendingEditId?: string | null;
+  onPendingEditHandled?: () => void;
 }) {
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
@@ -120,6 +124,111 @@ export default function AdminSessionsClient({
   const [enrollStudentId, setEnrollStudentId] = useState("");
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [isEnrolling, setIsEnrolling] = useState(false);
+
+  // Edit modal state
+  const [editingSession, setEditingSession] = useState<SessionItem | null>(null);
+  const [editSubjectId, setEditSubjectId] = useState("");
+  const [editTeacherId, setEditTeacherId] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editModality, setEditModality] = useState("PRESENCIAL");
+  const [editStatus, setEditStatus] = useState("ATIVA");
+  const [editPriceCents, setEditPriceCents] = useState(0);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Unenroll state
+  const [unenrollingId, setUnenrollingId] = useState<string | null>(null);
+  const [unenrollError, setUnenrollError] = useState<string | null>(null);
+
+  function openEditModal(session: SessionItem) {
+    const startsAt = toDate(session.startsAt);
+    const endsAt = toDate(session.endsAt);
+    setEditingSession(session);
+    setEditSubjectId(session.subject.id);
+    setEditTeacherId(session.teacher.id);
+    setEditDate(
+      `${startsAt.getFullYear()}-${pad(startsAt.getMonth() + 1)}-${pad(startsAt.getDate())}`
+    );
+    setEditStartTime(`${pad(startsAt.getHours())}:${pad(startsAt.getMinutes())}`);
+    setEditEndTime(`${pad(endsAt.getHours())}:${pad(endsAt.getMinutes())}`);
+    setEditLocation(session.location);
+    setEditModality(session.modality);
+    setEditStatus(session.status);
+    setEditPriceCents(session.priceCents);
+    setEditError(null);
+  }
+
+  // Open edit modal when calendar requests it
+  useEffect(() => {
+    if (!pendingEditId) return;
+    const session = sessions.find((s) => s.id === pendingEditId);
+    if (session) openEditModal(session);
+    onPendingEditHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingEditId]);
+
+  async function handleEditSave() {
+    if (!editingSession || !editDate) return;
+    setIsSavingEdit(true);
+    setEditError(null);
+    try {
+      const startsAt = new Date(`${editDate}T${editStartTime}:00`);
+      const endsAt = new Date(`${editDate}T${editEndTime}:00`);
+      const res = await fetch("/api/admin/sessions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingSession.id,
+          subjectId: editSubjectId,
+          teacherId: editTeacherId,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString(),
+          location: editLocation,
+          modality: editModality,
+          status: editStatus,
+          priceCents: editPriceCents
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setEditError(data?.message ?? "Erro ao salvar sessão.");
+      } else {
+        setEditingSession(null);
+        window.location.reload();
+      }
+    } catch {
+      setEditError("Falha de conexão.");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }
+
+  async function handleAdminUnenroll(enrollmentId: string) {
+    const confirmed = window.confirm("Cancelar inscrição deste aluno e devolver o token?");
+    if (!confirmed) return;
+    setUnenrollingId(enrollmentId);
+    setUnenrollError(null);
+    try {
+      const res = await fetch("/api/admin/unenroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enrollmentId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setUnenrollError(data?.message ?? "Erro ao cancelar inscrição.");
+      } else {
+        window.location.reload();
+      }
+    } catch {
+      setUnenrollError("Falha de conexão.");
+    } finally {
+      setUnenrollingId(null);
+    }
+  }
 
   async function handleAdminEnroll(sessionId: string) {
     if (!enrollStudentId) return;
@@ -439,6 +548,130 @@ export default function AdminSessionsClient({
 
   return (
     <div className="space-y-6">
+      {/* Edit session modal */}
+      {editingSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-slate-900">Editar sessão</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {editingSession.subject.name} — {new Date(editingSession.startsAt).toLocaleDateString("pt-BR")}
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm text-slate-600">
+                Disciplina
+                <select
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={editSubjectId}
+                  onChange={(e) => setEditSubjectId(e.target.value)}
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm text-slate-600">
+                Professor
+                <select
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={editTeacherId}
+                  onChange={(e) => setEditTeacherId(e.target.value)}
+                >
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm text-slate-600">
+                Data
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                />
+              </label>
+              <label className="text-sm text-slate-600">
+                Status
+                <select
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                >
+                  <option value="ATIVA">Ativa</option>
+                  <option value="CANCELADA">Cancelada</option>
+                </select>
+              </label>
+              <label className="text-sm text-slate-600">
+                Início
+                <input
+                  type="time"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={editStartTime}
+                  onChange={(e) => setEditStartTime(e.target.value)}
+                />
+              </label>
+              <label className="text-sm text-slate-600">
+                Fim
+                <input
+                  type="time"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={editEndTime}
+                  onChange={(e) => setEditEndTime(e.target.value)}
+                />
+              </label>
+              <label className="text-sm text-slate-600">
+                Local
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                />
+              </label>
+              <label className="text-sm text-slate-600">
+                Modalidade
+                <select
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={editModality}
+                  onChange={(e) => setEditModality(e.target.value)}
+                >
+                  <option value="PRESENCIAL">Presencial</option>
+                  <option value="ONLINE">Online</option>
+                </select>
+              </label>
+              <label className="text-sm text-slate-600 md:col-span-2">
+                Valor (centavos)
+                <input
+                  type="number"
+                  min={0}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={editPriceCents}
+                  onChange={(e) => setEditPriceCents(Number(e.target.value))}
+                />
+                <span className="mt-0.5 block text-xs text-slate-400">
+                  Ex.: 5000 = R$&nbsp;50,00. Use 0 para gratuito.
+                </span>
+              </label>
+            </div>
+            {editError && <p className="mt-3 text-sm text-rose-600">{editError}</p>}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                disabled={isSavingEdit}
+                onClick={handleEditSave}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSavingEdit ? "Salvando..." : "Salvar alterações"}
+              </button>
+              <button
+                onClick={() => setEditingSession(null)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={createSessions} className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Nova sessão</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -804,18 +1037,36 @@ export default function AdminSessionsClient({
                     {sortedEnrollments.length === 0 ? (
                       <p className="mt-1 text-xs text-slate-400">Sem alunos inscritos.</p>
                     ) : (
-                      <ul className="mt-1 space-y-0.5">
+                      <ul className="mt-1 space-y-1">
                         {sortedEnrollments.map((enrollment) => (
-                          <li key={enrollment.id} className={`text-xs ${isPast ? "text-slate-400" : "text-slate-600"}`}>
-                            {enrollment.student.name}{" "}
-                            <span className="text-slate-400">({enrollment.student.email})</span>
+                          <li key={enrollment.id} className={`flex items-center justify-between gap-2 text-xs ${isPast ? "text-slate-400" : "text-slate-600"}`}>
+                            <span>
+                              {enrollment.student.name}{" "}
+                              <span className="text-slate-400">({enrollment.student.email})</span>
+                            </span>
+                            {!isPast && (
+                              <button
+                                disabled={unenrollingId === enrollment.id}
+                                onClick={() => handleAdminUnenroll(enrollment.id)}
+                                className="shrink-0 rounded border border-rose-200 px-1.5 py-0.5 text-[10px] text-rose-600 hover:bg-rose-50 disabled:opacity-60"
+                              >
+                                {unenrollingId === enrollment.id ? "..." : "Cancelar inscrição"}
+                              </button>
+                            )}
                           </li>
                         ))}
                       </ul>
                     )}
+                    {unenrollError && <p className="mt-1 text-xs text-rose-600">{unenrollError}</p>}
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => openEditModal(session)}
+                    className="rounded-md border border-indigo-200 px-2 py-1 text-xs text-indigo-700 hover:bg-indigo-50"
+                  >
+                    Editar
+                  </button>
                   {session.status === "ATIVA" && (
                     <button
                       onClick={() => cancelSession(session.id)}

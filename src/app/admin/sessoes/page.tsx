@@ -1,8 +1,7 @@
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
-import AdminSessionsClient from "@/components/AdminSessionsClient";
-import MonthlyCalendarClient from "@/components/MonthlyCalendarClient";
+import AdminSessoesWrapper from "@/components/AdminSessoesWrapper";
 import { formatCurrency } from "@/lib/format";
 
 export default async function AdminSessoesPage() {
@@ -57,8 +56,15 @@ export default async function AdminSessoesPage() {
   return (
     <AppShell title="Sessões" subtitle="Crie e gerencie sessões de reforço" role="ADMIN">
       <div className="space-y-6">
-        <MonthlyCalendarClient month={month} year={year} items={calendarItems} />
-        <AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} students={students} />
+        <AdminSessoesWrapper
+          month={month}
+          year={year}
+          calendarItems={calendarItems}
+          sessions={sessions}
+          subjects={subjects}
+          teachers={teachers}
+          students={students}
+        />
       </div>
     </AppShell>
   );
