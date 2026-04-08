@@ -96,11 +96,14 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    await prisma.session.delete({ where: { id } });
+    await prisma.$transaction([
+      prisma.enrollment.deleteMany({ where: { sessionId: id } }),
+      prisma.session.delete({ where: { id } })
+    ]);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
       return NextResponse.json(
-        { message: "Não foi possível excluir: a sessão possui matrículas vinculadas." },
+        { message: "Não foi possível excluir: a sessão possui registros vinculados." },
         { status: 409 }
       );
     }
