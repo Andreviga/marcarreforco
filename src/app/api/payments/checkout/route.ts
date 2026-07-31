@@ -13,10 +13,45 @@ type AsaasPaymentListResponse = {
   }>;
 };
 
+type AsaasPixQrCodeResponse = {
+  encodedImage?: string;
+  payload?: string;
+  expirationDate?: string;
+};
+
+type PixCheckoutData = {
+  encodedImage: string;
+  payload: string;
+  expirationDate: string | null;
+};
+
 const OPEN_PAYMENT_STATUSES = new Set(["PENDING", "OVERDUE", "AWAITING_RISK_ANALYSIS"]);
 
 function formatValue(priceCents: number) {
   return Number((priceCents / 100).toFixed(2));
+}
+
+async function getPixCheckoutData(asaasPaymentId: string): Promise<PixCheckoutData | null> {
+  try {
+    const pix = await asaasFetch<AsaasPixQrCodeResponse>(`/payments/${asaasPaymentId}/pixQrCode`, {
+      method: "GET"
+    });
+
+    if (!pix?.encodedImage || !pix.payload) {
+      return null;
+    }
+
+    return {
+      encodedImage: pix.encodedImage,
+      payload: pix.payload,
+      expirationDate: pix.expirationDate ?? null
+    };
+  } catch (error) {
+    // A cobrança já foi criada. Se o QR Code ainda não estiver disponível,
+    // preservamos o checkout externo do Asaas como alternativa segura.
+    console.error("Não foi possível obter o QR Code PIX do Asaas", error);
+    return null;
+  }
 }
 
 async function cancelOpenSubscriptionPayments(asaasSubscriptionId: string) {
@@ -221,9 +256,12 @@ export async function POST(request: Request) {
       payload: { packageId: packageRecord.id, canceledOpenPaymentsCount }
     });
 
+    const pix = payment ? await getPixCheckoutData(payment.id) : null;
+
     return NextResponse.json({
       subscriptionId: createdSubscription.id,
-      paymentUrl: payment?.invoiceUrl ?? payment?.bankSlipUrl ?? null
+      paymentUrl: payment?.invoiceUrl ?? payment?.bankSlipUrl ?? null,
+      pix
     });
   }
 
@@ -265,8 +303,11 @@ export async function POST(request: Request) {
     payload: { packageId: packageRecord.id, canceledOpenPaymentsCount }
   });
 
+  const pix = await getPixCheckoutData(payment.id);
+
   return NextResponse.json({
     paymentId: createdPayment.id,
-    paymentUrl: payment.invoiceUrl ?? payment.bankSlipUrl ?? null
+    paymentUrl: payment.invoiceUrl ?? payment.bankSlipUrl ?? null,
+    pix
   });
 }

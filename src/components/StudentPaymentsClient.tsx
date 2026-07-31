@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { formatCurrency } from "@/lib/format";
 import { isValidCPF, isValidCNPJ } from "@/lib/asaas";
 
@@ -50,6 +51,13 @@ interface PendingOneTimePaymentItem {
   };
 }
 
+interface PixCheckoutData {
+  encodedImage: string;
+  payload: string;
+  expirationDate: string | null;
+  paymentUrl: string | null;
+}
+
 export default function StudentPaymentsClient({
   packages,
   balances,
@@ -80,6 +88,8 @@ export default function StudentPaymentsClient({
   const [isChrome, setIsChrome] = useState(false);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [cancelingOneTimePaymentId, setCancelingOneTimePaymentId] = useState<string | null>(null);
+  const [pixCheckout, setPixCheckout] = useState<PixCheckoutData | null>(null);
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
   // Função para formatar CPF/CNPJ com máscara
   function formatDocument(value: string) {
@@ -202,6 +212,8 @@ export default function StudentPaymentsClient({
   async function handleCheckout(packageId: string) {
     setLoadingId(packageId);
     setMessage(null);
+    setPixCheckout(null);
+    setCopyMessage(null);
 
     const response = await fetch("/api/payments/checkout", {
       method: "POST",
@@ -219,29 +231,40 @@ export default function StudentPaymentsClient({
     const data = await response.json();
     setLoadingId(null);
 
+    if (data?.pix?.encodedImage && data?.pix?.payload) {
+      setPixCheckout({
+        encodedImage: data.pix.encodedImage,
+        payload: data.pix.payload,
+        expirationDate: data.pix.expirationDate ?? null,
+        paymentUrl: data.paymentUrl ?? null
+      });
+      setMessage("PIX gerado. Escaneie o QR Code ou use o Copia e Cola.");
+      return;
+    }
+
     if (data?.paymentUrl) {
-      // Detectar mobile através do user agent e tamanho da tela
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
-      
-      if (isMobile) {
-        // No mobile, redireciona na mesma aba
-        window.location.href = data.paymentUrl;
-      } else {
-        // No desktop, tenta abrir em nova aba
-        const popup = window.open(data.paymentUrl, "_blank");
-        
-        // Detecta se o popup foi bloqueado
-        if (!popup || popup.closed || typeof popup.closed === "undefined") {
-          // Fallback: redireciona na mesma aba
-          window.location.href = data.paymentUrl;
-        } else {
-          setMessage("Pagamento criado. Finalize na nova aba.");
-        }
-      }
+      setMessage("Não foi possível exibir o QR Code aqui. Use a página segura do Asaas para pagar.");
+      setPixCheckout({
+        encodedImage: "",
+        payload: "",
+        expirationDate: null,
+        paymentUrl: data.paymentUrl
+      });
       return;
     }
 
     setMessage("Assinatura criada. Aguarde a cobrança.");
+  }
+
+  async function handleCopyPix() {
+    if (!pixCheckout?.payload) return;
+
+    try {
+      await navigator.clipboard.writeText(pixCheckout.payload);
+      setCopyMessage("Código PIX copiado.");
+    } catch {
+      setCopyMessage("Não foi possível copiar automaticamente. Selecione o código e copie manualmente.");
+    }
   }
 
   async function handleCancelSubscription(subscriptionId: string) {
@@ -361,6 +384,79 @@ export default function StudentPaymentsClient({
       )}
 
       {message && <p className="text-sm text-slate-600">{message}</p>}
+
+      {pixCheckout && (
+        <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4" aria-labelledby="pix-checkout-title">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 id="pix-checkout-title" className="text-lg font-semibold text-emerald-900">Pague com PIX</h2>
+              <p className="text-sm text-emerald-700">Use o QR Code ou copie o código abaixo no aplicativo do seu banco.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPixCheckout(null);
+                setCopyMessage(null);
+              }}
+              className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
+            >
+              Fechar
+            </button>
+          </div>
+
+          {pixCheckout.encodedImage && pixCheckout.payload ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr] md:items-center">
+              <div className="rounded-xl bg-white p-3 shadow-sm">
+                <Image
+                  src={`data:image/png;base64,${pixCheckout.encodedImage}`}
+                  alt="QR Code para pagamento via PIX"
+                  width={196}
+                  height={196}
+                  unoptimized
+                  className="mx-auto h-auto w-full max-w-[196px]"
+                />
+              </div>
+              <div className="min-w-0 space-y-3">
+                <label htmlFor="pix-copy-paste" className="block text-sm font-semibold text-emerald-900">
+                  PIX Copia e Cola
+                </label>
+                <textarea
+                  id="pix-copy-paste"
+                  readOnly
+                  value={pixCheckout.payload}
+                  onFocus={(event) => event.currentTarget.select()}
+                  rows={4}
+                  className="w-full resize-none rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-slate-700"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyPix}
+                  className="w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 sm:w-auto"
+                >
+                  Copiar código PIX
+                </button>
+                {copyMessage && <p className="text-sm text-emerald-800" role="status">{copyMessage}</p>}
+                {pixCheckout.expirationDate && (
+                  <p className="text-xs text-emerald-700">
+                    Validade informada pelo Asaas: {new Date(pixCheckout.expirationDate).toLocaleString("pt-BR")}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {pixCheckout.paymentUrl && (
+            <a
+              href={pixCheckout.paymentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex rounded-lg border border-emerald-300 bg-white px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100"
+            >
+              Abrir página segura do Asaas
+            </a>
+          )}
+        </section>
+      )}
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Saldo de aulas</h2>
