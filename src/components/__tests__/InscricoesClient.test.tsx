@@ -40,7 +40,6 @@ describe("InscricoesClient", () => {
 
   it("shows unenroll button only for scheduled enrollments and submits", async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true });
-    // @ts-expect-error - override fetch for test
     global.fetch = fetchMock;
 
     render(<InscricoesClient enrollments={enrollments} />);

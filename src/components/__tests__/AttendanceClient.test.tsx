@@ -8,7 +8,6 @@ const consoleErrorMock = jest.spyOn(console, "error");
 describe("AttendanceClient", () => {
   beforeEach(() => {
     fetchMock.mockResolvedValue({ ok: true });
-    // @ts-expect-error - override fetch for test
     global.fetch = fetchMock;
     consoleErrorMock.mockImplementation(() => undefined);
   });

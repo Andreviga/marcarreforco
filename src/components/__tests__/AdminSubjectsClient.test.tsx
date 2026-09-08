@@ -28,7 +28,6 @@ describe("AdminSubjectsClient", () => {
 
   it("submits new subject", async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true });
-    // @ts-expect-error - override fetch for test
     global.fetch = fetchMock;
 
     render(<AdminSubjectsClient subjects={[]} />);

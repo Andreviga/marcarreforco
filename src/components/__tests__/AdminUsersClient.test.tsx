@@ -6,13 +6,15 @@ const users = [
     id: "u1",
     name: "Joana",
     email: "joana@example.com",
-    role: "ADMIN"
+    role: "ADMIN",
+    createdAt: "2024-01-01T00:00:00.000Z"
   },
   {
     id: "u2",
     name: "Rafael",
     email: "rafael@example.com",
-    role: "PROFESSOR"
+    role: "PROFESSOR",
+    createdAt: "2024-01-02T00:00:00.000Z"
   }
 ];
 
