@@ -137,6 +137,24 @@ export default function StudentPaymentsClient({
     return new Map(visibleSubscriptions.map((sub) => [sub.package.id, sub]));
   }, [subscriptions]);
 
+  // Opções do filtro derivadas dos pacotes à venda: disciplina sem nenhum
+  // pacote ativo não aparece (evita seleção que resulta em lista vazia).
+  const filterOptions = useMemo(() => {
+    const bySubject = new Map<string, string>();
+    let hasGeneric = false;
+    for (const item of packages) {
+      if (item.subject) {
+        bySubject.set(item.subject.id, item.subject.name);
+      } else {
+        hasGeneric = true;
+      }
+    }
+    const subjectOptions = Array.from(bySubject, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name, "pt-BR")
+    );
+    return { hasGeneric, subjectOptions };
+  }, [packages]);
+
   const filteredPackages = useMemo(() => {
     const search = searchTerm.trim().toLowerCase();
     return packages.filter((item) => {
@@ -503,8 +521,8 @@ export default function StudentPaymentsClient({
             onChange={(event) => setSubjectFilter(event.target.value)}
           >
             <option value="all">Todas as disciplinas</option>
-            <option value="none">Sem disciplina</option>
-            {subjects.map((subject) => (
+            {filterOptions.hasGeneric && <option value="none">Sem disciplina</option>}
+            {filterOptions.subjectOptions.map((subject) => (
               <option key={subject.id} value={subject.id}>
                 {subject.name}
               </option>
