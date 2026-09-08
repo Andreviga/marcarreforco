@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface SubjectEntry {
   subjectId: string;
@@ -41,6 +42,7 @@ export default function AdminCreditsClient({
   students: StudentRow[];
   subjects: SubjectOption[];
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [adjustingId, setAdjustingId] = useState<string | null>(null);
   const [adjustSubjectId, setAdjustSubjectId] = useState(subjects[0]?.id ?? "");
@@ -77,11 +79,8 @@ export default function AdminCreditsClient({
         setAdjustSuccess(
           `Créditos ${adjustDelta > 0 ? "adicionados" : "removidos"} com sucesso.`
         );
-        setTimeout(() => {
-          setAdjustingId(null);
-          setAdjustSuccess(null);
-          window.location.reload();
-        }, 1200);
+        // Atualiza os dados do servidor preservando scroll, filtros e painéis abertos
+        router.refresh();
       }
     } catch {
       setAdjustError("Falha de conexão.");

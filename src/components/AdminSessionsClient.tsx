@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { formatCurrency } from "@/lib/format";
 
 interface Subject {
   id: string;
@@ -97,6 +99,7 @@ export default function AdminSessionsClient({
   pendingEditId?: string | null;
   onPendingEditHandled?: () => void;
 }) {
+  const router = useRouter();
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
   const [date, setDate] = useState("");
@@ -104,11 +107,27 @@ export default function AdminSessionsClient({
   const [endTime, setEndTime] = useState("13:30");
   const [location, setLocation] = useState("Sala 1");
   const [modality, setModality] = useState("PRESENCIAL");
+  // Vazio = usa o valor padrão da disciplina selecionada
+  const [priceCentsInput, setPriceCentsInput] = useState("");
   const [repeatWeeks, setRepeatWeeks] = useState(1);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createFeedback, setCreateFeedback] = useState<string | null>(null);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [weekday, setWeekday] = useState(1);
+  const [isCreatingMonthly, setIsCreatingMonthly] = useState(false);
+  const [monthlyError, setMonthlyError] = useState<string | null>(null);
+  const [monthlyFeedback, setMonthlyFeedback] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [agendaMessage, setAgendaMessage] = useState<string | null>(null);
+  const [cancelingSessionId, setCancelingSessionId] = useState<string | null>(null);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+  // Filtros da agenda
+  const [filterTeacherId, setFilterTeacherId] = useState("");
+  const [filterSubjectId, setFilterSubjectId] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+  const [pastVisible, setPastVisible] = useState(20);
   const [replicateSourceMonth, setReplicateSourceMonth] = useState(new Date().getMonth() + 1);
   const [replicateSourceYear, setReplicateSourceYear] = useState(new Date().getFullYear());
   const [replicateTargetMonth, setReplicateTargetMonth] = useState(((new Date().getMonth() + 1) % 12) + 1);
@@ -197,7 +216,8 @@ export default function AdminSessionsClient({
         setEditError(data?.message ?? "Erro ao salvar sessão.");
       } else {
         setEditingSession(null);
-        window.location.reload();
+        setAgendaMessage("Sessão atualizada com sucesso.");
+        router.refresh();
       }
     } catch {
       setEditError("Falha de conexão.");
@@ -221,7 +241,8 @@ export default function AdminSessionsClient({
       if (!res.ok) {
         setUnenrollError(data?.message ?? "Erro ao cancelar inscrição.");
       } else {
-        window.location.reload();
+        setAgendaMessage("Inscrição cancelada e token devolvido.");
+        router.refresh();
       }
     } catch {
       setUnenrollError("Falha de conexão.");
@@ -246,7 +267,8 @@ export default function AdminSessionsClient({
       } else {
         setEnrollingSessionId(null);
         setEnrollStudentId("");
-        window.location.reload();
+        setAgendaMessage("Aluno inscrito com sucesso.");
+        router.refresh();
       }
     } catch {
       setEnrollError("Falha de conexão.");
@@ -436,114 +458,197 @@ export default function AdminSessionsClient({
       setReplicateError(
         `Replicação parcial: ${okCount} criada(s), ${failCount} com erro e ${skipped} ignorada(s) por conflito de horário.`
       );
+      if (okCount > 0) {
+        router.refresh();
+      }
       return;
     }
 
     setReplicateFeedback(`Replicação concluída: ${okCount} sessão(ões) criada(s) e ${skipped} ignorada(s) por conflito.`);
-    window.location.reload();
+    router.refresh();
+  }
+
+  // Preço das novas sessões: campo vazio usa o valor padrão da disciplina selecionada
+  function resolvePriceCents() {
+    const trimmed = priceCentsInput.trim();
+    if (trimmed !== "" && !Number.isNaN(Number(trimmed))) {
+      return Math.max(0, Math.round(Number(trimmed)));
+    }
+    const subject = subjects.find((item) => item.id === subjectId);
+    return subject?.defaultPriceCents ?? 0;
   }
 
   async function createSessions(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!date) return;
+    if (!date || isCreating) return;
 
-    const startDate = new Date(`${date}T${startTime}:00`);
-    const endDate = new Date(`${date}T${endTime}:00`);
+    setIsCreating(true);
+    setCreateError(null);
+    setCreateFeedback(null);
 
-    const payloadBase = {
-      subjectId,
-      teacherId,
-      location,
-      modality
-    };
+    try {
+      const startDate = new Date(`${date}T${startTime}:00`);
+      const endDate = new Date(`${date}T${endTime}:00`);
 
-    const requests = Array.from({ length: repeatWeeks }).map((_, index) => {
-      const startsAt = new Date(startDate);
-      startsAt.setDate(startsAt.getDate() + index * 7);
-      const endsAt = new Date(endDate);
-      endsAt.setDate(endsAt.getDate() + index * 7);
+      const payloadBase = {
+        subjectId,
+        teacherId,
+        location,
+        modality,
+        priceCents: resolvePriceCents()
+      };
 
-      return fetch("/api/admin/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...payloadBase,
-          startsAt: startsAt.toISOString(),
-          endsAt: endsAt.toISOString()
-        })
+      const requests = Array.from({ length: repeatWeeks }).map((_, index) => {
+        const startsAt = new Date(startDate);
+        startsAt.setDate(startsAt.getDate() + index * 7);
+        const endsAt = new Date(endDate);
+        endsAt.setDate(endsAt.getDate() + index * 7);
+
+        return fetch("/api/admin/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payloadBase,
+            startsAt: startsAt.toISOString(),
+            endsAt: endsAt.toISOString()
+          })
+        });
       });
-    });
 
-    await Promise.all(requests);
-    window.location.reload();
+      const settled = await Promise.allSettled(requests);
+      const okCount = settled.filter((item) => item.status === "fulfilled" && item.value.ok).length;
+      const failCount = settled.length - okCount;
+
+      if (failCount > 0) {
+        setCreateError(`${okCount} sessão(ões) criada(s) e ${failCount} com erro. Verifique a agenda antes de tentar novamente.`);
+      } else {
+        setCreateFeedback(`${okCount} sessão(ões) criada(s) com sucesso.`);
+      }
+      if (okCount > 0) {
+        router.refresh();
+      }
+    } catch {
+      setCreateError("Falha de conexão. Tente novamente.");
+    } finally {
+      setIsCreating(false);
+    }
   }
 
   async function cancelSession(id: string) {
-    await fetch("/api/admin/sessions", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status: "CANCELADA" })
-    });
-    window.location.reload();
+    setCancelingSessionId(id);
+    setDeleteError(null);
+    setAgendaMessage(null);
+    try {
+      const response = await fetch("/api/admin/sessions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "CANCELADA" })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setDeleteError(data?.message ?? "Não foi possível cancelar a sessão.");
+        return;
+      }
+      setAgendaMessage("Sessão cancelada com sucesso.");
+      router.refresh();
+    } catch {
+      setDeleteError("Falha de conexão. Tente novamente.");
+    } finally {
+      setCancelingSessionId(null);
+    }
   }
 
   async function deleteSession(id: string) {
     const confirmed = window.confirm("Excluir esta sessão? Essa ação não pode ser desfeita.");
     if (!confirmed) return;
+    setDeletingSessionId(id);
     setDeleteError(null);
-    const response = await fetch(`/api/admin/sessions?id=${id}`, { method: "DELETE" });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setDeleteError(data?.message ?? "Não foi possível excluir a sessão.");
-      return;
+    setAgendaMessage(null);
+    try {
+      const response = await fetch(`/api/admin/sessions?id=${id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setDeleteError(data?.message ?? "Não foi possível excluir a sessão.");
+        return;
+      }
+      setAgendaMessage("Sessão excluída com sucesso.");
+      router.refresh();
+    } catch {
+      setDeleteError("Falha de conexão. Tente novamente.");
+    } finally {
+      setDeletingSessionId(null);
     }
-    window.location.reload();
   }
 
   async function createMonthlySessions(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!month || !year) return;
+    if (!month || !year || isCreatingMonthly) return;
 
-    const startDate = new Date(`${year}-${String(month).padStart(2, "0")}-01T${startTime}:00`);
-    const endDate = new Date(`${year}-${String(month).padStart(2, "0")}-01T${endTime}:00`);
-    const dates: Date[] = [];
+    setIsCreatingMonthly(true);
+    setMonthlyError(null);
+    setMonthlyFeedback(null);
 
-    const current = new Date(startDate);
-    while (current.getMonth() + 1 === month) {
-      if (current.getDay() === weekday) {
-        dates.push(new Date(current));
+    try {
+      const startDate = new Date(`${year}-${String(month).padStart(2, "0")}-01T${startTime}:00`);
+      const dates: Date[] = [];
+
+      const current = new Date(startDate);
+      while (current.getMonth() + 1 === month) {
+        if (current.getDay() === weekday) {
+          dates.push(new Date(current));
+        }
+        current.setDate(current.getDate() + 1);
       }
-      current.setDate(current.getDate() + 1);
-    }
 
-    const payloadBase = {
-      subjectId,
-      teacherId,
-      location,
-      modality
-    };
+      if (dates.length === 0) {
+        setMonthlyError("Nenhuma data encontrada para o mês e dia da semana selecionados.");
+        return;
+      }
 
-    const requests = dates.map((date) => {
-      const startsAt = new Date(date);
-      const endsAt = new Date(date);
-      const [startHour, startMinute] = startTime.split(":").map(Number);
-      const [endHour, endMinute] = endTime.split(":").map(Number);
-      startsAt.setHours(startHour, startMinute, 0, 0);
-      endsAt.setHours(endHour, endMinute, 0, 0);
+      const payloadBase = {
+        subjectId,
+        teacherId,
+        location,
+        modality,
+        priceCents: resolvePriceCents()
+      };
 
-      return fetch("/api/admin/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...payloadBase,
-          startsAt: startsAt.toISOString(),
-          endsAt: endsAt.toISOString()
-        })
+      const requests = dates.map((date) => {
+        const startsAt = new Date(date);
+        const endsAt = new Date(date);
+        const [startHour, startMinute] = startTime.split(":").map(Number);
+        const [endHour, endMinute] = endTime.split(":").map(Number);
+        startsAt.setHours(startHour, startMinute, 0, 0);
+        endsAt.setHours(endHour, endMinute, 0, 0);
+
+        return fetch("/api/admin/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...payloadBase,
+            startsAt: startsAt.toISOString(),
+            endsAt: endsAt.toISOString()
+          })
+        });
       });
-    });
 
-    await Promise.all(requests);
-    window.location.reload();
+      const settled = await Promise.allSettled(requests);
+      const okCount = settled.filter((item) => item.status === "fulfilled" && item.value.ok).length;
+      const failCount = settled.length - okCount;
+
+      if (failCount > 0) {
+        setMonthlyError(`${okCount} sessão(ões) criada(s) e ${failCount} com erro. Verifique a agenda antes de tentar novamente.`);
+      } else {
+        setMonthlyFeedback(`${okCount} sessão(ões) criada(s) com sucesso.`);
+      }
+      if (okCount > 0) {
+        router.refresh();
+      }
+    } catch {
+      setMonthlyError("Falha de conexão. Tente novamente.");
+    } finally {
+      setIsCreatingMonthly(false);
+    }
   }
 
   return (
@@ -691,7 +796,9 @@ export default function AdminSessionsClient({
                 </option>
               ))}
             </select>
-            <span className="mt-1 block text-xs text-slate-400">Use o valor padrão da disciplina para preço automático.</span>
+            <span className="mt-1 block text-xs text-slate-400">
+              Deixe o preço vazio para usar o valor padrão da disciplina.
+            </span>
           </label>
           <label className="text-sm text-slate-600">
             Professor
@@ -762,6 +869,20 @@ export default function AdminSessionsClient({
             <span className="mt-1 block text-xs text-slate-400">Presencial ou online.</span>
           </label>
           <label className="text-sm text-slate-600">
+            Valor (centavos)
+            <input
+              type="number"
+              min={0}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={priceCentsInput}
+              onChange={(event) => setPriceCentsInput(event.target.value)}
+              placeholder={`Padrão: ${subjects.find((item) => item.id === subjectId)?.defaultPriceCents ?? 0}`}
+            />
+            <span className="mt-1 block text-xs text-slate-400">
+              Vazio = valor padrão da disciplina. Ex.: 5000 = R$ 50,00.
+            </span>
+          </label>
+          <label className="text-sm text-slate-600">
             Repetir por (semanas)
             <input
               type="number"
@@ -774,9 +895,14 @@ export default function AdminSessionsClient({
             <span className="mt-1 block text-xs text-slate-400">Cria 1 sessão por semana.</span>
           </label>
         </div>
-        <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
-          Criar sessões
+        <button
+          disabled={isCreating}
+          className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isCreating ? "Criando..." : "Criar sessões"}
         </button>
+        {createError && <p className="mt-3 text-sm text-rose-600">{createError}</p>}
+        {createFeedback && <p className="mt-3 text-sm text-emerald-700">{createFeedback}</p>}
       </form>
 
       <form onSubmit={createMonthlySessions} className="rounded-xl bg-white p-4 shadow-sm">
@@ -845,11 +971,17 @@ export default function AdminSessionsClient({
           </label>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Serão criadas sessões em todas as datas do mês que caem no dia selecionado.
+          Serão criadas sessões em todas as datas do mês que caem no dia selecionado. Usa a disciplina, o professor,
+          o local e o preço do formulário acima.
         </p>
-        <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
-          Gerar sessões do mês
+        <button
+          disabled={isCreatingMonthly}
+          className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isCreatingMonthly ? "Gerando..." : "Gerar sessões do mês"}
         </button>
+        {monthlyError && <p className="mt-3 text-sm text-rose-600">{monthlyError}</p>}
+        {monthlyFeedback && <p className="mt-3 text-sm text-emerald-700">{monthlyFeedback}</p>}
       </form>
 
       <form onSubmit={replicateMonthlyPattern} className="rounded-xl bg-white p-4 shadow-sm">
@@ -958,13 +1090,91 @@ export default function AdminSessionsClient({
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Agenda</h2>
+        <div className="mt-3 grid gap-2 md:grid-cols-4">
+          <label className="text-xs text-slate-600">
+            Professor
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={filterTeacherId}
+              onChange={(event) => {
+                setFilterTeacherId(event.target.value);
+                setPastVisible(20);
+              }}
+            >
+              <option value="">Todos os professores</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-slate-600">
+            Disciplina
+            <select
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={filterSubjectId}
+              onChange={(event) => {
+                setFilterSubjectId(event.target.value);
+                setPastVisible(20);
+              }}
+            >
+              <option value="">Todas as disciplinas</option>
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-slate-600">
+            Data
+            <input
+              type="date"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={filterDate}
+              onChange={(event) => {
+                setFilterDate(event.target.value);
+                setPastVisible(20);
+              }}
+            />
+          </label>
+          {(filterTeacherId || filterSubjectId || filterDate) && (
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterTeacherId("");
+                  setFilterSubjectId("");
+                  setFilterDate("");
+                  setPastVisible(20);
+                }}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          )}
+        </div>
+        {agendaMessage && <p className="mt-2 text-sm text-emerald-700">{agendaMessage}</p>}
         {deleteError && <p className="mt-2 text-sm text-rose-600">{deleteError}</p>}
 
         {(() => {
           const now = new Date();
           now.setHours(0, 0, 0, 0);
-          const upcoming = sessions.filter((s) => new Date(s.startsAt) >= now);
-          const past = sessions.filter((s) => new Date(s.startsAt) < now).reverse();
+          const filteredSessions = sessions.filter((s) => {
+            if (filterTeacherId && s.teacher.id !== filterTeacherId) return false;
+            if (filterSubjectId && s.subject.id !== filterSubjectId) return false;
+            if (filterDate) {
+              const startsAt = toDate(s.startsAt);
+              const dateKey = `${startsAt.getFullYear()}-${pad(startsAt.getMonth() + 1)}-${pad(startsAt.getDate())}`;
+              if (dateKey !== filterDate) return false;
+            }
+            return true;
+          });
+          const upcoming = filteredSessions.filter((s) => new Date(s.startsAt) >= now);
+          const past = filteredSessions.filter((s) => new Date(s.startsAt) < now).reverse();
+          const visiblePast = past.slice(0, pastVisible);
 
           function SessionRow({
             session,
@@ -1027,7 +1237,7 @@ export default function AdminSessionsClient({
                   <p className={`text-xs ${isPast ? "text-slate-400" : "text-slate-500"}`}>{session.teacher.name}</p>
                   {session.priceCents > 0 && (
                     <p className="text-xs text-slate-500">
-                      Valor: R$ {Number(session.priceCents / 100).toFixed(2)}
+                      Valor: {formatCurrency(session.priceCents)}
                     </p>
                   )}
                   <div className={`mt-2 rounded-md p-2 ${isPast ? "bg-slate-100" : hasStudents ? "bg-indigo-50" : "bg-slate-50"}`}>
@@ -1069,17 +1279,19 @@ export default function AdminSessionsClient({
                   </button>
                   {session.status === "ATIVA" && (
                     <button
+                      disabled={cancelingSessionId === session.id}
                       onClick={() => cancelSession(session.id)}
-                      className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                      className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-60"
                     >
-                      Cancelar
+                      {cancelingSessionId === session.id ? "Cancelando..." : "Cancelar"}
                     </button>
                   )}
                   <button
+                    disabled={deletingSessionId === session.id}
                     onClick={() => deleteSession(session.id)}
-                    className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                    className="rounded-md border border-rose-200 px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-60"
                   >
-                    Excluir
+                    {deletingSessionId === session.id ? "Excluindo..." : "Excluir"}
                   </button>
                   {session.status === "ATIVA" && (
                     <button
@@ -1133,7 +1345,11 @@ export default function AdminSessionsClient({
           return (
             <div className="mt-3 space-y-6">
               {upcoming.length === 0 && past.length === 0 && (
-                <p className="text-sm text-slate-500">Nenhuma sessão cadastrada.</p>
+                <p className="text-sm text-slate-500">
+                  {sessions.length === 0
+                    ? "Nenhuma sessão cadastrada."
+                    : "Nenhuma sessão encontrada com os filtros atuais."}
+                </p>
               )}
               {upcoming.length > 0 && (
                 <div className="space-y-2">
@@ -1153,10 +1369,24 @@ export default function AdminSessionsClient({
                     Sessões passadas ({past.length})
                   </summary>
                   <div className="mt-2 grid gap-3">
-                    {past.map((s) => (
+                    {visiblePast.map((s) => (
                       <SessionRow key={s.id} session={s} />
                     ))}
                   </div>
+                  {past.length > pastVisible && (
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-400">
+                        Mostrando {visiblePast.length} de {past.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPastVisible((prev) => prev + 20)}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+                      >
+                        Mostrar mais
+                      </button>
+                    </div>
+                  )}
                 </details>
               )}
             </div>

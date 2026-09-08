@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
 
 interface Subject {
@@ -10,27 +11,54 @@ interface Subject {
 }
 
 export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [defaultPriceCents, setDefaultPriceCents] = useState(0);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDefaultPriceCents, setEditDefaultPriceCents] = useState(0);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [listSuccess, setListSuccess] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await fetch("/api/admin/subjects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, defaultPriceCents })
-    });
-    window.location.reload();
+    if (creating) return;
+    setCreating(true);
+    setCreateError(null);
+    setCreateSuccess(null);
+    try {
+      const response = await fetch("/api/admin/subjects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, defaultPriceCents })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setCreateError(data?.message ?? "Não foi possível criar a disciplina.");
+        return;
+      }
+      setCreateSuccess("Disciplina criada com sucesso.");
+      setName("");
+      setDefaultPriceCents(0);
+      router.refresh();
+    } catch {
+      setCreateError("Falha de conexão. Tente novamente.");
+    } finally {
+      setCreating(false);
+    }
   }
 
   function startEdit(subject: Subject) {
     setEditingId(subject.id);
     setEditName(subject.name);
     setEditDefaultPriceCents(subject.defaultPriceCents ?? 0);
+    setListError(null);
+    setListSuccess(null);
   }
 
   function cancelEdit() {
@@ -40,26 +68,53 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
   }
 
   async function handleUpdate() {
-    if (!editingId) return;
-    await fetch("/api/admin/subjects", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editingId, name: editName, defaultPriceCents: editDefaultPriceCents })
-    });
-    window.location.reload();
+    if (!editingId || saving) return;
+    setSaving(true);
+    setListError(null);
+    setListSuccess(null);
+    try {
+      const response = await fetch("/api/admin/subjects", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingId, name: editName, defaultPriceCents: editDefaultPriceCents })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setListError(data?.message ?? "Não foi possível atualizar a disciplina.");
+        return;
+      }
+      setListSuccess("Disciplina atualizada com sucesso.");
+      setEditingId(null);
+      setEditName("");
+      setEditDefaultPriceCents(0);
+      router.refresh();
+    } catch {
+      setListError("Falha de conexão. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDelete(id: string) {
     const confirmed = window.confirm("Excluir esta disciplina? Essa ação não pode ser desfeita.");
     if (!confirmed) return;
-    setDeleteError(null);
-    const response = await fetch(`/api/admin/subjects?id=${id}`, { method: "DELETE" });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setDeleteError(data?.message ?? "Não foi possível excluir a disciplina.");
-      return;
+    setDeletingId(id);
+    setListError(null);
+    setListSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/subjects?id=${id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setListError(data?.message ?? "Não foi possível excluir a disciplina.");
+        return;
+      }
+      setListSuccess("Disciplina excluída com sucesso.");
+      router.refresh();
+    } catch {
+      setListError("Falha de conexão. Tente novamente.");
+    } finally {
+      setDeletingId(null);
     }
-    window.location.reload();
   }
 
   return (
@@ -80,16 +135,22 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
             onChange={(event) => setDefaultPriceCents(Number(event.target.value))}
             placeholder="Ex.: 5000"
           />
-          <button className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
-            Criar
+          <button
+            disabled={creating}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {creating ? "Criando..." : "Criar"}
           </button>
         </div>
         <p className="mt-2 text-xs text-slate-500">Valor em centavos (R$ 50,00 = 5000). Deixe 0 para usar preço manual.</p>
+        {createError && <p className="mt-2 text-sm text-rose-600">{createError}</p>}
+        {createSuccess && <p className="mt-2 text-sm text-emerald-600">{createSuccess}</p>}
       </form>
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Disciplinas cadastradas</h2>
-        {deleteError && <p className="mt-2 text-sm text-rose-600">{deleteError}</p>}
+        {listError && <p className="mt-2 text-sm text-rose-600">{listError}</p>}
+        {listSuccess && <p className="mt-2 text-sm text-emerald-600">{listSuccess}</p>}
         <ul className="mt-3 space-y-2 text-sm text-slate-700">
           {subjects.map((subject) => (
             <li key={subject.id} className="rounded-lg border border-slate-100 p-2">
@@ -110,9 +171,10 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
                     <button
                       type="button"
                       onClick={handleUpdate}
-                      className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-white hover:bg-slate-800"
+                      disabled={saving}
+                      className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Salvar
+                      {saving ? "Salvando..." : "Salvar"}
                     </button>
                     <button
                       type="button"
@@ -142,9 +204,10 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
                     <button
                       type="button"
                       onClick={() => handleDelete(subject.id)}
-                      className="rounded-lg border border-rose-200 px-3 py-1 text-xs text-rose-600"
+                      disabled={deletingId === subject.id}
+                      className="rounded-lg border border-rose-200 px-3 py-1 text-xs text-rose-600 disabled:opacity-60"
                     >
-                      Excluir
+                      {deletingId === subject.id ? "Excluindo..." : "Excluir"}
                     </button>
                   </div>
                 </div>
