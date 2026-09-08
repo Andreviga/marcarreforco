@@ -266,11 +266,11 @@ export default function MonthlyCalendarClient({
                         <p className="text-[10px] text-slate-500 leading-tight">{item.subtitle}</p>
                       )}
                       <p className="text-[10px] text-slate-400 leading-tight">
-                        {item.meta ??
-                          formatTimeRange(
-                            new Date(item.startsAt),
-                            item.endsAt ? new Date(item.endsAt) : undefined
-                          )}
+                        {formatTimeRange(
+                          new Date(item.startsAt),
+                          item.endsAt ? new Date(item.endsAt) : undefined
+                        )}
+                        {item.meta ? ` • ${item.meta}` : ""}
                       </p>
                       {badgeLabel && (
                         <span className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${badgeCls}`}>

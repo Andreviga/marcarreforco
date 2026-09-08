@@ -84,14 +84,13 @@ export default function AgendaClient({
     return subjectMatch && teacherMatch && locationMatch && dateMatch;
   });
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
 
   const ordered = [...filtered].sort((a, b) => {
     const aStarts = new Date(a.startsAt);
     const bStarts = new Date(b.startsAt);
-    const aUpcoming = aStarts >= today;
-    const bUpcoming = bStarts >= today;
+    const aUpcoming = aStarts >= now;
+    const bUpcoming = bStarts >= now;
 
     if (aUpcoming && !bUpcoming) return -1;
     if (!aUpcoming && bUpcoming) return 1;
@@ -99,8 +98,8 @@ export default function AgendaClient({
     return bStarts.getTime() - aStarts.getTime();
   });
 
-  const upcoming = ordered.filter((session) => new Date(session.startsAt) >= today);
-  const past = ordered.filter((session) => new Date(session.startsAt) < today);
+  const upcoming = ordered.filter((session) => new Date(session.startsAt) >= now);
+  const past = ordered.filter((session) => new Date(session.startsAt) < now);
 
   return (
     <div className="space-y-4">
@@ -164,10 +163,11 @@ export default function AgendaClient({
                           {session.teacher.name} • {new Date(session.startsAt).toLocaleDateString("pt-BR", {
                             weekday: "short",
                             day: "2-digit",
-                            month: "2-digit"
+                            month: "2-digit",
+                            timeZone: "America/Sao_Paulo"
                           })}{" "}
-                          {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-                          {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })} -{" "}
+                          {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
                         </p>
                         <p className="text-sm text-slate-500">{session.modality === "ONLINE" ? "Online" : session.location}</p>
                       </div>
@@ -214,10 +214,11 @@ export default function AgendaClient({
                           {session.teacher.name} • {new Date(session.startsAt).toLocaleDateString("pt-BR", {
                             weekday: "short",
                             day: "2-digit",
-                            month: "2-digit"
+                            month: "2-digit",
+                            timeZone: "America/Sao_Paulo"
                           })}{" "}
-                          {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-                          {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })} -{" "}
+                          {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
                         </p>
                         <p className="text-sm text-slate-400">{session.modality === "ONLINE" ? "Online" : session.location}</p>
                       </div>

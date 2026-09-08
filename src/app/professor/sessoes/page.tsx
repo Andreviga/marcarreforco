@@ -8,7 +8,6 @@ export default async function ProfessorSessoesPage() {
   const session = await requireRole(["PROFESSOR"]);
 
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 

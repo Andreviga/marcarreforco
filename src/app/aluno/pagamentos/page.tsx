@@ -92,6 +92,7 @@ export default async function AlunoPagamentosPage() {
         pendingCredits={pendingPayments.map((payment) => ({
           id: payment.id,
           createdAt: payment.createdAt.toISOString(),
+          paidAt: payment.paidAt ? payment.paidAt.toISOString() : null,
           package: {
             name: payment.package.name,
             sessionCount: payment.package.sessionCount

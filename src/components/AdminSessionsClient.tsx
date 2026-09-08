@@ -566,12 +566,14 @@ export default function AdminSessionsClient({
     setAgendaMessage(null);
     try {
       const response = await fetch(`/api/admin/sessions?id=${id}`, { method: "DELETE" });
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
         setDeleteError(data?.message ?? "Não foi possível excluir a sessão.");
         return;
       }
-      setAgendaMessage("Sessão excluída com sucesso.");
+      setAgendaMessage(
+        data?.canceled === true && data?.message ? data.message : "Sessão excluída com sucesso."
+      );
       router.refresh();
     } catch {
       setDeleteError("Falha de conexão. Tente novamente.");
@@ -659,7 +661,7 @@ export default function AdminSessionsClient({
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-slate-900">Editar sessão</h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              {editingSession.subject.name} — {new Date(editingSession.startsAt).toLocaleDateString("pt-BR")}
+              {editingSession.subject.name} — {new Date(editingSession.startsAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <label className="text-sm text-slate-600">
@@ -1229,10 +1231,11 @@ export default function AdminSessionsClient({
                     {new Date(session.startsAt).toLocaleDateString("pt-BR", {
                       weekday: "short",
                       day: "2-digit",
-                      month: "2-digit"
+                      month: "2-digit",
+                      timeZone: "America/Sao_Paulo"
                     })}{" "}
-                    {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-                    {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })} -{" "}
+                    {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
                   </p>
                   <p className={`text-xs ${isPast ? "text-slate-400" : "text-slate-500"}`}>{session.teacher.name}</p>
                   {session.priceCents > 0 && (

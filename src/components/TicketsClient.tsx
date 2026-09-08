@@ -55,6 +55,7 @@ export default function TicketsClient({ role, tickets, teachers = [], students =
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const noTeachersForStudent = role === "ALUNO" && teachers.length === 0;
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -173,11 +174,16 @@ export default function TicketsClient({ role, tickets, teachers = [], students =
             />
           </label>
         </div>
+        {noTeachersForStudent && (
+          <p className="mt-2 text-sm text-amber-700">
+            Nenhum professor cadastrado no momento — fale com a coordenação.
+          </p>
+        )}
         {formError && <p className="mt-2 text-sm text-rose-600">{formError}</p>}
         {formSuccess && <p className="mt-2 text-sm text-emerald-600">{formSuccess}</p>}
         <button
           className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-60"
-          disabled={submitting}
+          disabled={submitting || noTeachersForStudent}
         >
           {submitting ? "Criando..." : "Criar ticket"}
         </button>
@@ -203,7 +209,7 @@ export default function TicketsClient({ role, tickets, teachers = [], students =
                     </p>
                   </div>
                   <div className="text-xs text-slate-400">
-                    {ticket._count?.messages ?? 0} mensagens • Atualizado em {formatDate(ticket.updatedAt)}
+                    {ticket._count?.messages ?? 0} {(ticket._count?.messages ?? 0) === 1 ? "mensagem" : "mensagens"} • Atualizado em {formatDate(ticket.updatedAt)}
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-slate-500">

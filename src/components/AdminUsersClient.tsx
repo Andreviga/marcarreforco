@@ -271,14 +271,15 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
         })
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
         setCreditError(data?.message ?? "Não foi possível adicionar créditos.");
         return;
       }
 
       setCreditMessage(
-        creditAction === "REMOVE" ? "Creditos removidos com sucesso." : "Creditos adicionados com sucesso."
+        data?.message ??
+          (creditAction === "REMOVE" ? "Creditos removidos com sucesso." : "Creditos adicionados com sucesso.")
       );
       router.refresh();
     } catch {

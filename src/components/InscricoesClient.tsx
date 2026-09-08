@@ -46,12 +46,13 @@ export default function InscricoesClient({ enrollments }: { enrollments: Enrollm
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enrollmentId })
       });
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
         setErrorMessage(data?.message ?? "Não foi possível desmarcar a sessão.");
         return;
       }
-      setSuccessMessage("Sessão desmarcada com sucesso.");
+      // A API informa se o crédito foi devolvido ou não (regra das 48h).
+      setSuccessMessage(data?.message ?? "Sessão desmarcada com sucesso.");
       router.refresh();
     } catch (error) {
       setErrorMessage("Falha de conexão ao desmarcar. Tente novamente.");
@@ -68,6 +69,11 @@ export default function InscricoesClient({ enrollments }: { enrollments: Enrollm
       {successMessage && (
         <p className="text-sm text-emerald-600">{successMessage}</p>
       )}
+      {orderedEnrollments.length === 0 && (
+        <div className="rounded-xl bg-white p-4 text-sm text-slate-500 shadow-sm">
+          Nenhuma inscrição encontrada.
+        </div>
+      )}
       {orderedEnrollments.map((enrollment) => (
         <div key={enrollment.id} className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -79,10 +85,11 @@ export default function InscricoesClient({ enrollments }: { enrollments: Enrollm
                 {enrollment.session.teacher.name} • {new Date(enrollment.session.startsAt).toLocaleDateString("pt-BR", {
                   weekday: "short",
                   day: "2-digit",
-                  month: "2-digit"
+                  month: "2-digit",
+                  timeZone: "America/Sao_Paulo"
                 })}{" "}
-                {new Date(enrollment.session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-                {new Date(enrollment.session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                {new Date(enrollment.session.startsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })} -{" "}
+                {new Date(enrollment.session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
               </p>
               <p className="text-xs text-slate-400">Status: {enrollment.status}</p>
             </div>
