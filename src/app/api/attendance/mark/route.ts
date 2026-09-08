@@ -31,12 +31,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Sessão cancelada" }, { status: 400 });
   }
 
+  // Professor só pode marcar presença nas próprias sessões (admin pode em todas).
+  if (session.user.role === "PROFESSOR" && enrollment.session.teacherId !== session.user.id) {
+    return NextResponse.json({ message: "Sessão de outro professor" }, { status: 403 });
+  }
+
   const attendance = await prisma.attendance.upsert({
     where: { enrollmentId: enrollment.id },
     update: {
       status: parsed.data.status,
       note: parsed.data.note,
-      markedByUserId: session.user.id
+      markedByUserId: session.user.id,
+      markedAt: new Date()
     },
     create: {
       sessionId: enrollment.sessionId,

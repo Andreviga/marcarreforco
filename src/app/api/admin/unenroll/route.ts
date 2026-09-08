@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
   const enrollment = await prisma.enrollment.findUnique({
     where: { id: parsed.data.enrollmentId },
-    include: { session: true }
+    include: { session: true, attendance: true }
   });
 
   if (!enrollment) {
@@ -34,8 +34,10 @@ export async function POST(request: Request) {
       data: { status: "DESMARCADO" }
     });
 
+    // Aula com presença marcada foi consumida: desmarcar não devolve o crédito.
+    const attended = enrollment.attendance?.status === "PRESENTE";
     const shouldRefund =
-      record.creditsReserved > 0 && enrollment.session.subjectId;
+      record.creditsReserved > 0 && enrollment.session.subjectId && !attended;
 
     if (shouldRefund) {
       await releaseCredit({

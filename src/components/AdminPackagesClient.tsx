@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
 
 interface SessionPackage {
@@ -26,6 +27,7 @@ export default function AdminPackagesClient({
   packages: SessionPackage[];
   subjects: SubjectOption[];
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [sessionCount, setSessionCount] = useState(1);
   const [priceCents, setPriceCents] = useState(0);
@@ -33,8 +35,12 @@ export default function AdminPackagesClient({
   const [billingType, setBillingType] = useState<"PACKAGE" | "SUBSCRIPTION">("PACKAGE");
   const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "WEEKLY">("MONTHLY");
   const [subjectId, setSubjectId] = useState("");
+  const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+  const [listSuccess, setListSuccess] = useState<string | null>(null);
   const requiresGeneralSubject =
     billingType === "SUBSCRIPTION" &&
     ((billingCycle === "WEEKLY" && sessionCount > 1) || (billingCycle === "MONTHLY" && sessionCount > 4));
@@ -47,42 +53,91 @@ export default function AdminPackagesClient({
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (creating) return;
+    setCreating(true);
     setFormError(null);
     setFormSuccess(null);
-    const response = await fetch("/api/admin/packages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        sessionCount,
-        priceCents,
-        active,
-        billingType,
-        billingCycle: billingType === "SUBSCRIPTION" ? billingCycle : null,
-        subjectId: subjectId || null
-      })
-    });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setFormError(data?.message ?? "Não foi possível criar o pacote.");
-      return;
+    try {
+      const response = await fetch("/api/admin/packages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          sessionCount,
+          priceCents,
+          active,
+          billingType,
+          billingCycle: billingType === "SUBSCRIPTION" ? billingCycle : null,
+          subjectId: subjectId || null
+        })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setFormError(data?.message ?? "Não foi possível criar o pacote.");
+        return;
+      }
+      setFormSuccess("Pacote criado com sucesso.");
+      setName("");
+      setSessionCount(1);
+      setPriceCents(0);
+      setActive(true);
+      setBillingType("PACKAGE");
+      setBillingCycle("MONTHLY");
+      setSubjectId("");
+      router.refresh();
+    } catch {
+      setFormError("Falha de conexão. Tente novamente.");
+    } finally {
+      setCreating(false);
     }
-    setFormSuccess("Pacote criado com sucesso.");
-    window.location.reload();
   }
 
   async function handleUpdate(item: SessionPackage) {
-    await fetch("/api/admin/packages", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(item)
-    });
-    window.location.reload();
+    if (busyId) return;
+    setBusyId(item.id);
+    setListError(null);
+    setListSuccess(null);
+    try {
+      const response = await fetch("/api/admin/packages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item)
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setListError(data?.message ?? "Não foi possível atualizar o pacote.");
+        return;
+      }
+      setListSuccess(`Pacote "${item.name}" atualizado com sucesso.`);
+      router.refresh();
+    } catch {
+      setListError("Falha de conexão. Tente novamente.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/admin/packages?id=${id}`, { method: "DELETE" });
-    window.location.reload();
+    const confirmed = window.confirm("Excluir este pacote? Essa ação não pode ser desfeita.");
+    if (!confirmed) return;
+    if (busyId) return;
+    setBusyId(id);
+    setListError(null);
+    setListSuccess(null);
+    try {
+      const response = await fetch(`/api/admin/packages?id=${id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setListError(data?.message ?? "Não foi possível excluir o pacote.");
+        return;
+      }
+      setListSuccess("Pacote excluído com sucesso.");
+      router.refresh();
+    } catch {
+      setListError("Falha de conexão. Tente novamente.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
@@ -177,8 +232,11 @@ export default function AdminPackagesClient({
             Ativo
           </label>
         </div>
-        <button className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
-          Criar
+        <button
+          disabled={creating}
+          className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {creating ? "Criando..." : "Criar"}
         </button>
         {requiresGeneralSubject && (
           <p className="mt-2 text-xs text-slate-500">
@@ -191,11 +249,14 @@ export default function AdminPackagesClient({
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Pacotes cadastrados</h2>
+        {listError && <p className="mt-2 text-sm text-red-600">{listError}</p>}
+        {listSuccess && <p className="mt-2 text-sm text-emerald-600">{listSuccess}</p>}
         <div className="mt-3 space-y-3">
           {packages.map((item) => (
             <PackageRow
               key={item.id}
               item={item}
+              busy={busyId === item.id}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
               subjects={subjects}
@@ -209,11 +270,13 @@ export default function AdminPackagesClient({
 
 function PackageRow({
   item,
+  busy,
   onUpdate,
   onDelete,
   subjects
 }: {
   item: SessionPackage;
+  busy: boolean;
   onUpdate: (item: SessionPackage) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   subjects: SubjectOption[];
@@ -228,6 +291,17 @@ function PackageRow({
   const requiresGeneralSubject =
     billingType === "SUBSCRIPTION" &&
     ((billingCycle === "WEEKLY" && sessionCount > 1) || (billingCycle === "MONTHLY" && sessionCount > 4));
+
+  // Re-sincroniza o estado local quando os dados do servidor mudarem (router.refresh)
+  useEffect(() => {
+    setName(item.name);
+    setSessionCount(item.sessionCount);
+    setPriceCents(item.priceCents);
+    setActive(item.active);
+    setBillingType(item.billingType);
+    setBillingCycle(item.billingCycle ?? "MONTHLY");
+    setSubjectId(item.subjectId ?? "");
+  }, [item]);
 
   useEffect(() => {
     if (requiresGeneralSubject && subjectId) {
@@ -293,6 +367,7 @@ function PackageRow({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
+          disabled={busy}
           onClick={() =>
             onUpdate({
               id: item.id,
@@ -305,14 +380,15 @@ function PackageRow({
               subjectId: subjectId || null
             })
           }
-          className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-white hover:bg-slate-800"
+          className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Salvar
+          {busy ? "Salvando..." : "Salvar"}
         </button>
         <button
           type="button"
+          disabled={busy}
           onClick={() => onDelete(item.id)}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:border-slate-300"
+          className="rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-600 hover:border-slate-300 disabled:opacity-60"
         >
           Excluir
         </button>

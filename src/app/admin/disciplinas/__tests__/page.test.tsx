@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
 const AppShellMock = jest.fn(({ children }: { children: React.ReactNode }) => <div>{children}</div>);
-const AdminSubjectsClientMock = jest.fn(() => null);
+const AdminSubjectsClientMock = jest.fn((_props: unknown) => null);
 
 jest.mock("@/lib/rbac", () => ({
   requireRole: jest.fn()

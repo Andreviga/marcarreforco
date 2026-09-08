@@ -19,7 +19,8 @@ export default async function ProfessorTicketsPage() {
 
   const students = await prisma.user.findMany({
     where: { role: "ALUNO" },
-    orderBy: { name: "asc" }
+    orderBy: { name: "asc" },
+    select: { id: true, name: true }
   });
 
   return (

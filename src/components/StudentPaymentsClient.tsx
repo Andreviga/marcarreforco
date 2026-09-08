@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/format";
 import { isValidCPF, isValidCNPJ } from "@/lib/asaas";
 
@@ -67,7 +68,9 @@ export default function StudentPaymentsClient({
   pendingOneTimePayments: PendingOneTimePaymentItem[];
   document: string | null;
 }) {
+  const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [savingDocument, setSavingDocument] = useState(false);
   const [docValue, setDocValue] = useState(document ?? "");
   const [docError, setDocError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -183,65 +186,76 @@ export default function StudentPaymentsClient({
       return;
     }
     
-    const response = await fetch("/api/profile/document", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ document: cleanedDoc })
-    });
+    setSavingDocument(true);
+    try {
+      const response = await fetch("/api/profile/document", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ document: cleanedDoc })
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setDocError(data?.message ?? "Não foi possível salvar.");
-      return;
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setDocError(data?.message ?? "Não foi possível salvar.");
+        return;
+      }
+
+      setHasDocument(true);
+      setMessage("Documento salvo. Agora você já pode pagar.");
+    } catch {
+      setDocError("Falha de conexão ao salvar. Tente novamente.");
+    } finally {
+      setSavingDocument(false);
     }
-
-    setHasDocument(true);
-    setMessage("Documento salvo. Agora você já pode pagar.");
   }
 
   async function handleCheckout(packageId: string) {
     setLoadingId(packageId);
     setMessage(null);
 
-    const response = await fetch("/api/payments/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ packageId })
-    });
+    try {
+      const response = await fetch("/api/payments/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageId })
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setMessage(data?.message ?? "Falha ao iniciar pagamento.");
-      setLoadingId(null);
-      return;
-    }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setMessage(data?.message ?? "Falha ao iniciar pagamento.");
+        return;
+      }
 
-    const data = await response.json();
-    setLoadingId(null);
+      const data = await response.json();
 
-    if (data?.paymentUrl) {
-      // Detectar mobile através do user agent e tamanho da tela
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
-      
-      if (isMobile) {
-        // No mobile, redireciona na mesma aba
-        window.location.href = data.paymentUrl;
-      } else {
-        // No desktop, tenta abrir em nova aba
-        const popup = window.open(data.paymentUrl, "_blank");
-        
-        // Detecta se o popup foi bloqueado
-        if (!popup || popup.closed || typeof popup.closed === "undefined") {
-          // Fallback: redireciona na mesma aba
+      if (data?.paymentUrl) {
+        // Detectar mobile através do user agent e tamanho da tela
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+        if (isMobile) {
+          // No mobile, redireciona na mesma aba
           window.location.href = data.paymentUrl;
         } else {
-          setMessage("Pagamento criado. Finalize na nova aba.");
-        }
-      }
-      return;
-    }
+          // No desktop, tenta abrir em nova aba
+          const popup = window.open(data.paymentUrl, "_blank");
 
-    setMessage("Assinatura criada. Aguarde a cobrança.");
+          // Detecta se o popup foi bloqueado
+          if (!popup || popup.closed || typeof popup.closed === "undefined") {
+            // Fallback: redireciona na mesma aba
+            window.location.href = data.paymentUrl;
+          } else {
+            setMessage("Pagamento criado. Finalize na nova aba.");
+          }
+        }
+        return;
+      }
+
+      setMessage("Assinatura criada. Aguarde a cobrança.");
+    } catch {
+      setMessage("Falha de conexão ao iniciar pagamento. Tente novamente.");
+    } finally {
+      setLoadingId(null);
+    }
   }
 
   async function handleCancelSubscription(subscriptionId: string) {
@@ -266,11 +280,7 @@ export default function StudentPaymentsClient({
       const data = await response.json().catch(() => ({}));
 
       setMessage(data?.message ?? "✅ Assinatura cancelada com sucesso!");
-
-      // Recarregar a página após 2 segundos
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      router.refresh();
     } catch {
       setMessage("Falha ao cancelar assinatura. Verifique sua conexão e tente novamente.");
     } finally {
@@ -287,22 +297,26 @@ export default function StudentPaymentsClient({
 
     setAllocationMessage(null);
     setAllocationId(paymentId);
-    const response = await fetch("/api/credits/allocate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paymentId, subjectId })
-    });
+    try {
+      const response = await fetch("/api/credits/allocate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentId, subjectId })
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setAllocationMessage(data?.message ?? "Não foi possível aplicar o crédito.");
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setAllocationMessage(data?.message ?? "Não foi possível aplicar o crédito.");
+        return;
+      }
+
+      setAllocationMessage("Crédito aplicado com sucesso.");
+      router.refresh();
+    } catch {
+      setAllocationMessage("Falha de conexão ao aplicar o crédito. Tente novamente.");
+    } finally {
       setAllocationId(null);
-      return;
     }
-
-    setAllocationMessage("Crédito aplicado com sucesso.");
-    setAllocationId(null);
-    window.location.reload();
   }
 
   async function handleCancelOneTimePayment(paymentId: string) {
@@ -326,7 +340,7 @@ export default function StudentPaymentsClient({
 
       const data = await response.json().catch(() => ({}));
       setMessage(data?.message ?? "Cobrança avulsa cancelada com sucesso.");
-      window.location.reload();
+      router.refresh();
     } catch {
       setMessage("Falha ao cancelar cobrança avulsa. Verifique sua conexão e tente novamente.");
     } finally {
@@ -350,10 +364,11 @@ export default function StudentPaymentsClient({
             />
             <button
               type="button"
-              className="rounded-lg bg-amber-600 px-4 py-2 text-sm text-white hover:bg-amber-700"
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm text-white hover:bg-amber-700 disabled:opacity-60"
               onClick={handleDocumentSave}
+              disabled={savingDocument}
             >
-              Salvar
+              {savingDocument ? "Salvando..." : "Salvar"}
             </button>
           </div>
           {docError && <p className="mt-2 text-sm text-rose-600">{docError}</p>}
@@ -442,7 +457,7 @@ export default function StudentPaymentsClient({
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
                       {payment.status === "OVERDUE" ? "Pagamento vencido" : "Aguardando pagamento"}
-                      {payment.dueDate ? ` • Vence em ${new Date(payment.dueDate).toLocaleDateString("pt-BR")}` : ""}
+                      {payment.dueDate ? ` • Vence em ${new Date(payment.dueDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}` : ""}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -578,7 +593,7 @@ export default function StudentPaymentsClient({
                           </div>
                           {subscription?.nextDueDate && (
                             <p className="text-xs text-slate-500">
-                              Próxima cobrança: {new Date(subscription.nextDueDate).toLocaleDateString("pt-BR")}
+                              Próxima cobrança: {new Date(subscription.nextDueDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
                             </p>
                           )}
                         </div>

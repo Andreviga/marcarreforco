@@ -10,12 +10,12 @@ export default async function AdminPagamentosPage() {
     prisma.asaasPayment.findMany({
       include: { user: { select: { id: true, name: true, email: true } }, package: { include: { subject: true } } },
       orderBy: { createdAt: "desc" },
-      take: 100
+      take: 500
     }),
     prisma.asaasSubscription.findMany({
       include: { user: { select: { id: true, name: true, email: true } }, package: { include: { subject: true } } },
       orderBy: { createdAt: "desc" },
-      take: 100
+      take: 500
     }),
     prisma.auditLog.findMany({
       where: {
@@ -23,7 +23,7 @@ export default async function AdminPagamentosPage() {
       },
       include: { actor: { select: { id: true, name: true, email: true } } },
       orderBy: { createdAt: "desc" },
-      take: 100
+      take: 500
     })
   ]);
 

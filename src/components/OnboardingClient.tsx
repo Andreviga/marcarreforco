@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface Subject {
   id: string;
@@ -24,6 +25,7 @@ export default function OnboardingClient({
   initialUnidade = "Colégio Raízes",
   initialSubjectIds = []
 }: OnboardingClientProps) {
+  const router = useRouter();
   const [serie, setSerie] = useState(initialSerie);
   const [turma, setTurma] = useState(initialTurma);
   const [unidade, setUnidade] = useState(initialUnidade);
@@ -45,20 +47,25 @@ export default function OnboardingClient({
         ? { serie, turma, unidade }
         : { subjectIds };
 
-    const response = await fetch("/api/onboarding", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    try {
+      const response = await fetch("/api/onboarding", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setError(data?.message ?? "Não foi possível salvar.");
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(data?.message ?? "Não foi possível salvar.");
+        setSaving(false);
+        return;
+      }
+
+      router.push(role === "ALUNO" ? "/aluno/agenda" : "/professor/sessoes");
+    } catch {
+      setError("Falha de conexão ao salvar. Tente novamente.");
       setSaving(false);
-      return;
     }
-
-    window.location.href = role === "ALUNO" ? "/aluno/agenda" : "/professor/sessoes";
   }
 
   return (

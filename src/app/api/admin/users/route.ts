@@ -8,6 +8,12 @@ import { logAudit } from "@/lib/audit";
 
 const defaultUnidade = "Colégio Raízes";
 
+// O hash de senha nunca sai em resposta de API.
+function withoutPasswordHash<T extends { passwordHash?: string | null }>(user: T) {
+  const { passwordHash: _passwordHash, ...safe } = user;
+  return safe;
+}
+
 export async function GET() {
   const { response } = await requireApiRole(["ADMIN"]);
   if (response) return response;
@@ -16,7 +22,7 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
     include: { studentProfile: true, teacherProfile: { include: { subjects: true } } }
   });
-  return NextResponse.json({ users });
+  return NextResponse.json({ users: users.map(withoutPasswordHash) });
 }
 
 export async function POST(request: Request) {
@@ -82,7 +88,7 @@ export async function POST(request: Request) {
     payload: parsed.data
   });
 
-  return NextResponse.json({ user: created });
+  return NextResponse.json({ user: withoutPasswordHash(created) });
 }
 
 export async function PATCH(request: Request) {
@@ -163,7 +169,7 @@ export async function PATCH(request: Request) {
     payload: parsed.data
   });
 
-  return NextResponse.json({ user: updated });
+  return NextResponse.json({ user: withoutPasswordHash(updated) });
 }
 
 export async function DELETE(request: Request) {

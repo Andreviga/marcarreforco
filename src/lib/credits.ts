@@ -5,6 +5,12 @@ const CREDIT_TTL_DAYS = 30;
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
+// Serializa operações concorrentes sobre a mesma chave (ex.: mesmo pagamento)
+// dentro da transação atual, sem exigir mudanças de schema.
+async function lockKey(tx: Prisma.TransactionClient, key: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+}
+
 function addDays(date: Date, days: number) {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
@@ -86,10 +92,13 @@ async function consumeLots(params: {
   for (const lot of lots) {
     if (remaining <= 0) break;
     const used = Math.min(lot.remaining, remaining);
-    await tx.studentCreditLot.update({
-      where: { id: lot.id },
+    // Decremento condicional: outra transação pode ter consumido o lote
+    // entre a leitura e a escrita — nunca deixar `remaining` negativo.
+    const applied = await tx.studentCreditLot.updateMany({
+      where: { id: lot.id, remaining: { gte: used } },
       data: { remaining: { decrement: used } }
     });
+    if (applied.count === 0) continue;
     await tx.studentCreditLedger.create({
       data: {
         studentId,
@@ -120,6 +129,20 @@ export async function addPaymentCredits(params: {
   const expiresAt = getExpiryDate(paidAt ?? now);
 
   return prisma.$transaction(async (tx) => {
+    if (paymentId) {
+      // Idempotência: webhook, alocação manual e crédito automático no
+      // agendamento podem disparar ao mesmo tempo para o mesmo pagamento.
+      await lockKey(tx, `payment-credit:${paymentId}`);
+      const alreadyCredited = await tx.studentCreditLedger.findFirst({
+        where: { paymentId, reason: "PAYMENT_CREDIT" },
+        select: { creditLotId: true }
+      });
+      if (alreadyCredited) {
+        return alreadyCredited.creditLotId
+          ? tx.studentCreditLot.findUnique({ where: { id: alreadyCredited.creditLotId } })
+          : null;
+      }
+    }
     await ensureLegacyLot(tx, studentId, subjectId, now);
     const lot = await tx.studentCreditLot.create({
       data: {
@@ -187,7 +210,7 @@ export async function adjustCredits(params: {
       return lot;
     }
 
-    await consumeLots({
+    const consumed = await consumeLots({
       tx,
       studentId,
       subjectId,
@@ -195,7 +218,7 @@ export async function adjustCredits(params: {
       reason,
       paymentId
     });
-    return null;
+    return { consumed };
   });
 }
 
@@ -207,16 +230,41 @@ export async function reserveCredit(params: {
 }) {
   const { tx, studentId, subjectId, enrollmentId } = params;
   const now = new Date();
+
+  // Guarda contra reserva dupla: duas requisições simultâneas para a mesma
+  // inscrição (duplo clique) chegam aqui serializadas pelo lock de linha da
+  // enrollment; a segunda enxerga a reserva já feita e não debita de novo.
+  const ledger = await tx.studentCreditLedger.findMany({
+    where: { enrollmentId, reason: { in: ["ENROLL_RESERVE", "ENROLL_RELEASE"] } },
+    select: { delta: true }
+  });
+  const outstanding = ledger.reduce((sum, entry) => sum - entry.delta, 0);
+  if (outstanding > 0) {
+    return;
+  }
+
   const lots = await getAvailableLots(tx, studentId, subjectId, now);
   if (!lots.length) {
     throw new Error("SEM_CREDITO");
   }
 
-  const lot = lots[0];
-  await tx.studentCreditLot.update({
-    where: { id: lot.id },
-    data: { remaining: { decrement: 1 } }
-  });
+  let reservedLotId: string | null = null;
+  for (const lot of lots) {
+    // Decremento condicional para nunca gastar o mesmo crédito duas vezes
+    // em transações concorrentes (o saldo jamais fica negativo).
+    const applied = await tx.studentCreditLot.updateMany({
+      where: { id: lot.id, remaining: { gte: 1 } },
+      data: { remaining: { decrement: 1 } }
+    });
+    if (applied.count > 0) {
+      reservedLotId = lot.id;
+      break;
+    }
+  }
+
+  if (!reservedLotId) {
+    throw new Error("SEM_CREDITO");
+  }
 
   await tx.studentCreditLedger.create({
     data: {
@@ -225,17 +273,53 @@ export async function reserveCredit(params: {
       delta: -1,
       reason: "ENROLL_RESERVE",
       enrollmentId,
-      creditLotId: lot.id
+      creditLotId: reservedLotId
     }
   });
 
   await recalcBalance(tx, studentId, subjectId, now);
 }
 
+// Estorna exatamente o que restou dos lotes criados por um pagamento
+// (usado em REFUNDED/CANCELED). Idempotente: só zera lotes com saldo.
+export async function revokePaymentCredits(paymentId: string) {
+  const now = new Date();
+  return prisma.$transaction(async (tx) => {
+    await lockKey(tx, `payment-credit:${paymentId}`);
+    const lots = await tx.studentCreditLot.findMany({
+      where: { paymentId, remaining: { gt: 0 } }
+    });
+
+    let revoked = 0;
+    for (const lot of lots) {
+      const applied = await tx.studentCreditLot.updateMany({
+        where: { id: lot.id, remaining: { gte: lot.remaining } },
+        data: { remaining: { decrement: lot.remaining } }
+      });
+      if (applied.count === 0) continue;
+      await tx.studentCreditLedger.create({
+        data: {
+          studentId: lot.studentId,
+          subjectId: lot.subjectId,
+          delta: -lot.remaining,
+          reason: "ADMIN_ADJUST",
+          paymentId,
+          creditLotId: lot.id
+        }
+      });
+      revoked += lot.remaining;
+      await recalcBalance(tx, lot.studentId, lot.subjectId, now);
+    }
+    return revoked;
+  });
+}
+
 export async function releaseCredit(params: {
   tx: Prisma.TransactionClient;
   studentId: string;
-  subjectId: string;
+  // A devolução vai para o lote de origem (registrado no ledger), então a
+  // disciplina não precisa ser informada.
+  subjectId?: string;
   enrollmentId: string;
 }) {
   const { tx, studentId, enrollmentId } = params;

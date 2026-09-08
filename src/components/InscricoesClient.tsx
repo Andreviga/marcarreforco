@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface EnrollmentView {
   id: string;
@@ -15,7 +16,10 @@ interface EnrollmentView {
 }
 
 export default function InscricoesClient({ enrollments }: { enrollments: EnrollmentView[] }) {
+  const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -34,16 +38,36 @@ export default function InscricoesClient({ enrollments }: { enrollments: Enrollm
 
   async function handleUnenroll(enrollmentId: string) {
     setLoadingId(enrollmentId);
-    await fetch("/api/unenroll", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enrollmentId })
-    });
-    window.location.reload();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const response = await fetch("/api/unenroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enrollmentId })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setErrorMessage(data?.message ?? "Não foi possível desmarcar a sessão.");
+        return;
+      }
+      setSuccessMessage("Sessão desmarcada com sucesso.");
+      router.refresh();
+    } catch (error) {
+      setErrorMessage("Falha de conexão ao desmarcar. Tente novamente.");
+    } finally {
+      setLoadingId(null);
+    }
   }
 
   return (
     <div className="grid gap-4">
+      {errorMessage && (
+        <p className="text-sm text-red-600">{errorMessage}</p>
+      )}
+      {successMessage && (
+        <p className="text-sm text-emerald-600">{successMessage}</p>
+      )}
       {orderedEnrollments.map((enrollment) => (
         <div key={enrollment.id} className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

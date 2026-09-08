@@ -4,6 +4,33 @@ import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import { sessionCreateSchema, sessionUpdateSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
+import { releaseCredit } from "@/lib/credits";
+
+// Desmarca todas as inscrições ativas devolvendo os créditos reservados —
+// usado ao cancelar ou excluir uma sessão, para o crédito não ficar preso.
+async function refundActiveEnrollments(sessionId: string) {
+  const enrollments = await prisma.enrollment.findMany({
+    where: { sessionId, status: "AGENDADO" }
+  });
+
+  for (const enrollmentRecord of enrollments) {
+    await prisma.$transaction(async (tx) => {
+      await tx.enrollment.update({
+        where: { id: enrollmentRecord.id },
+        data: { status: "DESMARCADO", creditsReserved: 0 }
+      });
+      if (enrollmentRecord.creditsReserved > 0) {
+        await releaseCredit({
+          tx,
+          studentId: enrollmentRecord.studentId,
+          enrollmentId: enrollmentRecord.id
+        });
+      }
+    });
+  }
+
+  return enrollments.length;
+}
 
 export async function GET() {
   const { response } = await requireApiRole(["ADMIN"]);
@@ -11,7 +38,7 @@ export async function GET() {
 
   const sessions = await prisma.session.findMany({
     orderBy: { startsAt: "asc" },
-    include: { subject: true, teacher: true }
+    include: { subject: true, teacher: { select: { id: true, name: true, email: true } } }
   });
   return NextResponse.json({ sessions });
 }
@@ -60,6 +87,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
   }
 
+  const before = await prisma.session.findUnique({
+    where: { id: parsed.data.id },
+    select: { status: true }
+  });
+
   const updated = await prisma.session.update({
     where: { id: parsed.data.id },
     data: {
@@ -73,6 +105,12 @@ export async function PATCH(request: Request) {
       status: parsed.data.status
     }
   });
+
+  // Cancelar a sessão devolve os créditos dos alunos inscritos — antes eles
+  // ficavam presos (o unenroll do aluno recusa sessão cancelada).
+  if (parsed.data.status === "CANCELADA" && before?.status !== "CANCELADA") {
+    await refundActiveEnrollments(updated.id);
+  }
 
   await logAudit({
     actorUserId: session.user.id,
@@ -95,6 +133,10 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ message: "ID obrigatório" }, { status: 400 });
   }
 
+  // Devolver os créditos antes de excluir — senão as inscrições seriam
+  // apagadas com o crédito do aluno preso para sempre.
+  await refundActiveEnrollments(id);
+
   try {
     await prisma.$transaction([
       prisma.enrollment.deleteMany({ where: { sessionId: id } }),
@@ -102,10 +144,21 @@ export async function DELETE(request: Request) {
     ]);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
-      return NextResponse.json(
-        { message: "Não foi possível excluir: a sessão possui registros vinculados." },
-        { status: 409 }
-      );
+      // Há histórico financeiro (ledger/presença) vinculado: em vez de perder
+      // dados, cancela a sessão — os créditos já foram devolvidos acima.
+      await prisma.session.update({ where: { id }, data: { status: "CANCELADA" } });
+      await logAudit({
+        actorUserId: session.user.id,
+        action: "CANCEL_SESSION_INSTEAD_OF_DELETE",
+        entityType: "Session",
+        entityId: id,
+        payload: { id }
+      });
+      return NextResponse.json({
+        ok: true,
+        canceled: true,
+        message: "A sessão possui histórico vinculado e foi cancelada (créditos devolvidos) em vez de excluída."
+      });
     }
     throw error;
   }

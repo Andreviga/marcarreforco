@@ -33,20 +33,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Disciplina inválida" }, { status: 404 });
   }
 
-  await adjustCredits({
+  const result = await adjustCredits({
     studentId: parsed.data.userId,
     subjectId: parsed.data.subjectId,
     delta: parsed.data.delta,
     reason: "ADMIN_ADJUST"
   });
 
+  // Em remoções, o consumo pode ser parcial (aluno com saldo menor que o
+  // pedido); registrar o que de fato aconteceu, não o que foi pedido.
+  const applied =
+    parsed.data.delta < 0 && result && "consumed" in result
+      ? -result.consumed
+      : parsed.data.delta;
+
   await logAudit({
     actorUserId: session.user.id,
     action: "ADMIN_ADJUST_CREDITS",
     entityType: "StudentCreditBalance",
     entityId: parsed.data.userId,
-    payload: { subjectId: parsed.data.subjectId, delta: parsed.data.delta }
+    payload: { subjectId: parsed.data.subjectId, delta: parsed.data.delta, applied }
   });
 
-  return NextResponse.json({ ok: true });
+  if (applied !== parsed.data.delta) {
+    return NextResponse.json({
+      ok: true,
+      applied,
+      message: `Removidos ${Math.abs(applied)} de ${Math.abs(parsed.data.delta)} créditos (saldo insuficiente).`
+    });
+  }
+
+  return NextResponse.json({ ok: true, applied });
 }

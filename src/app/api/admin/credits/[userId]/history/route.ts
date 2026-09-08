@@ -1,4 +1,4 @@
-import { requireRole } from "@/lib/rbac";
+import { requireApiRole } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 const reasonLabels: Record<string, string> = {
@@ -12,7 +12,9 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
-  await requireRole(["ADMIN"]);
+  // Rota de API responde 401/403 em JSON, nunca redirect de página.
+  const { response } = await requireApiRole(["ADMIN"]);
+  if (response) return response;
 
   const { userId } = await params;
 

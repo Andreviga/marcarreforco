@@ -14,7 +14,7 @@ export default async function AdminSessoesPage() {
   const sessions = await prisma.session.findMany({
     include: {
       subject: true,
-      teacher: true,
+      teacher: { select: { id: true, name: true, email: true } },
       enrollments: {
         where: { status: "AGENDADO" },
         include: {
@@ -34,7 +34,8 @@ export default async function AdminSessoesPage() {
   const subjects = await prisma.subject.findMany({ orderBy: { name: "asc" } });
   const teachers = await prisma.user.findMany({
     where: { role: "PROFESSOR" },
-    orderBy: { name: "asc" }
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, email: true }
   });
   const students = await prisma.user.findMany({
     where: { role: "ALUNO" },

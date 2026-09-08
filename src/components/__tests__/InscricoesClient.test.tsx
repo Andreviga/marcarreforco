@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import InscricoesClient from "@/components/InscricoesClient";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn(), push: jest.fn() })
+}));
+
 const enrollments = [
   {
     id: "e1",
@@ -40,7 +44,6 @@ describe("InscricoesClient", () => {
 
   it("shows unenroll button only for scheduled enrollments and submits", async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true });
-    // @ts-expect-error - override fetch for test
     global.fetch = fetchMock;
 
     render(<InscricoesClient enrollments={enrollments} />);

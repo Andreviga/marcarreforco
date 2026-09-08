@@ -6,11 +6,14 @@ import { sendEmail } from "@/lib/mail";
 // Secured by CRON_SECRET env var — pass as Authorization: Bearer <secret>.
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const authHeader = request.headers.get("authorization") ?? "";
-    if (authHeader !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!secret) {
+    // Fail-closed: sem secret, qualquer pessoa dispararia e-mails em massa.
+    console.error("CRON_SECRET não configurado; cron de lembretes recusado.");
+    return NextResponse.json({ error: "Cron não configurado" }, { status: 503 });
+  }
+  const authHeader = request.headers.get("authorization") ?? "";
+  if (authHeader !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Test mode: GET /api/cron/reminder?test=1
@@ -238,5 +241,7 @@ export async function GET(request: Request) {
 
   const sent = results.filter((r) => r.ok).length;
   const failed = results.filter((r) => !r.ok).length;
-  return NextResponse.json({ sent, failed, total: sessions.length, results });
+  // Não devolver endereços de e-mail na resposta; detalhes ficam nos logs.
+  const summary = results.map((r) => ({ sessionId: r.sessionId, ok: r.ok, recipients: r.recipients.length }));
+  return NextResponse.json({ sent, failed, total: sessions.length, results: summary });
 }

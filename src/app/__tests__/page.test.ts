@@ -14,7 +14,7 @@ jest.mock("next/navigation", () => ({
 
 describe("HomePage", () => {
   const getServerSessionMock = getServerSession as jest.Mock;
-  const redirectMock = redirect as jest.Mock;
+  const redirectMock = redirect as unknown as jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();

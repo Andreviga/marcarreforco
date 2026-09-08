@@ -16,7 +16,17 @@ export default async function AlunoAgendaPage() {
 
   const sessions = await prisma.session.findMany({
     where: { status: "ATIVA" },
-    include: { subject: true, teacher: true },
+    select: {
+      id: true,
+      startsAt: true,
+      endsAt: true,
+      location: true,
+      modality: true,
+      priceCents: true,
+      status: true,
+      subject: { select: { id: true, name: true } },
+      teacher: { select: { id: true, name: true } }
+    },
     orderBy: { startsAt: "asc" }
   });
 

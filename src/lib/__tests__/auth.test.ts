@@ -34,7 +34,7 @@ describe("authOptions", () => {
     const prismaModule = await import("@/lib/prisma");
     userRepo = prismaModule.prisma.user as unknown as { findUnique: jest.Mock };
     const bcryptModule = await import("bcrypt");
-    bcryptCompareMock = (bcryptModule.default as { compare: jest.Mock }).compare;
+    bcryptCompareMock = (bcryptModule.default as unknown as { compare: jest.Mock }).compare;
     jest.clearAllMocks();
   });
 
@@ -68,7 +68,7 @@ describe("authOptions", () => {
     const token = await authOptions.callbacks?.jwt?.({
       token: {},
       user: { id: "u1", role: "ADMIN" }
-    });
+    } as unknown as Parameters<NonNullable<NonNullable<typeof authOptions.callbacks>["jwt"]>>[0]);
 
     expect(token).toEqual({ id: "u1", role: "ADMIN" });
   });
@@ -77,7 +77,7 @@ describe("authOptions", () => {
     const session = await authOptions.callbacks?.session?.({
       session: { user: { name: "Ana" } },
       token: { id: "u1", role: "ADMIN" }
-    });
+    } as unknown as Parameters<NonNullable<NonNullable<typeof authOptions.callbacks>["session"]>>[0]);
 
     expect(session?.user).toEqual({ name: "Ana", id: "u1", role: "ADMIN" });
   });

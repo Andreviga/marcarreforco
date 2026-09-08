@@ -19,6 +19,17 @@ function formatValue(priceCents: number) {
   return Number((priceCents / 100).toFixed(2));
 }
 
+// "Hoje" no fuso do Brasil: em UTC, entre 21h e meia-noite (BRT) a data
+// de toISOString() já seria a de amanhã.
+function todayInSaoPaulo() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+}
+
 async function cancelOpenSubscriptionPayments(asaasSubscriptionId: string) {
   const payments = await asaasFetch<AsaasPaymentListResponse>(
     `/payments?subscription=${asaasSubscriptionId}&limit=100`,
@@ -174,7 +185,7 @@ export async function POST(request: Request) {
         customer: asaasCustomerId,
         billingType,
         value: formatValue(packageRecord.priceCents),
-        nextDueDate: new Date().toISOString().split("T")[0],
+        nextDueDate: todayInSaoPaulo(),
         cycle: packageRecord.billingCycle ?? "MONTHLY",
         description: `${packageRecord.name} (${packageRecord.subject?.name ?? "Disciplina"})`,
         externalReference: `package:${packageRecord.id}:user:${session.user.id}`
@@ -237,7 +248,7 @@ export async function POST(request: Request) {
         customer: asaasCustomerId,
         billingType,
         value: formatValue(packageRecord.priceCents),
-        dueDate: new Date().toISOString().split("T")[0],
+        dueDate: todayInSaoPaulo(),
         description: `${packageRecord.name} (${packageRecord.subject?.name ?? "Disciplina"})`,
         externalReference: `package:${packageRecord.id}:user:${session.user.id}`
       }

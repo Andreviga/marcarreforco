@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import * as XLSX from "xlsx";
 
 interface UserRow {
@@ -27,17 +28,17 @@ const seriesOptions = [
   "6º ano",
   "7º ano",
   "8º ano",
-  "9º ano",
-  "1ª série",
-  "2ª série",
-  "3ª série"
+  "9º ano"
 ];
+
+const USERS_PAGE_SIZE = 20;
 
 const turmaOptions = ["Manhã", "Tarde"];
 
 const defaultUnidade = "Colégio Raízes";
 
 export default function AdminUsersClient({ users, subjects }: { users: UserRow[]; subjects: Subject[] }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -80,33 +81,56 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
   const [creditMessage, setCreditMessage] = useState<string | null>(null);
   const [creditError, setCreditError] = useState<string | null>(null);
   const [creditLoading, setCreditLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+  const [listSuccess, setListSuccess] = useState<string | null>(null);
+  const [listSearch, setListSearch] = useState("");
+  const [listRoleFilter, setListRoleFilter] = useState("ALL");
+  const [listPage, setListPage] = useState(1);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (creating) return;
+    setCreating(true);
     setFormError(null);
     setFormSuccess(null);
-    const response = await fetch("/api/admin/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, role, serie, turma, unidade, subjectIds })
-    });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      const fieldErrors = data?.issues?.fieldErrors
-        ? Object.entries(data.issues.fieldErrors)
-            .filter(([, messages]) => Array.isArray(messages) && messages.length)
-            .map(([field, messages]) => {
-              if (!Array.isArray(messages)) return null;
-              return `${field}: ${messages.join(", ")}`;
-            })
-            .filter((item): item is string => Boolean(item))
-            .join(" | ")
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, role, serie, turma, unidade, subjectIds })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const fieldErrors = data?.issues?.fieldErrors
+          ? Object.entries(data.issues.fieldErrors)
+              .filter(([, messages]) => Array.isArray(messages) && messages.length)
+              .map(([field, messages]) => {
+                if (!Array.isArray(messages)) return null;
+                return `${field}: ${messages.join(", ")}`;
+              })
+              .filter((item): item is string => Boolean(item))
+              .join(" | ")
         : null;
-      setFormError(fieldErrors ?? data?.message ?? "Não foi possível criar o usuário.");
-      return;
+        setFormError(fieldErrors ?? data?.message ?? "Não foi possível criar o usuário.");
+        return;
+      }
+      setFormSuccess("Usuário criado com sucesso.");
+      setName("");
+      setEmail("");
+      setPassword("");
+      setSerie("");
+      setTurma("");
+      setUnidade(defaultUnidade);
+      setSubjectIds([]);
+      router.refresh();
+    } catch {
+      setFormError("Falha de conexão. Tente novamente.");
+    } finally {
+      setCreating(false);
     }
-    setFormSuccess("Usuário criado com sucesso.");
-    window.location.reload();
   }
 
   function toggleSubject(id: string) {
@@ -153,48 +177,55 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
   }
 
   async function handleUpdate() {
-    if (!editingId) return;
+    if (!editingId || savingEdit) return;
+    setSavingEdit(true);
     setEditError(null);
     setEditSuccess(null);
 
-    const response = await fetch("/api/admin/users", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: editingId,
-        name: editName,
-        email: editEmail,
-        role: editRole,
-        serie: editRole === "ALUNO" ? editSerie : undefined,
-        turma: editRole === "ALUNO" ? editTurma : undefined,
-        unidade: editRole === "ALUNO" ? editUnidade : undefined,
-        subjectIds: editRole === "PROFESSOR" ? editSubjectIds : undefined,
-        password: editPassword ? editPassword : undefined
-      })
-    });
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingId,
+          name: editName,
+          email: editEmail,
+          role: editRole,
+          serie: editRole === "ALUNO" ? editSerie : undefined,
+          turma: editRole === "ALUNO" ? editTurma : undefined,
+          unidade: editRole === "ALUNO" ? editUnidade : undefined,
+          subjectIds: editRole === "PROFESSOR" ? editSubjectIds : undefined,
+          password: editPassword ? editPassword : undefined
+        })
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      const fieldErrors = data?.issues?.fieldErrors
-        ? Object.entries(data.issues.fieldErrors)
-            .filter(([, messages]) => Array.isArray(messages) && messages.length)
-            .map(([field, messages]) => {
-              if (!Array.isArray(messages)) return null;
-              return `${field}: ${messages.join(", ")}`;
-            })
-            .filter((item): item is string => Boolean(item))
-            .join(" | ")
-        : null;
-      setEditError(fieldErrors ?? data?.message ?? "Não foi possível atualizar o usuário.");
-      return;
-    }
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const fieldErrors = data?.issues?.fieldErrors
+          ? Object.entries(data.issues.fieldErrors)
+              .filter(([, messages]) => Array.isArray(messages) && messages.length)
+              .map(([field, messages]) => {
+                if (!Array.isArray(messages)) return null;
+                return `${field}: ${messages.join(", ")}`;
+              })
+              .filter((item): item is string => Boolean(item))
+              .join(" | ")
+          : null;
+        setEditError(fieldErrors ?? data?.message ?? "Não foi possível atualizar o usuário.");
+        return;
+      }
 
-    setEditSuccess(editPassword ? "Usuário atualizado e senha redefinida." : "Usuário atualizado com sucesso.");
-    if (editPassword) {
-      setEditPassword("");
-      setEditPasswordMessage(null);
+      setEditSuccess(editPassword ? "Usuário atualizado e senha redefinida." : "Usuário atualizado com sucesso.");
+      if (editPassword) {
+        setEditPassword("");
+        setEditPasswordMessage(null);
+      }
+      router.refresh();
+    } catch {
+      setEditError("Falha de conexão. Tente novamente.");
+    } finally {
+      setSavingEdit(false);
     }
-    window.location.reload();
   }
 
   function generateTempPassword() {
@@ -225,49 +256,65 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     setCreditMessage(null);
     setCreditLoading(true);
 
-    const delta = creditAction === "REMOVE" ? -creditAmount : creditAmount;
-    const response = await fetch("/api/admin/credits/adjust", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: editingId,
-        subjectId: creditSubjectId,
-        delta
-      })
-    });
+    try {
+      const delta = creditAction === "REMOVE" ? -creditAmount : creditAmount;
+      const response = await fetch("/api/admin/credits/adjust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: editingId,
+          subjectId: creditSubjectId,
+          delta
+        })
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setCreditError(data?.message ?? "Não foi possível adicionar créditos.");
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setCreditError(data?.message ?? "Não foi possível adicionar créditos.");
+        return;
+      }
+
+      setCreditMessage(
+        creditAction === "REMOVE" ? "Creditos removidos com sucesso." : "Creditos adicionados com sucesso."
+      );
+      router.refresh();
+    } catch {
+      setCreditError("Falha de conexão. Tente novamente.");
+    } finally {
       setCreditLoading(false);
-      return;
     }
-
-    setCreditMessage(
-      creditAction === "REMOVE" ? "Creditos removidos com sucesso." : "Creditos adicionados com sucesso."
-    );
-    setCreditLoading(false);
   }
 
   async function handleDelete(user: UserRow) {
     const confirmed = window.confirm(`Excluir o usuário ${user.name}? Essa ação não pode ser desfeita.`);
     if (!confirmed) return;
-    setEditError(null);
-    setEditSuccess(null);
+    setDeletingId(user.id);
+    setListError(null);
+    setListSuccess(null);
 
-    const response = await fetch("/api/admin/users", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: user.id })
-    });
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: user.id })
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setEditError(data?.message ?? "Não foi possível excluir o usuário.");
-      return;
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setListError(data?.message ?? "Não foi possível excluir o usuário.");
+        return;
+      }
+
+      setListSuccess(`Usuário ${user.name} excluído com sucesso.`);
+      if (editingId === user.id) {
+        cancelEdit();
+      }
+      router.refresh();
+    } catch {
+      setListError("Falha de conexão. Tente novamente.");
+    } finally {
+      setDeletingId(null);
     }
-
-    window.location.reload();
   }
 
   function normalize(value: string) {
@@ -394,13 +441,28 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
 
       const result = await response.json();
       setImportResult(result);
-      window.location.reload();
+      router.refresh();
     } catch (error) {
       setImportError((error as Error).message);
     } finally {
       setImporting(false);
     }
   }
+
+  const filteredUsers = users.filter((user) => {
+    const matchesRole = listRoleFilter === "ALL" || user.role === listRoleFilter;
+    const term = listSearch.toLowerCase();
+    const matchesSearch =
+      term === "" ||
+      user.name.toLowerCase().includes(term) ||
+      user.email.toLowerCase().includes(term);
+    return matchesRole && matchesSearch;
+  });
+  const listTotalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE));
+  const listPageSafe = Math.min(listPage, listTotalPages);
+  const pagedUsers = filteredUsers.slice((listPageSafe - 1) * USERS_PAGE_SIZE, listPageSafe * USERS_PAGE_SIZE);
+  const listStart = filteredUsers.length === 0 ? 0 : (listPageSafe - 1) * USERS_PAGE_SIZE + 1;
+  const listEnd = Math.min(listPageSafe * USERS_PAGE_SIZE, filteredUsers.length);
 
   return (
     <div className="space-y-6">
@@ -521,8 +583,11 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
 
         {formError && <p className="mt-3 text-sm text-red-600">{formError}</p>}
         {formSuccess && <p className="mt-3 text-sm text-emerald-600">{formSuccess}</p>}
-        <button className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800">
-          Criar usuário
+        <button
+          disabled={creating}
+          className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {creating ? "Criando..." : "Criar usuário"}
         </button>
       </form>
 
@@ -572,9 +637,39 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
       </div>
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Lista de usuários</h2>
+        <h2 className="text-lg font-semibold text-slate-900">Lista de usuários ({filteredUsers.length})</h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <input
+            type="text"
+            placeholder="Buscar por nome ou e-mail..."
+            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            value={listSearch}
+            onChange={(e) => {
+              setListSearch(e.target.value);
+              setListPage(1);
+            }}
+          />
+          <select
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            value={listRoleFilter}
+            onChange={(e) => {
+              setListRoleFilter(e.target.value);
+              setListPage(1);
+            }}
+          >
+            <option value="ALL">Todos os perfis</option>
+            <option value="ALUNO">Alunos</option>
+            <option value="PROFESSOR">Professores</option>
+            <option value="ADMIN">Secretaria/Admin</option>
+          </select>
+        </div>
+        {listError && <p className="mt-3 text-sm text-red-600">{listError}</p>}
+        {listSuccess && <p className="mt-3 text-sm text-emerald-600">{listSuccess}</p>}
+        {filteredUsers.length === 0 && (
+          <p className="mt-3 text-sm text-slate-500">Nenhum usuário encontrado.</p>
+        )}
         <div className="mt-3 grid gap-2">
-          {users.map((user) => (
+          {pagedUsers.map((user) => (
             <div key={user.id} className="rounded-lg border border-slate-100 p-3 text-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <p className="font-semibold text-slate-900">{user.name}</p>
@@ -589,9 +684,10 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                   <button
                     type="button"
                     onClick={() => handleDelete(user)}
-                    className="rounded-full border border-rose-200 px-3 py-1 text-xs text-rose-600 hover:border-rose-300"
+                    disabled={deletingId === user.id}
+                    className="rounded-full border border-rose-200 px-3 py-1 text-xs text-rose-600 hover:border-rose-300 disabled:opacity-60"
                   >
-                    Excluir
+                    {deletingId === user.id ? "Excluindo..." : "Excluir"}
                   </button>
                 </div>
               </div>
@@ -805,9 +901,10 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                     <button
                       type="button"
                       onClick={handleUpdate}
-                      className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs text-white hover:bg-slate-800"
+                      disabled={savingEdit}
+                      className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Salvar alterações
+                      {savingEdit ? "Salvando..." : "Salvar alterações"}
                     </button>
                     <button
                       type="button"
@@ -822,6 +919,31 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
             </div>
           ))}
         </div>
+        {filteredUsers.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+            <span className="text-xs text-slate-500">
+              {listStart}–{listEnd} de {filteredUsers.length}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={listPageSafe <= 1}
+                onClick={() => setListPage(listPageSafe - 1)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                disabled={listPageSafe >= listTotalPages}
+                onClick={() => setListPage(listPageSafe + 1)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

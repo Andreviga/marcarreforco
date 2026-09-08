@@ -8,8 +8,31 @@ const roleMap: Record<string, string[]> = {
   "/admin": ["ADMIN"]
 };
 
+const MUTATING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Anti-CSRF: o cookie de sessão usa SameSite=None, então um site malicioso
+  // conseguiria disparar requisições autenticadas. Requisições de navegador
+  // enviam Origin em métodos mutantes; se vier de outra origem, recusa.
+  // Chamadas servidor-a-servidor (webhook do Asaas, cron) não têm Origin.
+  if (pathname.startsWith("/api/") && MUTATING_METHODS.has(request.method)) {
+    const origin = request.headers.get("origin");
+    if (origin) {
+      const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+      let originHost: string | null = null;
+      try {
+        originHost = new URL(origin).host;
+      } catch {
+        originHost = null;
+      }
+      if (!host || originHost !== host) {
+        return NextResponse.json({ message: "Origem não permitida" }, { status: 403 });
+      }
+    }
+    return NextResponse.next();
+  }
 
   const protectedPrefix = Object.keys(roleMap).find((prefix) => pathname.startsWith(prefix));
   if (!protectedPrefix) {
@@ -34,5 +57,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/aluno/:path*", "/professor/:path*", "/admin/:path*"]
+  matcher: ["/aluno/:path*", "/professor/:path*", "/admin/:path*", "/api/:path*"]
 };

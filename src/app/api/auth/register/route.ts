@@ -23,7 +23,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
   }
 
-  if (parsed.data.accessCode !== "222") {
+  const accessCode = process.env.REGISTER_ACCESS_CODE ?? "222";
+  if (parsed.data.accessCode !== accessCode) {
     return NextResponse.json({ message: "Código inválido" }, { status: 403 });
   }
 

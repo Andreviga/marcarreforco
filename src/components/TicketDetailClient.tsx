@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface TicketMessageRow {
   id: string;
@@ -36,9 +37,11 @@ const categoryLabels: Record<TicketDetail["category"], string> = {
 };
 
 export default function TicketDetailClient({ ticket, role }: { ticket: TicketDetail; role: "ALUNO" | "PROFESSOR" | "ADMIN" }) {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState(ticket.status);
   const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   function formatDate(value: string | Date) {
@@ -52,43 +55,58 @@ export default function TicketDetailClient({ ticket, role }: { ticket: TicketDet
     if (!message.trim()) return;
 
     setFormError(null);
+    setFormSuccess(null);
     setSubmitting(true);
 
-    const response = await fetch(`/api/tickets/${ticket.id}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message })
-    });
+    try {
+      const response = await fetch(`/api/tickets/${ticket.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setFormError(data?.message ?? "Não foi possível enviar a mensagem.");
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setFormError(data?.message ?? "Não foi possível enviar a mensagem.");
+        return;
+      }
+
+      setMessage("");
+      setFormSuccess("Mensagem enviada com sucesso.");
+      router.refresh();
+    } catch {
+      setFormError("Falha de conexão ao enviar a mensagem. Tente novamente.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    window.location.reload();
   }
 
   async function handleStatusUpdate(nextStatus: TicketDetail["status"]) {
     setFormError(null);
+    setFormSuccess(null);
     setSubmitting(true);
 
-    const response = await fetch(`/api/tickets/${ticket.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: nextStatus })
-    });
+    try {
+      const response = await fetch(`/api/tickets/${ticket.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus })
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setFormError(data?.message ?? "Não foi possível atualizar o status.");
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setFormError(data?.message ?? "Não foi possível atualizar o status.");
+        return;
+      }
+
+      setStatus(nextStatus);
+      setFormSuccess("Status atualizado com sucesso.");
+      router.refresh();
+    } catch {
+      setFormError("Falha de conexão ao atualizar o status. Tente novamente.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    setStatus(nextStatus);
-    setSubmitting(false);
   }
 
   return (
@@ -125,6 +143,7 @@ export default function TicketDetailClient({ ticket, role }: { ticket: TicketDet
           Aluno: {ticket.student.name} • Professor: {ticket.teacher.name} • Criado por: {ticket.createdBy.name}
         </p>
         {formError && <p className="mt-2 text-sm text-rose-600">{formError}</p>}
+        {formSuccess && <p className="mt-2 text-sm text-emerald-600">{formSuccess}</p>}
       </div>
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
@@ -159,7 +178,7 @@ export default function TicketDetailClient({ ticket, role }: { ticket: TicketDet
             className="rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-60"
             disabled={submitting}
           >
-            Enviar mensagem
+            {submitting ? "Enviando..." : "Enviar mensagem"}
           </button>
         </form>
       </div>

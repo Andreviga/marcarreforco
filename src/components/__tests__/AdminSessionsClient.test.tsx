@@ -2,6 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AdminSessionsClient from "@/components/AdminSessionsClient";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn(), push: jest.fn() })
+}));
+
 const subjects = [
   { id: "sub1", name: "Matemática", defaultPriceCents: 4000 },
   { id: "sub2", name: "História", defaultPriceCents: 2500 }
@@ -63,7 +67,7 @@ describe("AdminSessionsClient", () => {
   it("updates selected subject", async () => {
     render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} students={students} />);
 
-    const subjectSelect = screen.getByLabelText(/Disciplina/i) as HTMLSelectElement;
+    const subjectSelect = screen.getAllByLabelText(/Disciplina/i)[0] as HTMLSelectElement;
 
     await userEvent.selectOptions(subjectSelect, "sub2");
 
@@ -71,12 +75,12 @@ describe("AdminSessionsClient", () => {
   });
 
   it("creates repeated sessions and cancels a session", async () => {
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true });
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock as unknown as typeof fetch;
 
     render(<AdminSessionsClient sessions={sessions} subjects={subjects} teachers={teachers} students={students} />);
 
-    const dateInput = screen.getByLabelText(/^Data/i) as HTMLInputElement;
+    const dateInput = screen.getAllByLabelText(/^Data/i)[0] as HTMLInputElement;
     fireEvent.change(dateInput, { target: { value: "2024-01-10" } });
 
     const repeatInput = screen.getByLabelText(/Repetir por \(semanas\)/i) as HTMLInputElement;

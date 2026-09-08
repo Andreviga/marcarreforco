@@ -11,7 +11,8 @@ export default async function AdminUsuariosPage() {
     orderBy: { createdAt: "desc" }
   });
 
-  const usersForClient = users.map((user) => ({
+  // Nunca serializar o passwordHash para o browser.
+  const usersForClient = users.map(({ passwordHash: _passwordHash, ...user }) => ({
     ...user,
     createdAt: user.createdAt.toISOString(),
     teacherProfile: user.teacherProfile

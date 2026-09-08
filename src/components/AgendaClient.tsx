@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+
+const PAST_PAGE_SIZE = 20;
 
 const MIN_ENROLL_ADVANCE_MS = 48 * 60 * 60 * 1000;
 
@@ -30,8 +33,11 @@ export default function AgendaClient({
   sessions: SessionItem[];
   enrollments: EnrollmentItem[];
 }) {
+  const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [pastVisibleCount, setPastVisibleCount] = useState(PAST_PAGE_SIZE);
   const [filterSubject, setFilterSubject] = useState("");
   const [filterTeacher, setFilterTeacher] = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -41,6 +47,7 @@ export default function AgendaClient({
   async function handleEnroll(sessionId: string) {
     setLoadingId(sessionId);
     setErrorMessage(null);
+    setSuccessMessage(null);
     try {
       const response = await fetch("/api/enroll", {
         method: "POST",
@@ -50,12 +57,13 @@ export default function AgendaClient({
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         setErrorMessage(data?.message ?? "Não foi possível agendar a sessão.");
-        setLoadingId(null);
         return;
       }
-      window.location.reload();
+      setSuccessMessage("Sessão agendada com sucesso.");
+      router.refresh();
     } catch (error) {
       setErrorMessage("Falha de conexão ao agendar. Tente novamente.");
+    } finally {
       setLoadingId(null);
     }
   }
@@ -130,6 +138,9 @@ export default function AgendaClient({
         {errorMessage && (
           <p className="mt-3 text-sm text-red-600">{errorMessage}</p>
         )}
+        {successMessage && (
+          <p className="mt-3 text-sm text-emerald-600">{successMessage}</p>
+        )}
       </div>
       <div className="space-y-6">
         {ordered.length === 0 && (
@@ -192,7 +203,7 @@ export default function AgendaClient({
               Sessões passadas ({past.length})
             </summary>
             <div className="mt-3 grid gap-4">
-              {past.map((session) => {
+              {past.slice(0, pastVisibleCount).map((session) => {
                 const enrollment = enrolledMap.get(session.id);
                 return (
                   <div key={session.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4 shadow-sm">
@@ -220,6 +231,15 @@ export default function AgendaClient({
                   </div>
                 );
               })}
+              {past.length > pastVisibleCount && (
+                <button
+                  type="button"
+                  onClick={() => setPastVisibleCount((prev) => prev + PAST_PAGE_SIZE)}
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  Mostrar mais ({past.length - pastVisibleCount} restantes)
+                </button>
+              )}
             </div>
           </details>
         )}

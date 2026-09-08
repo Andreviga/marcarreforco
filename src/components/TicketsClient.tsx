@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface TicketRow {
   id: string;
@@ -43,6 +44,7 @@ const categoryLabels: Record<TicketRow["category"], string> = {
 };
 
 export default function TicketsClient({ role, tickets, teachers = [], students = [], basePath }: TicketsClientProps) {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [teacherId, setTeacherId] = useState(teachers[0]?.id ?? "");
@@ -51,35 +53,45 @@ export default function TicketsClient({ role, tickets, teachers = [], students =
     role === "PROFESSOR" ? "MELHORIA" : "DUVIDA"
   );
   const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+    setFormSuccess(null);
     setSubmitting(true);
 
     const payload = {
       title,
       description,
       category,
-      teacherId: role === "ALUNO" || role === "ADMIN" ? teacherId : "",
-      studentId: role === "PROFESSOR" || role === "ADMIN" ? studentId : ""
+      teacherId: role === "ALUNO" || role === "ADMIN" ? teacherId : undefined,
+      studentId: role === "PROFESSOR" || role === "ADMIN" ? studentId : undefined
     };
 
-    const response = await fetch("/api/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
+    try {
+      const response = await fetch("/api/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      setFormError(data?.message ?? "Não foi possível criar o ticket.");
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setFormError(data?.message ?? "Não foi possível criar o ticket.");
+        return;
+      }
+
+      setTitle("");
+      setDescription("");
+      setFormSuccess("Ticket criado com sucesso.");
+      router.refresh();
+    } catch {
+      setFormError("Falha de conexão ao criar o ticket. Tente novamente.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    window.location.reload();
   }
 
   function formatDate(value: string | Date) {
@@ -162,11 +174,12 @@ export default function TicketsClient({ role, tickets, teachers = [], students =
           </label>
         </div>
         {formError && <p className="mt-2 text-sm text-rose-600">{formError}</p>}
+        {formSuccess && <p className="mt-2 text-sm text-emerald-600">{formSuccess}</p>}
         <button
           className="mt-3 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white hover:bg-slate-800 disabled:opacity-60"
           disabled={submitting}
         >
-          Criar ticket
+          {submitting ? "Criando..." : "Criar ticket"}
         </button>
       </form>
 

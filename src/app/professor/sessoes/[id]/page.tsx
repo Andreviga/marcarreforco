@@ -10,7 +10,12 @@ export default async function ProfessorSessaoDetailPage({ params }: { params: { 
     where: { id: params.id },
     include: {
       subject: true,
-      enrollments: { include: { student: true, attendance: true } }
+      enrollments: {
+        include: {
+          student: { select: { id: true, name: true, email: true } },
+          attendance: true
+        }
+      }
     }
   });
 

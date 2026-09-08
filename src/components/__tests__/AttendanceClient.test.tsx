@@ -2,13 +2,16 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AttendanceClient from "@/components/AttendanceClient";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn(), push: jest.fn() })
+}));
+
 const fetchMock = jest.fn();
 const consoleErrorMock = jest.spyOn(console, "error");
 
 describe("AttendanceClient", () => {
   beforeEach(() => {
     fetchMock.mockResolvedValue({ ok: true });
-    // @ts-expect-error - override fetch for test
     global.fetch = fetchMock;
     consoleErrorMock.mockImplementation(() => undefined);
   });

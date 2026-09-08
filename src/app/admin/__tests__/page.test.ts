@@ -8,7 +8,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 describe("AdminIndexPage", () => {
-  const redirectMock = redirect as jest.Mock;
+  const redirectMock = redirect as unknown as jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
