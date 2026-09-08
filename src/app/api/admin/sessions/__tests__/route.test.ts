@@ -13,11 +13,27 @@ jest.mock("@/lib/prisma", () => ({
   prisma: {
     session: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn()
-    }
+    },
+    enrollment: {
+      findMany: jest.fn(),
+      deleteMany: jest.fn(),
+      update: jest.fn()
+    },
+    $transaction: jest.fn(async (arg: unknown) => {
+      if (typeof arg === "function") {
+        return (arg as (tx: unknown) => Promise<unknown>)({});
+      }
+      return Promise.all(arg as Promise<unknown>[]);
+    })
   }
+}));
+
+jest.mock("@/lib/credits", () => ({
+  releaseCredit: jest.fn()
 }));
 
 jest.mock("@/lib/audit", () => ({
@@ -29,9 +45,15 @@ describe("admin sessions route", () => {
   const logAuditMock = logAudit as jest.Mock;
   const sessionRepo = prisma.session as unknown as {
     findMany: jest.Mock;
+    findUnique: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
     delete: jest.Mock;
+  };
+  const enrollmentRepo = prisma.enrollment as unknown as {
+    findMany: jest.Mock;
+    deleteMany: jest.Mock;
+    update: jest.Mock;
   };
 
   beforeEach(() => {
@@ -40,6 +62,9 @@ describe("admin sessions route", () => {
       session: { user: { id: "admin-1" } },
       response: null
     });
+    enrollmentRepo.findMany.mockResolvedValue([]);
+    enrollmentRepo.deleteMany.mockResolvedValue({ count: 0 });
+    sessionRepo.findUnique.mockResolvedValue({ status: "ATIVA" });
   });
 
   it("returns sessions list", async () => {

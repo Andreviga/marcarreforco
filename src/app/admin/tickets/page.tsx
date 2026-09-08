@@ -18,12 +18,14 @@ export default async function AdminTicketsPage() {
 
   const teachers = await prisma.user.findMany({
     where: { role: "PROFESSOR" },
-    orderBy: { name: "asc" }
+    orderBy: { name: "asc" },
+    select: { id: true, name: true }
   });
 
   const students = await prisma.user.findMany({
     where: { role: "ALUNO" },
-    orderBy: { name: "asc" }
+    orderBy: { name: "asc" },
+    select: { id: true, name: true }
   });
 
   return (

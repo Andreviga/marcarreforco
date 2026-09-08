@@ -36,6 +36,12 @@ export async function POST(request: Request) {
   if (response) return response;
 
   const body = await request.json();
+  // O formulário envia campos não usados como "" — tratar como ausentes
+  // (o schema rejeita string vazia, o que quebrava a criação de tickets).
+  if (body && typeof body === "object") {
+    if (body.studentId === "") delete body.studentId;
+    if (body.teacherId === "") delete body.teacherId;
+  }
   const parsed = ticketCreateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
@@ -44,8 +50,10 @@ export async function POST(request: Request) {
   const role = session.user.role;
   const userId = session.user.id;
 
-  const studentId = parsed.data.studentId ?? (role === "ALUNO" ? userId : undefined);
-  const teacherId = parsed.data.teacherId ?? (role === "PROFESSOR" ? userId : undefined);
+  // Aluno é sempre o aluno do próprio ticket e professor é sempre o professor
+  // do próprio ticket — o body não pode atribuir o ticket a terceiros.
+  const studentId = role === "ALUNO" ? userId : parsed.data.studentId;
+  const teacherId = role === "PROFESSOR" ? userId : parsed.data.teacherId;
 
   if (role === "ALUNO") {
     if (!teacherId) {

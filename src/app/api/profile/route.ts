@@ -166,7 +166,10 @@ export async function PATCH(request: Request) {
       if (serie !== undefined) studentData.serie = serie || null;
       if (turma !== undefined) studentData.turma = turma || null;
       if (unidade !== undefined) studentData.unidade = unidade || null;
-      if (document !== undefined) studentData.document = document || null;
+      // Persistir sempre o CPF/CNPJ normalizado (só dígitos): as checagens de
+      // duplicidade comparam o valor limpo, então gravar com máscara permitiria
+      // o mesmo documento em duas contas.
+      if (document !== undefined) studentData.document = document ? document.replace(/\D/g, "") : null;
 
       if (Object.keys(studentData).length > 0) {
         await prisma.studentProfile.update({
@@ -200,8 +203,10 @@ export async function PATCH(request: Request) {
     }
   }
 
-  return NextResponse.json({ 
+  const { passwordHash: _passwordHash, ...safeUser } = updatedUser;
+
+  return NextResponse.json({
     message: "Perfil atualizado com sucesso",
-    user: updatedUser
+    user: safeUser
   });
 }

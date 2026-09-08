@@ -93,10 +93,11 @@ export default async function ProfessorSessoesPage() {
             {startsAt.toLocaleDateString("pt-BR", {
               weekday: "short",
               day: "2-digit",
-              month: "2-digit"
+              month: "2-digit",
+              timeZone: "America/Sao_Paulo"
             })}{" "}
-            {startsAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} -{" "}
-            {endsAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            {startsAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })} -{" "}
+            {endsAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
           </p>
           <p className={`text-xs ${isPast ? "text-slate-400" : "text-slate-400"}`}>
             Status: {item.status}

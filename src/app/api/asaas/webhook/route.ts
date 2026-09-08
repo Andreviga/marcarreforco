@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { addPaymentCredits, adjustCredits } from "@/lib/credits";
+import { addPaymentCredits, revokePaymentCredits } from "@/lib/credits";
 
 const paymentStatusMap: Record<string, "PENDING" | "CONFIRMED" | "OVERDUE" | "CANCELED" | "REFUNDED"> = {
   PENDING: "PENDING",
@@ -68,11 +68,17 @@ function parseExternalReference(value?: string | null) {
 
 export async function POST(request: Request) {
   const token = process.env.ASAAS_WEBHOOK_TOKEN ?? process.env.ASAAS_WEBHOOK_ACCESS_TOKEN;
+  if (!token) {
+    // Fail-closed: sem token configurado, qualquer POST anônimo poderia
+    // forjar um pagamento confirmado e ganhar créditos.
+    console.error("ASAAS_WEBHOOK_TOKEN não configurado; webhook recusado.");
+    return NextResponse.json({ message: "Webhook não configurado" }, { status: 503 });
+  }
   const provided =
     request.headers.get("asaas-access-token") ??
     request.headers.get("Asaas-Access-Token") ??
     request.headers.get("access_token");
-  if (token && provided !== token) {
+  if (provided !== token) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
@@ -153,10 +159,17 @@ export async function POST(request: Request) {
         })) as Prisma.AsaasPaymentGetPayload<{ include: { package: true } }>;
       }
     } else {
+      // Eventos chegam fora de ordem (retries do Asaas): um PAYMENT_CREATED
+      // atrasado não pode rebaixar um pagamento já confirmado/encerrado.
+      const finalStatus =
+        (payment.status === "CONFIRMED" || payment.status === "REFUNDED" || payment.status === "CANCELED") &&
+        (status === "PENDING" || status === "OVERDUE")
+          ? payment.status
+          : status;
       payment = (await prisma.asaasPayment.update({
         where: { id: payment.id },
         data: {
-          status,
+          status: finalStatus,
           dueDate: paymentData.dueDate ? new Date(paymentData.dueDate) : payment.dueDate,
           paidAt: paymentData.paymentDate ? new Date(paymentData.paymentDate) : payment.paidAt,
           payload: paymentData as unknown as Prisma.InputJsonValue
@@ -193,22 +206,9 @@ export async function POST(request: Request) {
     }
 
     if (payment && (status === "CANCELED" || status === "REFUNDED")) {
-      const credited = await prisma.studentCreditLedger.findFirst({
-        where: { paymentId: payment.id, reason: "PAYMENT_CREDIT" }
-      });
-      const reversed = await prisma.studentCreditLedger.findFirst({
-        where: { paymentId: payment.id, reason: "ADMIN_ADJUST" }
-      });
-
-      if (credited && !reversed && payment.package.subjectId) {
-        await adjustCredits({
-          studentId: payment.userId,
-          subjectId: payment.package.subjectId,
-          delta: -payment.package.sessionCount,
-          reason: "ADMIN_ADJUST",
-          paymentId: payment.id
-        });
-      }
+      // Zera o que restou dos lotes criados por este pagamento — funciona
+      // também para pacotes genéricos (sem disciplina) e é idempotente.
+      await revokePaymentCredits(payment.id);
     }
   }
 
