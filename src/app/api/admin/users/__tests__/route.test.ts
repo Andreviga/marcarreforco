@@ -14,6 +14,8 @@ jest.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
       update: jest.fn()
     },
@@ -45,7 +47,7 @@ jest.mock("bcrypt", () => ({
 describe("admin users route", () => {
   const requireApiRoleMock = requireApiRole as jest.Mock;
   const logAuditMock = logAudit as jest.Mock;
-  const userRepo = prisma.user as unknown as { findMany: jest.Mock; create: jest.Mock; update: jest.Mock };
+  const userRepo = prisma.user as unknown as { findMany: jest.Mock; findUnique: jest.Mock; count: jest.Mock; create: jest.Mock; update: jest.Mock };
   const studentProfileRepo = prisma.studentProfile as unknown as { upsert: jest.Mock };
   const teacherProfileRepo = prisma.teacherProfile as unknown as { upsert: jest.Mock };
   const teacherSubjectRepo = prisma.teacherSubject as unknown as { createMany: jest.Mock; deleteMany: jest.Mock };
@@ -96,6 +98,7 @@ describe("admin users route", () => {
   });
 
   it("updates user as professor with subjects", async () => {
+    userRepo.findUnique.mockResolvedValue({ role: "PROFESSOR" });
     userRepo.update.mockResolvedValue({ id: "u2", name: "Prof" });
 
     const request = new Request("http://localhost/api/admin/users", {

@@ -69,10 +69,12 @@ export async function POST(request: Request) {
       include: { package: true }
     });
 
-    if (pendingPayment && wildcardSubject) {
+    // Sem o wildcard "A DEFINIR" no banco, credita na disciplina da sessão
+    // para não travar um aluno com pagamento confirmado.
+    if (pendingPayment) {
       await addPaymentCredits({
         studentId: session.user.id,
-        subjectId: wildcardSubject.id,
+        subjectId: wildcardSubject?.id ?? sessionRecord.subjectId,
         amount: pendingPayment.package.sessionCount,
         paymentId: pendingPayment.id,
         paidAt: pendingPayment.paidAt

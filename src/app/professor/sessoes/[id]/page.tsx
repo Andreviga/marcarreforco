@@ -11,6 +11,9 @@ export default async function ProfessorSessaoDetailPage({ params }: { params: { 
     include: {
       subject: true,
       enrollments: {
+        // Inscrições desmarcadas não entram na chamada (a rota de presença
+        // as recusa de qualquer forma).
+        where: { status: "AGENDADO" },
         include: {
           student: { select: { id: true, name: true, email: true } },
           attendance: true

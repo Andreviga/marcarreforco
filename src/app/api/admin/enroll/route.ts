@@ -63,10 +63,12 @@ export async function POST(request: Request) {
     // Mesmo comportamento do fluxo do aluno: pacote genérico vai para o
     // wildcard "A DEFINIR" (a reserva abaixo consome dele via fallback),
     // preservando o direito do aluno de alocar o restante onde quiser.
-    if (pendingPayment && wildcardSubject) {
+    // Sem wildcard no banco, credita na disciplina da sessão para não
+    // travar um aluno com pagamento confirmado.
+    if (pendingPayment) {
       await addPaymentCredits({
         studentId: parsed.data.studentId,
-        subjectId: wildcardSubject.id,
+        subjectId: wildcardSubject?.id ?? sessionRecord.subjectId,
         amount: pendingPayment.package.sessionCount,
         paymentId: pendingPayment.id,
         paidAt: pendingPayment.paidAt

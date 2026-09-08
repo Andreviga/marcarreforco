@@ -133,7 +133,7 @@ export default async function AlunoAgendaPage() {
             <ol className="mt-3 space-y-2 text-sm text-slate-600">
               <li>1. Acesse Pagamentos e escolha um pacote.</li>
               <li>2. Pague via PIX e aguarde a confirmacao.</li>
-              <li>3. Se o pacote for sem disciplina, defina a disciplina em Pagamentos.</li>
+              <li>3. Pacote sem disciplina vira crédito &quot;A DEFINIR&quot;: use direto em qualquer disciplina ou defina em Pagamentos.</li>
               <li>4. Volte aqui e agende suas sessões na agenda.</li>
             </ol>
           </div>

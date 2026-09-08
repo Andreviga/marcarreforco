@@ -60,25 +60,31 @@ export default function LoginPage() {
     setError(null);
     setSuccess(null);
 
-    const response = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, accessCode, serie, turma, unidade })
-    });
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, accessCode, serie, turma, unidade })
+      });
 
-    setLoading(false);
-    if (!response.ok) {
-      const message = response.status === 409
-        ? "E-mail já cadastrado."
-        : response.status === 403
-          ? "Código inválido."
-          : "Não foi possível criar o usuário.";
-      setError(message);
-      return;
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const fallback = response.status === 409
+          ? "E-mail já cadastrado."
+          : response.status === 403
+            ? "Código inválido."
+            : "Não foi possível criar o usuário.";
+        setError(data?.message ?? fallback);
+        return;
+      }
+
+      setSuccess("Usuário criado. Faça login para continuar.");
+      setMode("login");
+    } catch {
+      setError("Falha de conexão. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
-
-    setSuccess("Usuário criado. Faça login para continuar.");
-    setMode("login");
   }
 
 

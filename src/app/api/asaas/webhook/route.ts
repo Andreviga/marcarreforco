@@ -160,9 +160,10 @@ export async function POST(request: Request) {
       }
     } else {
       // Eventos chegam fora de ordem (retries do Asaas): um PAYMENT_CREATED
-      // atrasado não pode rebaixar um pagamento já confirmado/encerrado.
+      // atrasado não pode rebaixar um pagamento já confirmado/estornado.
+      // CANCELED pode voltar a PENDING (cobrança restaurada no Asaas).
       const finalStatus =
-        (payment.status === "CONFIRMED" || payment.status === "REFUNDED" || payment.status === "CANCELED") &&
+        (payment.status === "CONFIRMED" || payment.status === "REFUNDED") &&
         (status === "PENDING" || status === "OVERDUE")
           ? payment.status
           : status;
@@ -179,29 +180,25 @@ export async function POST(request: Request) {
     }
 
     if (payment && status === "CONFIRMED") {
-      const alreadyCredited = await prisma.studentCreditLedger.findFirst({
-        where: { paymentId: payment.id, reason: "PAYMENT_CREDIT" }
-      });
+      // A idempotência fica dentro de addPaymentCredits (lock + saldo líquido),
+      // o que também cobre pagamento estornado e depois refeito no Asaas.
+      let creditSubjectId = payment.package.subjectId;
+      if (!creditSubjectId) {
+        const wildcardSubject = await prisma.subject.findFirst({
+          where: { name: { equals: "A DEFINIR", mode: "insensitive" } },
+          select: { id: true }
+        });
+        creditSubjectId = wildcardSubject?.id ?? null;
+      }
 
-      if (!alreadyCredited) {
-        let creditSubjectId = payment.package.subjectId;
-        if (!creditSubjectId) {
-          const wildcardSubject = await prisma.subject.findFirst({
-            where: { name: { equals: "A DEFINIR", mode: "insensitive" } },
-            select: { id: true }
-          });
-          creditSubjectId = wildcardSubject?.id ?? null;
-        }
-
-        if (creditSubjectId) {
-          await addPaymentCredits({
-            studentId: payment.userId,
-            subjectId: creditSubjectId,
-            amount: payment.package.sessionCount,
-            paymentId: payment.id,
-            paidAt: payment.paidAt
-          });
-        }
+      if (creditSubjectId) {
+        await addPaymentCredits({
+          studentId: payment.userId,
+          subjectId: creditSubjectId,
+          amount: payment.package.sessionCount,
+          paymentId: payment.id,
+          paidAt: payment.paidAt
+        });
       }
     }
 

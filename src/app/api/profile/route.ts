@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import bcrypt from "bcrypt";
@@ -61,8 +62,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: "Nome inválido" }, { status: 400 });
   }
 
-  if (email && (typeof email !== "string" || !email.includes("@"))) {
-    return NextResponse.json({ message: "Email inválido" }, { status: 400 });
+  if (email !== undefined && email !== null) {
+    const emailCheck = z.string().email().safeParse(email);
+    if (!emailCheck.success) {
+      return NextResponse.json({ message: "Email inválido" }, { status: 400 });
+    }
   }
 
   // Se vai alterar senha, precisa confirmar a senha atual
@@ -130,8 +134,9 @@ export async function PATCH(request: Request) {
     });
 
     if (existingDocument) {
-      return NextResponse.json({ 
-        message: `Este CPF/CNPJ já está cadastrado para outro usuário (${existingDocument.user.name})` 
+      // Sem citar o nome do titular: seria vazamento de dado pessoal.
+      return NextResponse.json({
+        message: "Este CPF/CNPJ já está cadastrado para outro usuário. Fale com a coordenação."
       }, { status: 400 });
     }
   }
@@ -163,9 +168,10 @@ export async function PATCH(request: Request) {
 
     if (studentProfile) {
       const studentData: any = {};
-      if (serie !== undefined) studentData.serie = serie || null;
-      if (turma !== undefined) studentData.turma = turma || null;
-      if (unidade !== undefined) studentData.unidade = unidade || null;
+      // Colunas obrigatórias no schema: campo limpo vira "" (null quebraria o update).
+      if (serie !== undefined) studentData.serie = serie || "";
+      if (turma !== undefined) studentData.turma = turma || "";
+      if (unidade !== undefined) studentData.unidade = unidade || "";
       // Persistir sempre o CPF/CNPJ normalizado (só dígitos): as checagens de
       // duplicidade comparam o valor limpo, então gravar com máscara permitiria
       // o mesmo documento em duas contas.

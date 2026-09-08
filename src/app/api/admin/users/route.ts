@@ -105,15 +105,43 @@ export async function PATCH(request: Request) {
     ? await bcrypt.hash(parsed.data.password, 10)
     : undefined;
 
-  const updated = await prisma.user.update({
-    where: { id: parsed.data.id },
-    data: {
-      name: parsed.data.name,
-      email: parsed.data.email?.toLowerCase(),
-      role: parsed.data.role,
-      passwordHash
+  // Salvaguarda: rebaixar o último ADMIN trancaria todo mundo fora do painel.
+  if (parsed.data.role && parsed.data.role !== "ADMIN") {
+    const target = await prisma.user.findUnique({
+      where: { id: parsed.data.id },
+      select: { role: true }
+    });
+    if (target?.role === "ADMIN") {
+      const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { message: "Não é possível remover o último administrador do sistema." },
+          { status: 400 }
+        );
+      }
     }
-  });
+  }
+
+  let updated;
+  try {
+    updated = await prisma.user.update({
+      where: { id: parsed.data.id },
+      data: {
+        name: parsed.data.name,
+        email: parsed.data.email?.toLowerCase(),
+        role: parsed.data.role,
+        passwordHash
+      }
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ message: "E-mail já cadastrado" }, { status: 409 });
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return NextResponse.json({ message: "Usuário não encontrado" }, { status: 404 });
+    }
+    throw error;
+  }
 
   if (parsed.data.role === "ALUNO") {
     await prisma.studentProfile.upsert({
@@ -132,9 +160,9 @@ export async function PATCH(request: Request) {
     });
   }
 
-  if (parsed.data.role !== "ALUNO") {
-    await prisma.studentProfile.deleteMany({ where: { userId: updated.id } });
-  }
+  // Trocar o perfil NÃO apaga o StudentProfile: uma troca por engano
+  // destruiria série/turma/CPF validado sem volta. Os dados ficam dormentes
+  // e voltam a valer se o usuário retornar a ALUNO.
 
   if (parsed.data.role === "PROFESSOR") {
     await prisma.teacherProfile.upsert({
@@ -156,10 +184,7 @@ export async function PATCH(request: Request) {
     }
   }
 
-  if (parsed.data.role !== "PROFESSOR") {
-    await prisma.teacherSubject.deleteMany({ where: { teacherId: updated.id } });
-    await prisma.teacherProfile.deleteMany({ where: { userId: updated.id } });
-  }
+  // Idem para o perfil de professor: as disciplinas ficam preservadas.
 
   await logAudit({
     actorUserId: session.user.id,
@@ -197,6 +222,8 @@ export async function DELETE(request: Request) {
           asaasSubscriptions: true,
           creditBalances: true,
           creditLedger: true,
+          creditLots: true,
+          auditLogs: true,
           createdTickets: true,
           studentTickets: true,
           teacherTickets: true,
@@ -218,13 +245,24 @@ export async function DELETE(request: Request) {
     );
   }
 
-  await prisma.$transaction([
-    prisma.teacherSubject.deleteMany({ where: { teacherId: parsed.data.id } }),
-    prisma.teacherProfile.deleteMany({ where: { userId: parsed.data.id } }),
-    prisma.studentProfile.deleteMany({ where: { userId: parsed.data.id } }),
-    prisma.asaasCustomer.deleteMany({ where: { userId: parsed.data.id } }),
-    prisma.user.delete({ where: { id: parsed.data.id } })
-  ]);
+  try {
+    await prisma.$transaction([
+      prisma.teacherSubject.deleteMany({ where: { teacherId: parsed.data.id } }),
+      prisma.teacherProfile.deleteMany({ where: { userId: parsed.data.id } }),
+      prisma.studentProfile.deleteMany({ where: { userId: parsed.data.id } }),
+      prisma.asaasCustomer.deleteMany({ where: { userId: parsed.data.id } }),
+      prisma.passwordResetToken.deleteMany({ where: { userId: parsed.data.id } }),
+      prisma.user.delete({ where: { id: parsed.data.id } })
+    ]);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return NextResponse.json(
+        { message: "Não foi possível excluir: o usuário possui vínculos no sistema." },
+        { status: 409 }
+      );
+    }
+    throw error;
+  }
 
   await logAudit({
     actorUserId: session.user.id,

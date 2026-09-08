@@ -77,7 +77,7 @@ export default function AdminCreditsClient({
         setAdjustError(data?.message ?? "Erro ao ajustar créditos.");
       } else {
         setAdjustSuccess(
-          `Créditos ${adjustDelta > 0 ? "adicionados" : "removidos"} com sucesso.`
+          data?.message ?? `Créditos ${adjustDelta > 0 ? "adicionados" : "removidos"} com sucesso.`
         );
         // Atualiza os dados do servidor preservando scroll, filtros e painéis abertos
         router.refresh();

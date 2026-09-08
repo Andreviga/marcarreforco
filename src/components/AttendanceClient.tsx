@@ -53,7 +53,6 @@ export default function AttendanceClient({
     <div className="space-y-4">
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Lista de chamada</h2>
-        <p className="text-sm text-slate-500">Sessão {sessionId}</p>
         {errorMessage && (
           <p className="mt-2 text-sm text-red-600">{errorMessage}</p>
         )}
@@ -62,6 +61,11 @@ export default function AttendanceClient({
         )}
       </div>
       <div className="grid gap-3">
+        {enrollments.length === 0 && (
+          <div className="rounded-xl bg-white p-4 text-sm text-slate-500 shadow-sm">
+            Nenhum aluno inscrito nesta sessão.
+          </div>
+        )}
         {enrollments.map((enrollment) => (
           <div key={enrollment.id} className="rounded-xl bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

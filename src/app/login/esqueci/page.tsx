@@ -17,19 +17,25 @@ export default function ForgotPasswordPage() {
     setError(null);
     setSuccess(null);
 
-    const response = await fetch("/api/auth/forgot-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email })
-    });
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
 
-    setLoading(false);
-    if (!response.ok) {
-      setError("Não foi possível enviar o e-mail. Tente novamente.");
-      return;
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(data?.message ?? "Não foi possível enviar o e-mail. Tente novamente.");
+        return;
+      }
+
+      setSuccess("Se existir uma conta, enviamos o link de redefinicao.");
+    } catch {
+      setError("Falha de conexão. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
-
-    setSuccess("Se existir uma conta, enviamos o link de redefinicao.");
   }
 
   return (

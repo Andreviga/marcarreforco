@@ -5,6 +5,7 @@ import { requireApiRole } from "@/lib/api-auth";
 import { paymentCheckoutSchema } from "@/lib/validators";
 import { asaasFetch, normalizeDocument, isValidDocument } from "@/lib/asaas";
 import { logAudit } from "@/lib/audit";
+import { addPaymentCredits } from "@/lib/credits";
 
 type AsaasPaymentListResponse = {
   data?: Array<{
@@ -156,6 +157,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Assinatura já ativa." }, { status: 400 });
     }
 
+    // Duplo clique / requisições concorrentes: se acabamos de criar uma
+    // assinatura aguardando pagamento, reaproveita o link em vez de gerar
+    // outra cobrança no Asaas.
+    const veryRecent = await prisma.asaasSubscription.findFirst({
+      where: {
+        userId: session.user.id,
+        packageId: packageRecord.id,
+        status: "INACTIVE",
+        createdAt: { gte: new Date(Date.now() - 2 * 60 * 1000) }
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        payments: {
+          where: { status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
+      }
+    });
+    if (veryRecent) {
+      const recentPayload = veryRecent.payments[0]?.payload as { invoiceUrl?: string; bankSlipUrl?: string } | null;
+      return NextResponse.json({
+        subscriptionId: veryRecent.id,
+        paymentUrl: recentPayload?.invoiceUrl ?? recentPayload?.bankSlipUrl ?? null,
+        reused: true
+      });
+    }
+
     const staleSubscriptions = await prisma.asaasSubscription.findMany({
       where: {
         userId: session.user.id,
@@ -209,19 +238,32 @@ export async function POST(request: Request) {
 
     const payment = paymentList.data?.[0];
     if (payment) {
-      await prisma.asaasPayment.create({
+      const firstPaymentStatus =
+        payment.status === "RECEIVED" || payment.status === "CONFIRMED" ? "CONFIRMED" : "PENDING";
+      const createdFirstPayment = await prisma.asaasPayment.create({
         data: {
           userId: session.user.id,
           packageId: packageRecord.id,
           subscriptionId: createdSubscription.id,
           asaasId: payment.id,
-          status: payment.status === "RECEIVED" || payment.status === "CONFIRMED" ? "CONFIRMED" : "PENDING",
+          status: firstPaymentStatus,
           amountCents: Math.round(payment.value * 100),
           billingType: payment.billingType,
           dueDate: payment.dueDate ? new Date(payment.dueDate) : null,
           payload: payment as unknown as Prisma.InputJsonValue
         }
       });
+
+      // Confirmado já na criação: credita agora (idempotente com o webhook).
+      if (firstPaymentStatus === "CONFIRMED" && packageRecord.subjectId) {
+        await addPaymentCredits({
+          studentId: session.user.id,
+          subjectId: packageRecord.subjectId,
+          amount: packageRecord.sessionCount,
+          paymentId: createdFirstPayment.id,
+          paidAt: new Date()
+        });
+      }
     }
 
     await logAudit({
@@ -255,18 +297,34 @@ export async function POST(request: Request) {
     }
   );
 
+  const paymentStatus =
+    payment.status === "RECEIVED" || payment.status === "CONFIRMED" ? "CONFIRMED" : "PENDING";
+
   const createdPayment = await prisma.asaasPayment.create({
     data: {
       userId: session.user.id,
       packageId: packageRecord.id,
       asaasId: payment.id,
-      status: payment.status === "RECEIVED" || payment.status === "CONFIRMED" ? "CONFIRMED" : "PENDING",
+      status: paymentStatus,
       amountCents: Math.round(payment.value * 100),
       billingType: payment.billingType,
       dueDate: payment.dueDate ? new Date(payment.dueDate) : null,
       payload: payment as unknown as Prisma.InputJsonValue
     }
   });
+
+  // Se o Asaas já confirmou na criação, credita agora (idempotente com o
+  // webhook): sem isso, o aluno pagou e o crédito dependeria só do webhook.
+  // Pacote genérico fica para o fluxo de alocação de disciplina.
+  if (paymentStatus === "CONFIRMED" && packageRecord.subjectId) {
+    await addPaymentCredits({
+      studentId: session.user.id,
+      subjectId: packageRecord.subjectId,
+      amount: packageRecord.sessionCount,
+      paymentId: createdPayment.id,
+      paidAt: new Date()
+    });
+  }
 
   await logAudit({
     actorUserId: session.user.id,

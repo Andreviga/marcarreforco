@@ -4,6 +4,9 @@ import { z } from "zod";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/mail";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
+
+const MAX_TOKEN_ATTEMPTS = 5;
 
 const requestSchema = z.object({
   email: z.string().email()
@@ -22,6 +25,9 @@ const allowlist = (process.env.ADMIN_ALLOWED_EMAILS ?? "contato@raizesedu.com.br
   .filter(Boolean);
 
 export async function PUT(request: Request) {
+  if (!rateLimit(`bootstrap-put:${clientIp(request)}`, 3, 60 * 60 * 1000)) {
+    return NextResponse.json({ message: "Muitas tentativas. Tente mais tarde." }, { status: 429 });
+  }
   const body = await request.json();
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
@@ -60,6 +66,9 @@ export async function PUT(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!rateLimit(`bootstrap-post:${clientIp(request)}`, 10, 15 * 60 * 1000)) {
+    return NextResponse.json({ message: "Muitas tentativas. Tente mais tarde." }, { status: 429 });
+  }
   const body = await request.json();
   const parsed = confirmSchema.safeParse(body);
   if (!parsed.success) {
@@ -89,8 +98,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Token expirado" }, { status: 403 });
   }
 
+  // Token de 6 dígitos: após N erros, invalida — força bruta fica inviável.
+  if (latestToken.attempts >= MAX_TOKEN_ATTEMPTS) {
+    return NextResponse.json({ message: "Token bloqueado. Solicite um novo código." }, { status: 403 });
+  }
+
   const isValid = await bcrypt.compare(parsed.data.token, latestToken.tokenHash);
   if (!isValid) {
+    await prisma.adminBootstrapToken.update({
+      where: { id: latestToken.id },
+      data: { attempts: { increment: 1 } }
+    });
     return NextResponse.json({ message: "Token inválido" }, { status: 403 });
   }
 

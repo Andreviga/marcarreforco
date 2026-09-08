@@ -28,6 +28,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Sessão cancelada" }, { status: 400 });
   }
 
+  // Regra anunciada aos alunos (banner e tela de login): cancelamento com
+  // menos de 48h de antecedência não devolve o crédito.
+  const MIN_REFUND_ADVANCE_MS = 48 * 60 * 60 * 1000;
+  const withinRefundWindow =
+    enrollment.session.startsAt.getTime() - Date.now() >= MIN_REFUND_ADVANCE_MS;
+
+  let refunded = false;
   const updated = await prisma.$transaction(async (tx) => {
     const record = await tx.enrollment.update({
       where: { id: enrollment.id },
@@ -35,10 +42,10 @@ export async function POST(request: Request) {
     });
 
     const shouldRefund =
-      record.creditsReserved > 0 && enrollment.session.startsAt > new Date() && enrollment.session.subjectId;
+      record.creditsReserved > 0 && withinRefundWindow && enrollment.session.subjectId;
 
     if (shouldRefund) {
-      await releaseCredit({
+      refunded = await releaseCredit({
         tx,
         studentId: enrollment.studentId,
         subjectId: enrollment.session.subjectId,
@@ -64,5 +71,13 @@ export async function POST(request: Request) {
     payload: { sessionId: updated.sessionId }
   });
 
-  return NextResponse.json({ enrollment: updated });
+  return NextResponse.json({
+    enrollment: updated,
+    refunded,
+    message: refunded
+      ? "Aula desmarcada e crédito devolvido."
+      : withinRefundWindow
+        ? "Aula desmarcada."
+        : "Aula desmarcada. Sem devolução de crédito (menos de 48h de antecedência)."
+  });
 }

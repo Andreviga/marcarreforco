@@ -20,7 +20,10 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/api/") && MUTATING_METHODS.has(request.method)) {
     const origin = request.headers.get("origin");
     if (origin) {
-      const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+      // x-forwarded-host pode vir multi-valor em cadeia de proxies ("a, b").
+      const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host"))
+        ?.split(",")[0]
+        ?.trim();
       let originHost: string | null = null;
       try {
         originHost = new URL(origin).host;

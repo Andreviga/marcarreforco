@@ -35,6 +35,7 @@ interface SubscriptionItem {
 interface PendingCreditItem {
   id: string;
   createdAt: string;
+  paidAt: string | null;
   package: { name: string; sessionCount: number };
 }
 
@@ -406,7 +407,7 @@ export default function StudentPaymentsClient({
                   <div>
                     <p className="font-semibold text-slate-900">{item.package.name}</p>
                     <p className="text-xs text-slate-500">
-                      {item.package.sessionCount} aula(s) • Pago em {new Date(item.createdAt).toLocaleDateString("pt-BR")}
+                      {item.package.sessionCount} aula(s) • Pago em {new Date(item.paidAt ?? item.createdAt).toLocaleDateString("pt-BR")}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

@@ -104,9 +104,28 @@ export async function GET(request: Request) {
     select: { email: true, name: true }
   });
 
+  // Deduplicação: um retry do scheduler (ou disparo manual) no mesmo dia não
+  // pode reenviar os lembretes. O marcador fica no AuditLog.
+  const dedupSince = new Date(todayBrazilMidnightMs + BRAZIL_OFFSET_MS);
+  const alreadySent = await prisma.auditLog.findMany({
+    where: {
+      action: "CRON_REMINDER_SENT",
+      entityType: "Session",
+      createdAt: { gte: dedupSince }
+    },
+    select: { entityId: true }
+  });
+  const alreadySentIds = new Set(alreadySent.map((log) => log.entityId));
+  const markerActor = admins.length
+    ? await prisma.user.findFirst({ where: { role: "ADMIN" }, select: { id: true } })
+    : null;
+
   const results: { sessionId: string; recipients: string[]; ok: boolean; errors: string[] }[] = [];
 
   for (const sess of sessions) {
+    if (alreadySentIds.has(sess.id)) {
+      continue;
+    }
     const startsAtLabel = sess.startsAt.toLocaleDateString("pt-BR", {
       weekday: "long",
       day: "2-digit",
@@ -237,6 +256,18 @@ export async function GET(request: Request) {
     }
 
     results.push({ sessionId: sess.id, recipients, ok, errors });
+
+    if (markerActor) {
+      await prisma.auditLog.create({
+        data: {
+          actorUserId: markerActor.id,
+          action: "CRON_REMINDER_SENT",
+          entityType: "Session",
+          entityId: sess.id,
+          payloadJson: { ok, recipients: recipients.length }
+        }
+      });
+    }
   }
 
   const sent = results.filter((r) => r.ok).length;

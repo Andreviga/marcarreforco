@@ -52,6 +52,25 @@ export async function PATCH(request: Request) {
     );
   }
 
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true }
+  });
+  if (!target) {
+    return NextResponse.json({ message: "Usuário não encontrado" }, { status: 404 });
+  }
+
+  // Salvaguarda: rebaixar o último ADMIN trancaria todo mundo fora do painel.
+  if (target.role === "ADMIN" && newRole !== "ADMIN") {
+    const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+    if (adminCount <= 1) {
+      return NextResponse.json(
+        { message: "Não é possível remover o último administrador do sistema." },
+        { status: 400 }
+      );
+    }
+  }
+
   const user = await prisma.user.update({
     where: { id: userId },
     data: { role: newRole },

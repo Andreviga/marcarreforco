@@ -56,7 +56,7 @@ describe("unenroll route", () => {
     enrollmentRepo.findUnique.mockResolvedValue({
       id: "e1",
       studentId: "other",
-      session: { status: "ATIVA", startsAt: new Date(Date.now() + 86400000), subjectId: "sub1" }
+      session: { status: "ATIVA", startsAt: new Date(Date.now() + 3 * 86400000), subjectId: "sub1" }
     });
 
     const request = new Request("http://localhost/api/unenroll", {
@@ -77,7 +77,7 @@ describe("unenroll route", () => {
       studentId: "student-1",
       sessionId: "sess1",
       creditsReserved: 1,
-      session: { status: "ATIVA", startsAt: new Date(Date.now() + 86400000), subjectId: "sub1" }
+      session: { status: "ATIVA", startsAt: new Date(Date.now() + 3 * 86400000), subjectId: "sub1" }
     });
     txMock.enrollment.update.mockResolvedValue({ id: "e1", status: "DESMARCADO", sessionId: "sess1", creditsReserved: 1 });
     releaseCreditMock.mockResolvedValue(true);
