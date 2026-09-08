@@ -34,7 +34,7 @@ export default async function OnboardingPage() {
     );
   }
 
-  const subjects = await prisma.subject.findMany({ orderBy: { name: "asc" } });
+  const subjects = await prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" } });
   const teacherProfile = await prisma.teacherProfile.findUnique({
     where: { userId: session.user.id },
     include: { subjects: true }

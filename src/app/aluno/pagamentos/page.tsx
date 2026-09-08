@@ -39,7 +39,7 @@ export default async function AlunoPagamentosPage() {
       include: { package: { include: { subject: true } } },
       orderBy: { createdAt: "desc" }
     }),
-    prisma.subject.findMany({ orderBy: { name: "asc" } }),
+    prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.asaasPayment.findMany({
       where: {
         userId: session.user.id,

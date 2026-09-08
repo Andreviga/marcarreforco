@@ -31,7 +31,7 @@ export default async function AdminSessoesPage() {
     },
     orderBy: { startsAt: "asc" }
   });
-  const subjects = await prisma.subject.findMany({ orderBy: { name: "asc" } });
+  const subjects = await prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" } });
   const teachers = await prisma.user.findMany({
     where: { role: "PROFESSOR" },
     orderBy: { name: "asc" },

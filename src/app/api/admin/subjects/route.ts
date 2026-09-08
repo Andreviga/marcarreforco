@@ -53,7 +53,11 @@ export async function PATCH(request: Request) {
 
   const updated = await prisma.subject.update({
     where: { id: parsed.data.id },
-    data: { name: parsed.data.name, defaultPriceCents: parsed.data.defaultPriceCents ?? 0 }
+    data: {
+      name: parsed.data.name,
+      defaultPriceCents: parsed.data.defaultPriceCents ?? 0,
+      active: parsed.data.active
+    }
   });
 
   await logAudit({

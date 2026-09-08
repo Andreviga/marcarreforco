@@ -31,6 +31,7 @@ export default async function ProfessorProfilePage() {
       }
     }),
     prisma.subject.findMany({
+      where: { active: true },
       orderBy: { name: "asc" },
       select: {
         id: true,

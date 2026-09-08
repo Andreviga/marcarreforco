@@ -8,6 +8,7 @@ interface Subject {
   id: string;
   name: string;
   defaultPriceCents?: number;
+  active?: boolean;
 }
 
 export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] }) {
@@ -24,6 +25,7 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
   const [listError, setListError] = useState<string | null>(null);
   const [listSuccess, setListSuccess] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,6 +94,40 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
       setListError("Falha de conexão. Tente novamente.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleToggleActive(subject: Subject) {
+    if (togglingId) return;
+    setTogglingId(subject.id);
+    setListError(null);
+    setListSuccess(null);
+    try {
+      const response = await fetch("/api/admin/subjects", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: subject.id,
+          name: subject.name,
+          defaultPriceCents: subject.defaultPriceCents ?? 0,
+          active: !(subject.active ?? true)
+        })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setListError(data?.message ?? "Não foi possível alterar a disciplina.");
+        return;
+      }
+      setListSuccess(
+        subject.active ?? true
+          ? `"${subject.name}" desativada: some dos filtros e formulários, sem apagar histórico.`
+          : `"${subject.name}" reativada.`
+      );
+      router.refresh();
+    } catch {
+      setListError("Falha de conexão. Tente novamente.");
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -192,8 +228,29 @@ export default function AdminSubjectsClient({ subjects }: { subjects: Subject[] 
                     {typeof subject.defaultPriceCents === "number" && subject.defaultPriceCents > 0
                       ? ` • Valor: ${formatCurrency(subject.defaultPriceCents)}`
                       : ""}
+                    {!(subject.active ?? true) && (
+                      <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                        INATIVA
+                      </span>
+                    )}
                   </div>
                   <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleActive(subject)}
+                      disabled={togglingId === subject.id}
+                      className={`rounded-lg border px-3 py-1 text-xs disabled:opacity-60 ${
+                        subject.active ?? true
+                          ? "border-amber-200 text-amber-700 hover:bg-amber-50"
+                          : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      }`}
+                    >
+                      {togglingId === subject.id
+                        ? "Alterando..."
+                        : (subject.active ?? true)
+                          ? "Desativar"
+                          : "Ativar"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => startEdit(subject)}

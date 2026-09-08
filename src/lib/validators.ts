@@ -115,7 +115,8 @@ export const userDeleteSchema = z.object({
 
 export const subjectSchema = z.object({
   name: z.string().min(2),
-  defaultPriceCents: z.number().int().min(0).optional()
+  defaultPriceCents: z.number().int().min(0).optional(),
+  active: z.boolean().optional()
 });
 
 export const subjectUpdateSchema = subjectSchema.extend({

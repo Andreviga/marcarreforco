@@ -41,6 +41,9 @@ export default function AdminPackagesClient({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [listSuccess, setListSuccess] = useState<string | null>(null);
+  const [listSearch, setListSearch] = useState("");
+  const [listStatus, setListStatus] = useState<"all" | "active" | "inactive">("active");
+  const [bulkRunning, setBulkRunning] = useState(false);
   const requiresGeneralSubject =
     billingType === "SUBSCRIPTION" &&
     ((billingCycle === "WEEKLY" && sessionCount > 1) || (billingCycle === "MONTHLY" && sessionCount > 4));
@@ -114,6 +117,48 @@ export default function AdminPackagesClient({
       setListError("Falha de conexão. Tente novamente.");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  // Desativa em massa os pacotes atrelados a uma disciplina, mantendo os
+  // genéricos ("sem disciplina") — reversível pacote a pacote pelo "Ativo".
+  async function handleBulkDeactivateSubjectPackages() {
+    const targets = packages.filter((item) => item.subjectId && item.active);
+    if (!targets.length) {
+      setListError("Nenhum pacote ativo com disciplina para desativar.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Desativar ${targets.length} pacote(s) com disciplina? Eles somem da loja do aluno, mas podem ser reativados um a um.`
+    );
+    if (!confirmed || bulkRunning) return;
+    setBulkRunning(true);
+    setListError(null);
+    setListSuccess(null);
+    let ok = 0;
+    let failed = 0;
+    try {
+      for (const item of targets) {
+        try {
+          const response = await fetch("/api/admin/packages", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...item, active: false })
+          });
+          if (response.ok) ok += 1;
+          else failed += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+      if (failed) {
+        setListError(`${ok} desativado(s), ${failed} com erro. Tente novamente para os restantes.`);
+      } else {
+        setListSuccess(`${ok} pacote(s) com disciplina desativado(s).`);
+      }
+      router.refresh();
+    } finally {
+      setBulkRunning(false);
     }
   }
 
@@ -248,11 +293,53 @@ export default function AdminPackagesClient({
       </form>
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Pacotes cadastrados</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-slate-900">Pacotes cadastrados</h2>
+          <button
+            type="button"
+            onClick={handleBulkDeactivateSubjectPackages}
+            disabled={bulkRunning}
+            className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {bulkRunning ? "Desativando..." : "Desativar pacotes por disciplina"}
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <input
+            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm md:max-w-xs"
+            placeholder="Buscar por nome"
+            value={listSearch}
+            onChange={(event) => setListSearch(event.target.value)}
+          />
+          <select
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            value={listStatus}
+            onChange={(event) => setListStatus(event.target.value as "all" | "active" | "inactive")}
+          >
+            <option value="active">Somente ativos</option>
+            <option value="inactive">Somente inativos</option>
+            <option value="all">Todos</option>
+          </select>
+        </div>
         {listError && <p className="mt-2 text-sm text-red-600">{listError}</p>}
         {listSuccess && <p className="mt-2 text-sm text-emerald-600">{listSuccess}</p>}
-        <div className="mt-3 space-y-3">
-          {packages.map((item) => (
+        {(() => {
+          const visible = packages.filter((item) => {
+            const matchesSearch = item.name.toLowerCase().includes(listSearch.toLowerCase());
+            const matchesStatus =
+              listStatus === "all" || (listStatus === "active" ? item.active : !item.active);
+            return matchesSearch && matchesStatus;
+          });
+          return (
+            <>
+              <p className="mt-2 text-xs text-slate-400">
+                Mostrando {visible.length} de {packages.length} pacote(s).
+              </p>
+              {visible.length === 0 && (
+                <p className="mt-3 text-sm text-slate-500">Nenhum pacote com esses filtros.</p>
+              )}
+              <div className="mt-3 space-y-3">
+                {visible.map((item) => (
             <PackageRow
               key={item.id}
               item={item}
@@ -261,8 +348,11 @@ export default function AdminPackagesClient({
               onDelete={handleDelete}
               subjects={subjects}
             />
-          ))}
-        </div>
+                ))}
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );

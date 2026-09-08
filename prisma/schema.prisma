@@ -137,6 +137,9 @@ model Subject {
   id     String          @id @default(cuid())
   name   String          @unique
   defaultPriceCents Int  @default(0)
+  // Disciplinas inativas somem dos filtros e formulários, mas o histórico
+  // (créditos, sessões passadas) permanece intacto.
+  active Boolean         @default(true)
   teachers TeacherSubject[]
   sessions Session[]
   packages SessionPackage[]
