@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import { packageSchema, packageUpdateSchema } from "@/lib/validators";
@@ -83,7 +84,13 @@ export async function PATCH(request: Request) {
       priceCents: parsed.data.priceCents,
       active: parsed.data.active,
       billingType: parsed.data.billingType,
-      billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
+      // Atualização parcial sem billingType não pode zerar o ciclo de uma assinatura.
+      billingCycle:
+        parsed.data.billingType === undefined
+          ? undefined
+          : parsed.data.billingType === "SUBSCRIPTION"
+            ? parsed.data.billingCycle ?? "MONTHLY"
+            : null,
       subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
     }
   });
@@ -109,7 +116,17 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ message: "ID obrigatório" }, { status: 400 });
   }
 
-  await prisma.sessionPackage.delete({ where: { id } });
+  try {
+    await prisma.sessionPackage.delete({ where: { id } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return NextResponse.json(
+        { message: "Não foi possível excluir: o pacote possui pagamentos vinculados. Desative-o em vez de excluir." },
+        { status: 409 }
+      );
+    }
+    throw error;
+  }
 
   await logAudit({
     actorUserId: session.user.id,

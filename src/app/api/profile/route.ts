@@ -134,8 +134,9 @@ export async function PATCH(request: Request) {
     });
 
     if (existingDocument) {
-      return NextResponse.json({ 
-        message: `Este CPF/CNPJ já está cadastrado para outro usuário (${existingDocument.user.name})` 
+      // Sem citar o nome do titular: seria vazamento de dado pessoal.
+      return NextResponse.json({
+        message: "Este CPF/CNPJ já está cadastrado para outro usuário. Fale com a coordenação."
       }, { status: 400 });
     }
   }
@@ -167,9 +168,10 @@ export async function PATCH(request: Request) {
 
     if (studentProfile) {
       const studentData: any = {};
-      if (serie !== undefined) studentData.serie = serie || null;
-      if (turma !== undefined) studentData.turma = turma || null;
-      if (unidade !== undefined) studentData.unidade = unidade || null;
+      // Colunas obrigatórias no schema: campo limpo vira "" (null quebraria o update).
+      if (serie !== undefined) studentData.serie = serie || "";
+      if (turma !== undefined) studentData.turma = turma || "";
+      if (unidade !== undefined) studentData.unidade = unidade || "";
       // Persistir sempre o CPF/CNPJ normalizado (só dígitos): as checagens de
       // duplicidade comparam o valor limpo, então gravar com máscara permitiria
       // o mesmo documento em duas contas.

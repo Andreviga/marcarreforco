@@ -26,9 +26,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
   }
 
-  const created = await prisma.subject.create({
-    data: { name: parsed.data.name, defaultPriceCents: parsed.data.defaultPriceCents ?? 0 }
-  });
+  let created;
+  try {
+    created = await prisma.subject.create({
+      data: { name: parsed.data.name, defaultPriceCents: parsed.data.defaultPriceCents ?? 0 }
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ message: "Já existe uma disciplina com esse nome." }, { status: 409 });
+    }
+    throw error;
+  }
 
   await logAudit({
     actorUserId: session.user.id,
@@ -51,14 +59,22 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
   }
 
-  const updated = await prisma.subject.update({
-    where: { id: parsed.data.id },
-    data: {
-      name: parsed.data.name,
-      defaultPriceCents: parsed.data.defaultPriceCents ?? 0,
-      active: parsed.data.active
+  let updated;
+  try {
+    updated = await prisma.subject.update({
+      where: { id: parsed.data.id },
+      data: {
+        name: parsed.data.name,
+        defaultPriceCents: parsed.data.defaultPriceCents ?? 0,
+        active: parsed.data.active
+      }
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ message: "Já existe uma disciplina com esse nome." }, { status: 409 });
     }
-  });
+    throw error;
+  }
 
   await logAudit({
     actorUserId: session.user.id,

@@ -10,16 +10,25 @@ import { releaseCredit } from "@/lib/credits";
 // usado ao cancelar ou excluir uma sessão, para o crédito não ficar preso.
 async function refundActiveEnrollments(sessionId: string) {
   const enrollments = await prisma.enrollment.findMany({
-    where: { sessionId, status: "AGENDADO" }
+    where: { sessionId, status: "AGENDADO" },
+    include: { attendance: { select: { status: true } } }
   });
 
   for (const enrollmentRecord of enrollments) {
     await prisma.$transaction(async (tx) => {
-      await tx.enrollment.update({
-        where: { id: enrollmentRecord.id },
+      // "Reivindica" a inscrição dentro da transação: se o aluno desmarcou
+      // (e já recebeu o crédito) entre a leitura e este ponto, count = 0 e
+      // nada é devolvido de novo.
+      const claimed = await tx.enrollment.updateMany({
+        where: { id: enrollmentRecord.id, status: "AGENDADO" },
         data: { status: "DESMARCADO", creditsReserved: 0 }
       });
-      if (enrollmentRecord.creditsReserved > 0) {
+      if (claimed.count === 0) {
+        return;
+      }
+      // Aula já assistida (presença marcada) foi consumida — sem devolução.
+      const attended = enrollmentRecord.attendance?.status === "PRESENTE";
+      if (enrollmentRecord.creditsReserved > 0 && !attended) {
         await releaseCredit({
           tx,
           studentId: enrollmentRecord.studentId,
@@ -51,6 +60,10 @@ export async function POST(request: Request) {
   const parsed = sessionCreateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
+  }
+
+  if (new Date(parsed.data.endsAt) <= new Date(parsed.data.startsAt)) {
+    return NextResponse.json({ message: "O horário de término deve ser depois do início." }, { status: 400 });
   }
 
   const created = await prisma.session.create({
@@ -89,8 +102,16 @@ export async function PATCH(request: Request) {
 
   const before = await prisma.session.findUnique({
     where: { id: parsed.data.id },
-    select: { status: true }
+    select: { status: true, startsAt: true, endsAt: true }
   });
+
+  if (before) {
+    const finalStartsAt = parsed.data.startsAt ? new Date(parsed.data.startsAt) : before.startsAt;
+    const finalEndsAt = parsed.data.endsAt ? new Date(parsed.data.endsAt) : before.endsAt;
+    if (finalEndsAt <= finalStartsAt) {
+      return NextResponse.json({ message: "O horário de término deve ser depois do início." }, { status: 400 });
+    }
+  }
 
   const updated = await prisma.session.update({
     where: { id: parsed.data.id },

@@ -132,14 +132,21 @@ export async function addPaymentCredits(params: {
     if (paymentId) {
       // Idempotência: webhook, alocação manual e crédito automático no
       // agendamento podem disparar ao mesmo tempo para o mesmo pagamento.
+      // A comparação é pelo saldo líquido (créditos - revogações), para que
+      // um pagamento estornado e depois refeito no Asaas possa creditar de novo.
       await lockKey(tx, `payment-credit:${paymentId}`);
-      const alreadyCredited = await tx.studentCreditLedger.findFirst({
-        where: { paymentId, reason: "PAYMENT_CREDIT" },
-        select: { creditLotId: true }
+      const history = await tx.studentCreditLedger.findMany({
+        where: {
+          paymentId,
+          OR: [{ reason: "PAYMENT_CREDIT" }, { reason: "ADMIN_ADJUST", delta: { lt: 0 } }]
+        },
+        select: { delta: true, reason: true, creditLotId: true }
       });
-      if (alreadyCredited) {
-        return alreadyCredited.creditLotId
-          ? tx.studentCreditLot.findUnique({ where: { id: alreadyCredited.creditLotId } })
+      const netCredited = history.reduce((sum, entry) => sum + entry.delta, 0);
+      if (netCredited > 0) {
+        const lastCredit = history.find((entry) => entry.reason === "PAYMENT_CREDIT");
+        return lastCredit?.creditLotId
+          ? tx.studentCreditLot.findUnique({ where: { id: lastCredit.creditLotId } })
           : null;
       }
     }
@@ -286,28 +293,36 @@ export async function revokePaymentCredits(paymentId: string) {
   const now = new Date();
   return prisma.$transaction(async (tx) => {
     await lockKey(tx, `payment-credit:${paymentId}`);
-    const lots = await tx.studentCreditLot.findMany({
-      where: { paymentId, remaining: { gt: 0 } }
-    });
+    // Zera os lotes atomicamente (FOR UPDATE captura o valor exato revogado
+    // mesmo com reservas concorrentes decrementando o mesmo lote).
+    const zeroed = await tx.$queryRaw<
+      Array<{ id: string; studentId: string; subjectId: string; revoked: number }>
+    >`
+      UPDATE "StudentCreditLot" AS l
+      SET "remaining" = 0
+      FROM (
+        SELECT "id", "studentId", "subjectId", "remaining" AS old
+        FROM "StudentCreditLot"
+        WHERE "paymentId" = ${paymentId} AND "remaining" > 0
+        FOR UPDATE
+      ) AS s
+      WHERE l."id" = s."id"
+      RETURNING l."id" AS id, s."studentId" AS "studentId", s."subjectId" AS "subjectId", s.old AS revoked
+    `;
 
     let revoked = 0;
-    for (const lot of lots) {
-      const applied = await tx.studentCreditLot.updateMany({
-        where: { id: lot.id, remaining: { gte: lot.remaining } },
-        data: { remaining: { decrement: lot.remaining } }
-      });
-      if (applied.count === 0) continue;
+    for (const lot of zeroed) {
       await tx.studentCreditLedger.create({
         data: {
           studentId: lot.studentId,
           subjectId: lot.subjectId,
-          delta: -lot.remaining,
+          delta: -Number(lot.revoked),
           reason: "ADMIN_ADJUST",
           paymentId,
           creditLotId: lot.id
         }
       });
-      revoked += lot.remaining;
+      revoked += Number(lot.revoked);
       await recalcBalance(tx, lot.studentId, lot.subjectId, now);
     }
     return revoked;
@@ -325,6 +340,17 @@ export async function releaseCredit(params: {
   const { tx, studentId, enrollmentId } = params;
   const now = new Date();
 
+  // Idempotência: se tudo que foi reservado já foi devolvido (cancelamento
+  // concorrente pelo aluno e pelo admin, por exemplo), não devolve de novo.
+  const movements = await tx.studentCreditLedger.findMany({
+    where: { enrollmentId, reason: { in: ["ENROLL_RESERVE", "ENROLL_RELEASE"] } },
+    select: { delta: true }
+  });
+  const outstanding = movements.reduce((sum, entry) => sum - entry.delta, 0);
+  if (outstanding <= 0) {
+    return false;
+  }
+
   const reservation = await tx.studentCreditLedger.findFirst({
     where: {
       enrollmentId,
@@ -341,6 +367,18 @@ export async function releaseCredit(params: {
   });
   if (!lot) {
     return false;
+  }
+
+  // Pagamento estornado/cancelado: os créditos daquele lote foram revogados;
+  // desmarcar a aula não pode ressuscitá-los.
+  if (lot.paymentId) {
+    const revoked = await tx.studentCreditLedger.findFirst({
+      where: { paymentId: lot.paymentId, reason: "ADMIN_ADJUST", delta: { lt: 0 } },
+      select: { id: true }
+    });
+    if (revoked) {
+      return false;
+    }
   }
 
   // O lote expirou entre a reserva e o cancelamento: o aluno reservou dentro

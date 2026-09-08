@@ -193,7 +193,7 @@ describe("asaas webhook route", () => {
     );
   });
 
-  it("does not add credits when already credited", async () => {
+  it("delegates idempotency of repeated credits to addPaymentCredits", async () => {
     const payment = {
       id: "pay_db_3",
       userId: "user_1",
@@ -224,6 +224,8 @@ describe("asaas webhook route", () => {
 
     await POST(request);
 
-    expect(addPaymentCreditsMock).not.toHaveBeenCalled();
+    // A checagem de "já creditado" vive dentro de addPaymentCredits (lock +
+    // saldo líquido), então a rota sempre delega a chamada.
+    expect(addPaymentCreditsMock).toHaveBeenCalled();
   });
 });

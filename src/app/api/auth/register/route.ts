@@ -24,7 +24,13 @@ export async function POST(request: Request) {
   const body = await request.json();
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
+    // Devolve o motivo real (ex.: "Série não atendida pelo plantão") em vez
+    // de um genérico que deixa o aluno sem saber o que corrigir.
+    const firstIssue = parsed.error.issues[0];
+    return NextResponse.json(
+      { message: firstIssue?.message && firstIssue.message !== "Required" ? firstIssue.message : "Dados inválidos" },
+      { status: 400 }
+    );
   }
 
   const accessCode = process.env.REGISTER_ACCESS_CODE ?? "222";

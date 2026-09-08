@@ -14,11 +14,20 @@ export default async function AdminCreditosPage() {
     select: { id: true, name: true, email: true }
   });
 
-  const subjects = await prisma.subject.findMany({
-    where: { active: true },
+  // Disciplinas ativas + inativas que ainda têm saldo em algum lote: o admin
+  // precisa conseguir corrigir (remover) créditos remanescentes de uma
+  // disciplina desativada.
+  const subjectRows = await prisma.subject.findMany({
+    where: {
+      OR: [{ active: true }, { creditLots: { some: { remaining: { gt: 0 } } } }]
+    },
     orderBy: { name: "asc" },
-    select: { id: true, name: true }
+    select: { id: true, name: true, active: true }
   });
+  const subjects = subjectRows.map((subject) => ({
+    id: subject.id,
+    name: subject.active ? subject.name : `${subject.name} (inativa)`
+  }));
 
   const studentIds = students.map((s) => s.id);
 
