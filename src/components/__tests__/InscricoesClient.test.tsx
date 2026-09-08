@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import InscricoesClient from "@/components/InscricoesClient";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn(), push: jest.fn() })
+}));
+
 const enrollments = [
   {
     id: "e1",

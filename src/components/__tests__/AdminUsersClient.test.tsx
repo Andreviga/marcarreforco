@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import AdminUsersClient from "@/components/AdminUsersClient";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn(), push: jest.fn() })
+}));
+
 const users = [
   {
     id: "u1",

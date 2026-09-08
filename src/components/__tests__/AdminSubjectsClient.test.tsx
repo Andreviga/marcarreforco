@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AdminSubjectsClient from "@/components/AdminSubjectsClient";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn(), push: jest.fn() })
+}));
+
 const subjects = [
   { id: "s1", name: "Física", defaultPriceCents: 1200 },
   { id: "s2", name: "Química" }

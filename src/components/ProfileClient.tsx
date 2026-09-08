@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { isValidCPF, isValidCNPJ } from "@/lib/asaas";
 
@@ -32,6 +33,7 @@ export default function ProfileClient({
   initialUser: UserProfile;
   subjects: Subject[];
 }) {
+  const router = useRouter();
   const [user, setUser] = useState(initialUser);
   const [name, setName] = useState(initialUser.name);
   const [email, setEmail] = useState(initialUser.email);
@@ -163,32 +165,38 @@ export default function ProfileClient({
       updateData.subjectIds = selectedSubjects;
     }
 
-    const response = await fetch("/api/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updateData)
-    });
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData)
+      });
 
-    const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
-    if (!response.ok) {
-      setError(data.message || "Erro ao atualizar perfil");
+      if (!response.ok) {
+        setError(data?.message || "Erro ao atualizar perfil");
+        return;
+      }
+
+      setMessage("Perfil atualizado com sucesso!");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+
+      // Se alterou email ou senha, fazer logout
+      if (newPassword || email !== initialUser.email) {
+        setMessage("Perfil atualizado! Você será redirecionado para fazer login novamente...");
+        setTimeout(() => {
+          signOut({ callbackUrl: "/login" });
+        }, 2000);
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setError("Falha de conexão ao atualizar o perfil. Tente novamente.");
+    } finally {
       setLoading(false);
-      return;
-    }
-
-    setMessage("Perfil atualizado com sucesso!");
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setLoading(false);
-
-    // Se alterou email ou senha, fazer logout
-    if (newPassword || email !== initialUser.email) {
-      setMessage("Perfil atualizado! Você será redirecionado para fazer login novamente...");
-      setTimeout(() => {
-        signOut({ callbackUrl: "/login" });
-      }, 2000);
     }
   }
 

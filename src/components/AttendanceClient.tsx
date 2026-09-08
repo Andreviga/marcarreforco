@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface EnrollmentRow {
   id: string;
@@ -18,17 +19,34 @@ export default function AttendanceClient({
   sessionId: string;
   enrollments: EnrollmentRow[];
 }) {
+  const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
 
   async function markAttendance(enrollmentId: string, status: string) {
     setLoadingId(enrollmentId);
-    await fetch("/api/attendance/mark", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enrollmentId, status, note: notes[enrollmentId] })
-    });
-    window.location.reload();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const response = await fetch("/api/attendance/mark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enrollmentId, status, note: notes[enrollmentId] })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setErrorMessage(data?.message ?? "Não foi possível marcar a presença.");
+        return;
+      }
+      setSuccessMessage("Presença registrada com sucesso.");
+      router.refresh();
+    } catch (error) {
+      setErrorMessage("Falha de conexão ao marcar presença. Tente novamente.");
+    } finally {
+      setLoadingId(null);
+    }
   }
 
   return (
@@ -36,6 +54,12 @@ export default function AttendanceClient({
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Lista de chamada</h2>
         <p className="text-sm text-slate-500">Sessão {sessionId}</p>
+        {errorMessage && (
+          <p className="mt-2 text-sm text-red-600">{errorMessage}</p>
+        )}
+        {successMessage && (
+          <p className="mt-2 text-sm text-emerald-600">{successMessage}</p>
+        )}
       </div>
       <div className="grid gap-3">
         {enrollments.map((enrollment) => (

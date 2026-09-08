@@ -13,6 +13,7 @@ import {
   startOfMonth,
   startOfWeek
 } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface CalendarItem {
   id: string;
@@ -143,7 +144,7 @@ export default function MonthlyCalendarClient({
           >
             Hoje
           </button>
-          <span className="font-semibold text-slate-700">{format(monthStart, "MMM yyyy")}</span>
+          <span className="font-semibold text-slate-700">{format(monthStart, "MMM yyyy", { locale: ptBR })}</span>
           {isCurrentMonthView && (
             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
               Mês atual

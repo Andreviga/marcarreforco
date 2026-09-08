@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AttendanceClient from "@/components/AttendanceClient";
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: jest.fn(), push: jest.fn() })
+}));
+
 const fetchMock = jest.fn();
 const consoleErrorMock = jest.spyOn(console, "error");
 
