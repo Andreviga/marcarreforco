@@ -105,6 +105,23 @@ export async function PATCH(request: Request) {
     ? await bcrypt.hash(parsed.data.password, 10)
     : undefined;
 
+  // Salvaguarda: rebaixar o último ADMIN trancaria todo mundo fora do painel.
+  if (parsed.data.role && parsed.data.role !== "ADMIN") {
+    const target = await prisma.user.findUnique({
+      where: { id: parsed.data.id },
+      select: { role: true }
+    });
+    if (target?.role === "ADMIN") {
+      const adminCount = await prisma.user.count({ where: { role: "ADMIN" } });
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { message: "Não é possível remover o último administrador do sistema." },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   const updated = await prisma.user.update({
     where: { id: parsed.data.id },
     data: {

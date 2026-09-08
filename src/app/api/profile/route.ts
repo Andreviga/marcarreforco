@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import bcrypt from "bcrypt";
@@ -61,8 +62,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: "Nome inválido" }, { status: 400 });
   }
 
-  if (email && (typeof email !== "string" || !email.includes("@"))) {
-    return NextResponse.json({ message: "Email inválido" }, { status: 400 });
+  if (email !== undefined && email !== null) {
+    const emailCheck = z.string().email().safeParse(email);
+    if (!emailCheck.success) {
+      return NextResponse.json({ message: "Email inválido" }, { status: 400 });
+    }
   }
 
   // Se vai alterar senha, precisa confirmar a senha atual

@@ -339,8 +339,36 @@ export async function releaseCredit(params: {
   const lot = await tx.studentCreditLot.findUnique({
     where: { id: reservation.creditLotId }
   });
-  if (!lot || lot.expiresAt <= now) {
+  if (!lot) {
     return false;
+  }
+
+  // O lote expirou entre a reserva e o cancelamento: o aluno reservou dentro
+  // da validade, então a devolução não pode evaporar — cria um lote de
+  // reposição com fôlego curto (7 dias) para o crédito ser reutilizado.
+  if (lot.expiresAt <= now) {
+    const replacement = await tx.studentCreditLot.create({
+      data: {
+        studentId: lot.studentId,
+        subjectId: lot.subjectId,
+        paymentId: lot.paymentId,
+        total: 1,
+        remaining: 1,
+        expiresAt: addDays(now, 7)
+      }
+    });
+    await tx.studentCreditLedger.create({
+      data: {
+        studentId,
+        subjectId: lot.subjectId,
+        delta: 1,
+        reason: "ENROLL_RELEASE",
+        enrollmentId,
+        creditLotId: replacement.id
+      }
+    });
+    await recalcBalance(tx, studentId, lot.subjectId, now);
+    return true;
   }
 
   await tx.studentCreditLot.update({

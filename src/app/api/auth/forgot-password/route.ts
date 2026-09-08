@@ -3,6 +3,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/mail";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 const requestSchema = z.object({
   email: z.string().email()
@@ -13,6 +14,9 @@ function hashToken(token: string) {
 }
 
 export async function POST(request: Request) {
+  if (!rateLimit(`forgot:${clientIp(request)}`, 5, 15 * 60 * 1000)) {
+    return NextResponse.json({ message: "Muitas tentativas. Tente mais tarde." }, { status: 429 });
+  }
   const body = await request.json().catch(() => ({}));
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) {
@@ -94,7 +98,9 @@ export async function POST(request: Request) {
       html
     });
   } catch (error) {
-    return NextResponse.json({ message: "Falha ao enviar e-mail" }, { status: 500 });
+    // Resposta idêntica ao caso de sucesso: um 500 aqui confirmaria a um
+    // atacante que a conta existe. O erro fica nos logs.
+    console.error("Falha ao enviar e-mail de redefinição", { userId: user.id, error });
   }
 
   return NextResponse.json({ message: "Se existir uma conta, enviaremos o e-mail." });

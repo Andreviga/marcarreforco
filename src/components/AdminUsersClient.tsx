@@ -230,9 +230,12 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
 
   function generateTempPassword() {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    // Aleatoriedade criptográfica: Math.random é previsível para senhas.
+    const randomValues = new Uint32Array(10);
+    crypto.getRandomValues(randomValues);
     let result = "";
     for (let i = 0; i < 10; i += 1) {
-      result += chars[Math.floor(Math.random() * chars.length)];
+      result += chars[randomValues[i] % chars.length];
     }
     setEditPassword(result);
     setEditPasswordMessage("Senha temporária gerada. Envie para o usuário.");

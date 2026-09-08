@@ -194,6 +194,9 @@ model Session {
   enrollments Enrollment[]
   attendances Attendance[]
   invoiceItems InvoiceItem[]
+
+  @@index([startsAt])
+  @@index([teacherId])
 }
 
 model Enrollment {
@@ -210,6 +213,7 @@ model Enrollment {
   creditLedger StudentCreditLedger[]
 
   @@unique([sessionId, studentId])
+  @@index([studentId])
 }
 
 model Attendance {
@@ -303,6 +307,8 @@ model AsaasPayment {
   subscription AsaasSubscription? @relation(fields: [subscriptionId], references: [id])
   creditLedger StudentCreditLedger[]
   creditLots StudentCreditLot[]
+
+  @@index([userId, status])
 }
 
 model StudentCreditBalance {
@@ -335,6 +341,7 @@ model StudentCreditLot {
 
   @@index([studentId, subjectId])
   @@index([expiresAt])
+  @@index([paymentId])
 }
 
 model StudentCreditLedger {
@@ -355,6 +362,8 @@ model StudentCreditLedger {
   creditLot  StudentCreditLot? @relation(fields: [creditLotId], references: [id])
 
   @@index([studentId, subjectId])
+  @@index([enrollmentId])
+  @@index([paymentId])
 }
 
 model Ticket {
@@ -410,6 +419,8 @@ model AdminBootstrapToken {
   tokenHash   String
   expiresAt   DateTime
   usedAt      DateTime?
+  // Token de 6 dígitos: sem limite de tentativas seria vulnerável a força bruta.
+  attempts    Int      @default(0)
   createdAt   DateTime @default(now())
 
   @@index([email])

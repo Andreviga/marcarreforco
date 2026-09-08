@@ -160,7 +160,7 @@ export default function AdminSessionsClient({
 
   // Unenroll state
   const [unenrollingId, setUnenrollingId] = useState<string | null>(null);
-  const [unenrollError, setUnenrollError] = useState<string | null>(null);
+  const [unenrollError, setUnenrollError] = useState<{ enrollmentId: string; message: string } | null>(null);
 
   function openEditModal(session: SessionItem) {
     const startsAt = toDate(session.startsAt);
@@ -239,13 +239,13 @@ export default function AdminSessionsClient({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setUnenrollError(data?.message ?? "Erro ao cancelar inscrição.");
+        setUnenrollError({ enrollmentId, message: data?.message ?? "Erro ao cancelar inscrição." });
       } else {
         setAgendaMessage("Inscrição cancelada e token devolvido.");
         router.refresh();
       }
     } catch {
-      setUnenrollError("Falha de conexão.");
+      setUnenrollError({ enrollmentId, message: "Falha de conexão." });
     } finally {
       setUnenrollingId(null);
     }
@@ -1263,11 +1263,13 @@ export default function AdminSessionsClient({
                                 {unenrollingId === enrollment.id ? "..." : "Cancelar inscrição"}
                               </button>
                             )}
+                            {unenrollError?.enrollmentId === enrollment.id && (
+                              <span className="text-rose-600">{unenrollError.message}</span>
+                            )}
                           </li>
                         ))}
                       </ul>
                     )}
-                    {unenrollError && <p className="mt-1 text-xs text-rose-600">{unenrollError}</p>}
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">

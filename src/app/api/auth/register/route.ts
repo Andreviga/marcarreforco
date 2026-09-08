@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { serieSchema, turmaSchema, unidadeSchema } from "@/lib/validators";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 const defaultUnidade = "Colégio Raízes";
 
@@ -17,6 +18,9 @@ const registerSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!rateLimit(`register:${clientIp(request)}`, 10, 60 * 60 * 1000)) {
+    return NextResponse.json({ message: "Muitas tentativas. Tente mais tarde." }, { status: 429 });
+  }
   const body = await request.json();
   const parsed = registerSchema.safeParse(body);
   if (!parsed.success) {

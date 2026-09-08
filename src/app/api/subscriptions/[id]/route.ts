@@ -147,9 +147,9 @@ export async function DELETE(
       error: errorMessage
     });
     
-    return NextResponse.json({ 
-      message: "Erro ao cancelar assinatura. Tente novamente.",
-      detail: errorMessage
+    // O detalhe bruto do gateway fica só nos logs — pode conter IDs internos.
+    return NextResponse.json({
+      message: "Erro ao cancelar assinatura. Tente novamente."
     }, { status: 500 });
   }
 }
