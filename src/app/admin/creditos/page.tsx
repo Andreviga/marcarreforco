@@ -15,6 +15,7 @@ export default async function AdminCreditosPage() {
   });
 
   const subjects = await prisma.subject.findMany({
+    where: { active: true },
     orderBy: { name: "asc" },
     select: { id: true, name: true }
   });

@@ -23,7 +23,7 @@ export default async function AdminUsuariosPage() {
       : null
   }));
 
-  const subjects = await prisma.subject.findMany({ orderBy: { name: "asc" } });
+  const subjects = await prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" } });
 
   return (
     <AppShell title="Usuários" subtitle="Gerencie perfis e acessos" role="ADMIN">

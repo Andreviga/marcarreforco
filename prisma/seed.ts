@@ -241,8 +241,8 @@ async function main() {
     }
   ];
 
-  const subjectsForPackages = await prisma.subject.findMany();
-
+  // Apenas os planos genéricos da tabela de preços. As variantes por
+  // disciplina inflavam o catálogo (e o upsert as reativava a cada seed).
   for (const base of packagesBase) {
     for (const monthly of base.monthly) {
       const displayName = monthly.name ?? `${monthly.days} dia/semana`;
@@ -255,17 +255,6 @@ async function main() {
         billingType: "SUBSCRIPTION",
         billingCycle: "MONTHLY"
       });
-
-      for (const subject of subjectsForPackages) {
-        await createPackage({
-          name: `${displayName} - ${base.label} - ${subject.name}`,
-          sessionCount: daysToSessions(monthly.days),
-          priceCents: monthly.priceCents,
-          subjectId: subject.id,
-          billingType: "SUBSCRIPTION",
-          billingCycle: "MONTHLY"
-        });
-      }
     }
 
     await createPackage({
@@ -275,16 +264,6 @@ async function main() {
       subjectId: null,
       billingType: "PACKAGE"
     });
-
-    for (const subject of subjectsForPackages) {
-      await createPackage({
-        name: `Avulso (1h) - ${base.label} - ${subject.name}`,
-        sessionCount: 1,
-        priceCents: base.avulsoPriceCents,
-        subjectId: subject.id,
-        billingType: "PACKAGE"
-      });
-    }
   }
 
   console.log("Seed completed:", {

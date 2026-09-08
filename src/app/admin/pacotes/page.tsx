@@ -8,7 +8,7 @@ export default async function AdminPacotesPage() {
 
   const [packages, subjects] = await Promise.all([
     prisma.sessionPackage.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.subject.findMany({ orderBy: { name: "asc" } })
+    prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" } })
   ]);
 
   return (
