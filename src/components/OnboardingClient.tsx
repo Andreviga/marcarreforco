@@ -11,6 +11,7 @@ interface Subject {
 interface OnboardingClientProps {
   role: "ALUNO" | "PROFESSOR";
   subjects: Subject[];
+  initialStudentName?: string;
   initialSerie?: string;
   initialTurma?: string;
   initialUnidade?: string;
@@ -20,12 +21,14 @@ interface OnboardingClientProps {
 export default function OnboardingClient({
   role,
   subjects,
+  initialStudentName = "",
   initialSerie = "",
   initialTurma = "",
   initialUnidade = "Colégio Raízes",
   initialSubjectIds = []
 }: OnboardingClientProps) {
   const router = useRouter();
+  const [studentName, setStudentName] = useState(initialStudentName);
   const [serie, setSerie] = useState(initialSerie);
   const [turma, setTurma] = useState(initialTurma);
   const [unidade, setUnidade] = useState(initialUnidade);
@@ -44,7 +47,7 @@ export default function OnboardingClient({
 
     const payload =
       role === "ALUNO"
-        ? { serie, turma, unidade }
+        ? { studentName, serie, turma, unidade }
         : { subjectIds };
 
     try {
@@ -77,6 +80,18 @@ export default function OnboardingClient({
 
       {role === "ALUNO" ? (
         <div className="grid gap-3 md:grid-cols-2">
+          <label className="text-sm text-slate-600 md:col-span-2">
+            Nome do aluno
+            <input
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={studentName}
+              onChange={(event) => setStudentName(event.target.value)}
+              required
+            />
+            <span className="mt-1 block text-xs text-slate-400">
+              É o nome que aparecerá para os professores nas aulas.
+            </span>
+          </label>
           <label className="text-sm text-slate-600">
             Série
             <input

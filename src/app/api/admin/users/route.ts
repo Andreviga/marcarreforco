@@ -52,7 +52,8 @@ export async function POST(request: Request) {
           create: {
             serie: parsed.data.serie ?? "",
             turma: parsed.data.turma ?? "",
-            unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade
+            unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade,
+            studentName: parsed.data.studentName?.trim() || parsed.data.name
           }
         } : undefined,
         teacherProfile: parsed.data.role === "PROFESSOR" ? { create: {} } : undefined
@@ -149,13 +150,16 @@ export async function PATCH(request: Request) {
       update: {
         serie: parsed.data.serie ?? "",
         turma: parsed.data.turma ?? "",
-        unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade
+        unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade,
+        // Só altera o nome do aluno quando informado (não apaga o existente).
+        studentName: parsed.data.studentName?.trim() || undefined
       },
       create: {
         userId: updated.id,
         serie: parsed.data.serie ?? "",
         turma: parsed.data.turma ?? "",
-        unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade
+        unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade,
+        studentName: parsed.data.studentName?.trim() || parsed.data.name || null
       }
     });
   }

@@ -21,13 +21,16 @@ export async function PATCH(request: Request) {
       update: {
         serie: parsed.data.serie,
         turma: parsed.data.turma,
-        unidade: parsed.data.unidade
+        unidade: parsed.data.unidade,
+        studentName: parsed.data.studentName?.trim() || undefined
       },
       create: {
         userId: session.user.id,
         serie: parsed.data.serie,
         turma: parsed.data.turma,
-        unidade: parsed.data.unidade
+        unidade: parsed.data.unidade,
+        // Sem nome do aluno informado, replica o nome da conta.
+        studentName: parsed.data.studentName?.trim() || session.user.name || null
       }
     });
 

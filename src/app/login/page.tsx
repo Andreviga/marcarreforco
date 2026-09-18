@@ -23,6 +23,7 @@ const defaultUnidade = "Colégio Raízes";
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
+  const [studentName, setStudentName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accessCode, setAccessCode] = useState("");
@@ -64,7 +65,7 @@ export default function LoginPage() {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, accessCode, serie, turma, unidade })
+        body: JSON.stringify({ name, studentName, email, password, accessCode, serie, turma, unidade })
       });
 
       if (!response.ok) {
@@ -213,13 +214,26 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handleRegister} className="mt-6 space-y-4">
               <div>
-                <label className="text-sm font-medium text-slate-700">Nome</label>
+                <label className="text-sm font-medium text-slate-700">Nome do responsável</label>
                 <input
                   className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
+                  placeholder="Quem administra a conta e os pagamentos"
                   required
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Nome do aluno</label>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={studentName}
+                  onChange={(event) => setStudentName(event.target.value)}
+                  required
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  É o nome que aparecerá para os professores nas aulas.
+                </p>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">E-mail</label>

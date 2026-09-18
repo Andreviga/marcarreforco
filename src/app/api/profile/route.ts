@@ -22,7 +22,8 @@ export async function GET() {
           serie: true,
           turma: true,
           unidade: true,
-          document: true
+          document: true,
+          studentName: true
         }
       },
       teacherProfile: {
@@ -55,7 +56,7 @@ export async function PATCH(request: Request) {
   if (response) return response;
 
   const body = await request.json();
-  const { name, email, currentPassword, newPassword, serie, turma, unidade, document, subjectIds } = body;
+  const { name, email, currentPassword, newPassword, serie, turma, unidade, document, subjectIds, studentName } = body;
 
   // Validações básicas
   if (name && (typeof name !== "string" || name.trim().length === 0)) {
@@ -172,6 +173,9 @@ export async function PATCH(request: Request) {
       if (serie !== undefined) studentData.serie = serie || "";
       if (turma !== undefined) studentData.turma = turma || "";
       if (unidade !== undefined) studentData.unidade = unidade || "";
+      if (studentName !== undefined && typeof studentName === "string" && studentName.trim()) {
+        studentData.studentName = studentName.trim();
+      }
       // Persistir sempre o CPF/CNPJ normalizado (só dígitos): as checagens de
       // duplicidade comparam o valor limpo, então gravar com máscara permitiria
       // o mesmo documento em duas contas.

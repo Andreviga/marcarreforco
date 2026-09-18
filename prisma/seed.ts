@@ -33,7 +33,8 @@ async function main() {
         create: {
           serie: "8º ano",
           turma: "Manhã",
-          unidade: "Colégio Raízes"
+          unidade: "Colégio Raízes",
+          studentName: "Ana Souza"
         }
       }
     }
@@ -111,7 +112,8 @@ async function main() {
                 create: {
                   serie: row.serie ?? "",
                   turma: row.turma ?? "",
-                  unidade: row.unidade ?? "Colégio Raízes"
+                  unidade: row.unidade ?? "Colégio Raízes",
+                  studentName: row.nome
                 }
               }
             : undefined,

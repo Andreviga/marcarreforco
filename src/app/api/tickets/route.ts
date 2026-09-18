@@ -20,7 +20,7 @@ export async function GET() {
   const tickets = await prisma.ticket.findMany({
     where,
     include: {
-      student: { select: { id: true, name: true } },
+      student: { select: { id: true, name: true, studentProfile: { select: { studentName: true } } } },
       teacher: { select: { id: true, name: true } },
       createdBy: { select: { id: true, name: true, role: true } },
       _count: { select: { messages: true } }
@@ -28,7 +28,15 @@ export async function GET() {
     orderBy: { updatedAt: "desc" }
   });
 
-  return NextResponse.json({ tickets });
+  // Nome exibido é o do aluno (a conta pertence ao responsável).
+  return NextResponse.json({
+    tickets: tickets.map((ticket) => ({
+      ...ticket,
+      student: ticket.student
+        ? { id: ticket.student.id, name: ticket.student.studentProfile?.studentName ?? ticket.student.name }
+        : ticket.student
+    }))
+  });
 }
 
 export async function POST(request: Request) {

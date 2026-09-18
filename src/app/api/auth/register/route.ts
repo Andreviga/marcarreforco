@@ -8,7 +8,10 @@ import { rateLimit, clientIp } from "@/lib/rate-limit";
 const defaultUnidade = "Colégio Raízes";
 
 const registerSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(1, "Informe o nome do responsável"),
+  // Nome do aluno é o que aparece para os professores; se o formulário
+  // antigo (sem o campo) ainda estiver em cache, cai no nome da conta.
+  studentName: z.string().min(1, "Informe o nome do aluno").optional(),
   email: z.string().email(),
   password: z.string().min(6),
   accessCode: z.string().min(1),
@@ -56,7 +59,8 @@ export async function POST(request: Request) {
         create: {
           serie: parsed.data.serie ?? "",
           turma: parsed.data.turma ?? "",
-          unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade
+          unidade: parsed.data.unidade?.trim() ? parsed.data.unidade : defaultUnidade,
+          studentName: parsed.data.studentName?.trim() || parsed.data.name
         }
       }
     }
