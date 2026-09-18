@@ -15,7 +15,14 @@ export default async function ProfessorSessaoDetailPage({ params }: { params: { 
         // as recusa de qualquer forma).
         where: { status: "AGENDADO" },
         include: {
-          student: { select: { id: true, name: true, email: true } },
+          student: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              studentProfile: { select: { studentName: true } }
+            }
+          },
           attendance: true
         }
       }
@@ -30,9 +37,19 @@ export default async function ProfessorSessaoDetailPage({ params }: { params: { 
     );
   }
 
+  // O professor vê o nome do ALUNO (a conta é do responsável).
+  const enrollmentsForClient = session.enrollments.map((enrollment) => ({
+    ...enrollment,
+    student: {
+      id: enrollment.student.id,
+      name: enrollment.student.studentProfile?.studentName ?? enrollment.student.name,
+      email: enrollment.student.email
+    }
+  }));
+
   return (
     <AppShell title={`Chamada - ${session.subject.name}`} subtitle={session.location} role="PROFESSOR">
-      <AttendanceClient sessionId={session.id} enrollments={session.enrollments} />
+      <AttendanceClient sessionId={session.id} enrollments={enrollmentsForClient} />
     </AppShell>
   );
 }

@@ -87,7 +87,7 @@ export async function GET(request: Request) {
       teacher: { select: { id: true, name: true, email: true } },
       enrollments: {
         where: { status: "AGENDADO" },
-        include: { student: { select: { name: true, email: true } } },
+        include: { student: { select: { name: true, email: true, studentProfile: { select: { studentName: true } } } } },
         orderBy: { createdAt: "asc" }
       }
     },
@@ -147,7 +147,7 @@ export async function GET(request: Request) {
     const studentRows = sess.enrollments
       .map(
         (enr) =>
-          `<tr><td style="padding:6px 12px;border-bottom:1px solid #f1f5f9">${enr.student.name}</td><td style="padding:6px 12px;border-bottom:1px solid #f1f5f9;color:#64748b">${enr.student.email}</td></tr>`
+          `<tr><td style="padding:6px 12px;border-bottom:1px solid #f1f5f9">${enr.student.studentProfile?.studentName ?? enr.student.name}</td><td style="padding:6px 12px;border-bottom:1px solid #f1f5f9;color:#64748b">${enr.student.email}</td></tr>`
       )
       .join("");
 
@@ -225,7 +225,7 @@ export async function GET(request: Request) {
       <h1 style="margin:0;color:#fff;font-size:18px;font-weight:700">Lembrete — Aula amanhã</h1>
     </div>
     <div style="padding:24px 28px">
-      <p style="color:#334155;font-size:14px;margin:0 0 16px">Olá, ${enr.student.name}!</p>
+      <p style="color:#334155;font-size:14px;margin:0 0 16px">Olá! Lembrete da aula de ${enr.student.studentProfile?.studentName ?? enr.student.name}.</p>
       <p style="color:#334155;font-size:14px;margin:0 0 20px">Você tem uma aula de reforço agendada para <strong>amanhã</strong>:</p>
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:13px">
         <tr><td style="padding:6px 0;color:#64748b;width:120px">Disciplina</td><td style="padding:6px 0;font-weight:600;color:#1e293b">${sess.subject.name}</td></tr>

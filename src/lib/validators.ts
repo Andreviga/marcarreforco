@@ -96,6 +96,8 @@ export const attendanceMarkSchema = z.object({
 
 export const userCreateSchema = z.object({
   name: z.string().min(1),
+  // Nome do aluno exibido aos professores (a conta é do responsável).
+  studentName: z.string().min(1).optional(),
   email: z.string().email(),
   password: z.string().min(6),
   role: z.enum(["ALUNO", "PROFESSOR", "ADMIN"]),
@@ -185,7 +187,8 @@ export const ticketStatusSchema = z.object({
 export const onboardingStudentSchema = z.object({
   serie: requiredSerieSchema,
   turma: z.string().min(1).max(60),
-  unidade: z.string().min(1).max(60)
+  unidade: z.string().min(1).max(60),
+  studentName: z.string().min(1).max(120).optional()
 });
 
 export const onboardingTeacherSchema = z.object({

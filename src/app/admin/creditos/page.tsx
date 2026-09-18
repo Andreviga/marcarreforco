@@ -8,11 +8,19 @@ export default async function AdminCreditosPage() {
 
   const now = new Date();
 
-  const students = await prisma.user.findMany({
+  const studentUserRows = await prisma.user.findMany({
     where: { role: "ALUNO" },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, email: true }
+    select: { id: true, name: true, email: true, studentProfile: { select: { studentName: true } } }
   });
+  // Exibe o nome do aluno; o e-mail (do responsável) permanece para busca.
+  const students = studentUserRows
+    .map((user) => ({
+      id: user.id,
+      name: user.studentProfile?.studentName ?? user.name,
+      email: user.email
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
   // Disciplinas ativas + inativas que ainda têm saldo em algum lote: o admin
   // precisa conseguir corrigir (remover) créditos remanescentes de uma

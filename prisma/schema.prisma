@@ -122,6 +122,9 @@ model StudentProfile {
   turma   String
   unidade String
   document String?
+  // Nome do aluno: a conta (User.name) é do responsável; este é o nome que
+  // professores e telas de turma exibem. Nulo = usa User.name como fallback.
+  studentName String?
 
   user User @relation(fields: [userId], references: [id])
 }

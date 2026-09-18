@@ -22,7 +22,8 @@ export default async function AdminSessoesPage() {
             select: {
               id: true,
               name: true,
-              email: true
+              email: true,
+              studentProfile: { select: { studentName: true } }
             }
           }
         },
@@ -37,11 +38,19 @@ export default async function AdminSessoesPage() {
     orderBy: { name: "asc" },
     select: { id: true, name: true, email: true }
   });
-  const students = await prisma.user.findMany({
+  const studentRows = await prisma.user.findMany({
     where: { role: "ALUNO" },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, email: true }
+    select: { id: true, name: true, email: true, studentProfile: { select: { studentName: true } } }
   });
+  // Nas turmas exibe-se o nome do aluno (a conta é do responsável).
+  const students = studentRows
+    .map((user) => ({
+      id: user.id,
+      name: user.studentProfile?.studentName ?? user.name,
+      email: user.email
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
   const calendarItems = sessions.map((item) => ({
     id: item.id,
