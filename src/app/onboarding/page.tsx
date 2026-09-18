@@ -25,6 +25,7 @@ export default async function OnboardingPage() {
           <OnboardingClient
             role="ALUNO"
             subjects={[]}
+            initialStudentName={profile?.studentName ?? session.user.name ?? ""}
             initialSerie={profile?.serie ?? ""}
             initialTurma={profile?.turma ?? ""}
             initialUnidade={profile?.unidade ?? "Colégio Raízes"}

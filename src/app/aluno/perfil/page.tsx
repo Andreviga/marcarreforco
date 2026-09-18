@@ -15,6 +15,7 @@ export default async function AlunoProfilePage() {
       role: true,
       studentProfile: {
         select: {
+          studentName: true,
           serie: true,
           turma: true,
           unidade: true,

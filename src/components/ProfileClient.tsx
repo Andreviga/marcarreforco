@@ -11,6 +11,7 @@ interface UserProfile {
   email: string;
   role: "ALUNO" | "PROFESSOR" | "ADMIN";
   studentProfile?: {
+    studentName?: string | null;
     serie: string | null;
     turma: string | null;
     unidade: string | null;
@@ -42,6 +43,7 @@ export default function ProfileClient({
   const [confirmPassword, setConfirmPassword] = useState("");
   
   // Dados específicos de aluno
+  const [studentName, setStudentName] = useState(initialUser.studentProfile?.studentName || "");
   const [serie, setSerie] = useState(initialUser.studentProfile?.serie || "");
   const [turma, setTurma] = useState(initialUser.studentProfile?.turma || "");
   const [unidade, setUnidade] = useState(initialUser.studentProfile?.unidade || "");
@@ -155,6 +157,7 @@ export default function ProfileClient({
     }
 
     if (user.role === "ALUNO") {
+      updateData.studentName = studentName;
       updateData.serie = serie || null;
       updateData.turma = turma || null;
       updateData.unidade = unidade || null;
@@ -207,7 +210,7 @@ export default function ProfileClient({
         <h2 className="text-lg font-semibold text-slate-900">Dados Básicos</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="text-sm text-slate-600">
-            Nome completo
+            {user.role === "ALUNO" ? "Nome do responsável" : "Nome completo"}
             <input
               type="text"
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
@@ -247,6 +250,20 @@ export default function ProfileClient({
         <div className="rounded-xl bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Dados do Aluno</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="text-sm text-slate-600 md:col-span-2">
+              Nome do aluno
+              <input
+                type="text"
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                value={studentName}
+                onChange={(e) => setStudentName(e.target.value)}
+                required
+              />
+              <span className="mt-1 block text-xs text-slate-500">
+                É o nome que aparecerá para os professores nas aulas.
+              </span>
+            </label>
+
             <label className="text-sm text-slate-600">
               Série
               <input

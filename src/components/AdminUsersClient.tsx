@@ -10,7 +10,7 @@ interface UserRow {
   email: string;
   role: string;
   createdAt: string;
-  studentProfile?: { serie: string; turma: string; unidade: string } | null;
+  studentProfile?: { studentName?: string | null; serie: string; turma: string; unidade: string } | null;
   teacherProfile?: { subjects: { id: string; name: string }[] } | null;
 }
 
@@ -40,6 +40,7 @@ const defaultUnidade = "Colégio Raízes";
 export default function AdminUsersClient({ users, subjects }: { users: UserRow[]; subjects: Subject[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [studentName, setStudentName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("ALUNO");
@@ -65,6 +66,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editStudentName, setEditStudentName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState("ALUNO");
   const [editSerie, setEditSerie] = useState("");
@@ -100,7 +102,17 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role, serie, turma, unidade, subjectIds })
+        body: JSON.stringify({
+          name,
+          studentName: role === "ALUNO" && studentName.trim() ? studentName : undefined,
+          email,
+          password,
+          role,
+          serie,
+          turma,
+          unidade,
+          subjectIds
+        })
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -119,6 +131,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
       }
       setFormSuccess("Usuário criado com sucesso.");
       setName("");
+      setStudentName("");
       setEmail("");
       setPassword("");
       setSerie("");
@@ -146,6 +159,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     setEditSuccess(null);
     setEditingId(user.id);
     setEditName(user.name);
+    setEditStudentName(user.studentProfile?.studentName ?? "");
     setEditEmail(user.email);
     setEditRole(user.role);
     setEditSerie(user.studentProfile?.serie ?? "");
@@ -189,6 +203,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
         body: JSON.stringify({
           id: editingId,
           name: editName,
+          studentName: editRole === "ALUNO" && editStudentName.trim() ? editStudentName : undefined,
           email: editEmail,
           role: editRole,
           serie: editRole === "ALUNO" ? editSerie : undefined,
@@ -459,7 +474,8 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
     const matchesSearch =
       term === "" ||
       user.name.toLowerCase().includes(term) ||
-      user.email.toLowerCase().includes(term);
+      user.email.toLowerCase().includes(term) ||
+      (user.studentProfile?.studentName ?? "").toLowerCase().includes(term);
     return matchesRole && matchesSearch;
   });
   const listTotalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE));
@@ -474,14 +490,16 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
         <h2 className="text-lg font-semibold text-slate-900">Novo usuário</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <label className="text-sm text-slate-600">
-            Nome
+            {role === "ALUNO" ? "Nome do responsável" : "Nome"}
             <input
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex.: Ana Souza"
             />
-            <span className="mt-1 block text-xs text-slate-400">Nome completo do usuário.</span>
+            <span className="mt-1 block text-xs text-slate-400">
+              {role === "ALUNO" ? "Quem administra a conta e os pagamentos." : "Nome completo do usuário."}
+            </span>
           </label>
           <label className="text-sm text-slate-600">
             E-mail
@@ -516,6 +534,20 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
 
         {role === "ALUNO" && (
           <>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="text-sm text-slate-600">
+                Nome do aluno
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                  placeholder="Ex.: João Souza"
+                />
+                <span className="mt-1 block text-xs text-slate-400">
+                  É o nome que aparecerá para os professores nas aulas.
+                </span>
+              </label>
+            </div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               <label className="text-sm text-slate-600">
                 Série
@@ -676,7 +708,18 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
           {pagedUsers.map((user) => (
             <div key={user.id} className="rounded-lg border border-slate-100 p-3 text-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <p className="font-semibold text-slate-900">{user.name}</p>
+                {user.role === "ALUNO" ? (
+                  <div>
+                    <p className="font-semibold text-slate-900">
+                      {user.studentProfile?.studentName || user.name}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Resp.: {user.name} • {user.email}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="font-semibold text-slate-900">{user.name}</p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -720,15 +763,31 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
                 <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="grid gap-3 md:grid-cols-2">
                     <label className="text-xs text-slate-600">
-                      Nome
+                      {editRole === "ALUNO" ? "Nome do responsável" : "Nome"}
                       <input
                         className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                         placeholder="Ex.: Ana Souza"
                       />
-                      <span className="mt-1 block text-[11px] text-slate-400">Atualize o nome completo.</span>
+                      <span className="mt-1 block text-[11px] text-slate-400">
+                        {editRole === "ALUNO" ? "Quem administra a conta e os pagamentos." : "Atualize o nome completo."}
+                      </span>
                     </label>
+                    {editRole === "ALUNO" && (
+                      <label className="text-xs text-slate-600">
+                        Nome do aluno
+                        <input
+                          className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                          value={editStudentName}
+                          onChange={(e) => setEditStudentName(e.target.value)}
+                          placeholder="Ex.: João Souza"
+                        />
+                        <span className="mt-1 block text-[11px] text-slate-400">
+                          É o nome que aparecerá para os professores nas aulas.
+                        </span>
+                      </label>
+                    )}
                     <label className="text-xs text-slate-600">
                       E-mail
                       <input
