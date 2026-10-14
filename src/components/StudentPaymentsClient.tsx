@@ -71,6 +71,7 @@ export default function StudentPaymentsClient({
 }) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [pendingPaymentUrl, setPendingPaymentUrl] = useState<string | null>(null);
   const [savingDocument, setSavingDocument] = useState(false);
   const [docValue, setDocValue] = useState(document ?? "");
   const [docError, setDocError] = useState<string | null>(null);
@@ -248,24 +249,41 @@ export default function StudentPaymentsClient({
       const data = await response.json();
 
       if (data?.paymentUrl) {
-        // Detectar mobile através do user agent e tamanho da tela
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
-
-        if (isMobile) {
-          // No mobile, redireciona na mesma aba
-          window.location.href = data.paymentUrl;
-        } else {
-          // No desktop, tenta abrir em nova aba
-          const popup = window.open(data.paymentUrl, "_blank");
-
-          // Detecta se o popup foi bloqueado
-          if (!popup || popup.closed || typeof popup.closed === "undefined") {
-            // Fallback: redireciona na mesma aba
-            window.location.href = data.paymentUrl;
-          } else {
-            setMessage("Pagamento criado. Finalize na nova aba.");
-          }
+        // Quando o app roda embutido no site do colégio (iframe), NÃO se pode
+        // navegar na mesma aba: o Asaas proíbe ser exibido dentro de iframe e
+        // o navegador mostra "a conexão foi recusada". Nesse caso o pagamento
+        // sempre abre em nova aba, com botão de fallback se o navegador
+        // bloquear a abertura automática.
+        let isEmbedded = false;
+        try {
+          isEmbedded = window.self !== window.top;
+        } catch {
+          isEmbedded = true;
         }
+        const isMobile =
+          /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+          window.innerWidth < 768;
+
+        if (!isEmbedded && isMobile) {
+          // Fora de iframe, no celular, a mesma aba é a melhor experiência.
+          window.location.href = data.paymentUrl;
+          return;
+        }
+
+        const popup = window.open(data.paymentUrl, "_blank", "noopener");
+        setPendingPaymentUrl(data.paymentUrl);
+        if (!popup) {
+          if (isEmbedded) {
+            setMessage("Seu navegador bloqueou a abertura automática. Toque no botão abaixo para abrir o pagamento.");
+          } else {
+            // Fora de iframe dá para navegar na própria aba com segurança.
+            window.location.href = data.paymentUrl;
+            return;
+          }
+        } else {
+          setMessage("Pagamento criado. Finalize na aba que abrimos — se ela não apareceu, use o botão abaixo.");
+        }
+        router.refresh();
         return;
       }
 
@@ -395,6 +413,16 @@ export default function StudentPaymentsClient({
       )}
 
       {message && <p className="text-sm text-slate-600">{message}</p>}
+      {pendingPaymentUrl && (
+        <a
+          href={pendingPaymentUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-fit items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+        >
+          Abrir pagamento PIX
+        </a>
+      )}
 
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Saldo de aulas</h2>
