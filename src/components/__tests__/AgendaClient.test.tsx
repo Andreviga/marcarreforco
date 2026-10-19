@@ -14,6 +14,8 @@ const sessions = [
     location: "Unidade Centro",
     modality: "PRESENCIAL",
     priceCents: 1500,
+    capacity: 10,
+    enrolledCount: 3,
     status: "ATIVA",
     subject: { name: "Matemática" },
     teacher: { name: "Ana" }
@@ -25,6 +27,8 @@ const sessions = [
     location: "Unidade Norte",
     modality: "ONLINE",
     priceCents: 2000,
+    capacity: 10,
+    enrolledCount: 0,
     status: "ATIVA",
     subject: { name: "História" },
     teacher: { name: "Bruno" }
@@ -50,5 +54,45 @@ describe("AgendaClient", () => {
 
     expect(screen.queryByText("Matemática")).not.toBeInTheDocument();
     expect(screen.getByText("História")).toBeInTheDocument();
+  });
+
+  it("shows remaining spots and the full badge for upcoming sessions", () => {
+    const future = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    const upcoming = [
+      {
+        id: "f1",
+        startsAt: future(10),
+        endsAt: new Date(future(10).getTime() + 60 * 60 * 1000),
+        location: "Unidade Centro",
+        modality: "PRESENCIAL",
+        priceCents: 1500,
+        capacity: 5,
+        enrolledCount: 5,
+        status: "ATIVA",
+        subject: { name: "Física" },
+        teacher: { name: "Carla" }
+      },
+      {
+        id: "f2",
+        startsAt: future(11),
+        endsAt: new Date(future(11).getTime() + 60 * 60 * 1000),
+        location: "Unidade Centro",
+        modality: "PRESENCIAL",
+        priceCents: 1500,
+        capacity: 5,
+        enrolledCount: 3,
+        status: "ATIVA",
+        subject: { name: "Química" },
+        teacher: { name: "Davi" }
+      }
+    ];
+
+    render(<AgendaClient sessions={upcoming} enrollments={[]} />);
+
+    expect(screen.getByText("Sessão lotada")).toBeInTheDocument();
+    expect(screen.getByText("Sem vagas")).toBeInTheDocument();
+    expect(screen.getByText("2 vagas restantes")).toBeInTheDocument();
+    expect(screen.getByText("Últimas 2 vagas")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Agendar" })).toHaveLength(1);
   });
 });

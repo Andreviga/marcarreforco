@@ -28,6 +28,7 @@ interface SessionItem {
   location: string;
   modality: string;
   priceCents: number;
+  capacity: number;
   status: string;
   subject: Subject;
   teacher: Teacher;
@@ -52,7 +53,10 @@ interface ReplicationTemplate {
   location: string;
   modality: string;
   priceCents: number;
+  capacity: number;
 }
+
+const DEFAULT_CAPACITY = 10;
 
 const weekdayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
 
@@ -109,6 +113,8 @@ export default function AdminSessionsClient({
   const [modality, setModality] = useState("PRESENCIAL");
   // Vazio = usa o valor padrão da disciplina selecionada
   const [priceCentsInput, setPriceCentsInput] = useState("");
+  // Limite de alunos por sessão (padrão 10); vazio/inválido = 10
+  const [capacityInput, setCapacityInput] = useState(String(DEFAULT_CAPACITY));
   const [repeatWeeks, setRepeatWeeks] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -155,6 +161,7 @@ export default function AdminSessionsClient({
   const [editModality, setEditModality] = useState("PRESENCIAL");
   const [editStatus, setEditStatus] = useState("ATIVA");
   const [editPriceCents, setEditPriceCents] = useState(0);
+  const [editCapacity, setEditCapacity] = useState(String(DEFAULT_CAPACITY));
   const [editError, setEditError] = useState<string | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
@@ -177,6 +184,7 @@ export default function AdminSessionsClient({
     setEditModality(session.modality);
     setEditStatus(session.status);
     setEditPriceCents(session.priceCents);
+    setEditCapacity(String(session.capacity ?? DEFAULT_CAPACITY));
     setEditError(null);
   }
 
@@ -191,6 +199,11 @@ export default function AdminSessionsClient({
 
   async function handleEditSave() {
     if (!editingSession || !editDate) return;
+    const parsedCapacity = Number(editCapacity);
+    if (editCapacity.trim() === "" || !Number.isInteger(parsedCapacity) || parsedCapacity < 1 || parsedCapacity > 200) {
+      setEditError("Informe um limite de alunos inteiro entre 1 e 200.");
+      return;
+    }
     setIsSavingEdit(true);
     setEditError(null);
     try {
@@ -208,7 +221,8 @@ export default function AdminSessionsClient({
           location: editLocation,
           modality: editModality,
           status: editStatus,
-          priceCents: editPriceCents
+          priceCents: editPriceCents,
+          capacity: parsedCapacity
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -301,7 +315,8 @@ export default function AdminSessionsClient({
         endTime,
         item.location,
         item.modality,
-        item.priceCents
+        item.priceCents,
+        item.capacity
       ].join("|");
 
       if (!templateMap.has(key)) {
@@ -315,7 +330,8 @@ export default function AdminSessionsClient({
           endTime,
           location: item.location,
           modality: item.modality,
-          priceCents: item.priceCents
+          priceCents: item.priceCents,
+          capacity: item.capacity
         });
       }
     });
@@ -435,7 +451,8 @@ export default function AdminSessionsClient({
               endsAt: endsAtIso,
               location: template.location,
               modality: template.modality,
-              priceCents: template.priceCents
+              priceCents: template.priceCents,
+              capacity: template.capacity
             })
           })
         );
@@ -478,6 +495,16 @@ export default function AdminSessionsClient({
     return subject?.defaultPriceCents ?? 0;
   }
 
+  // Limite de alunos das novas sessões: vazio/inválido usa o padrão (10)
+  function resolveCapacity() {
+    const trimmed = capacityInput.trim();
+    const parsed = Number(trimmed);
+    if (trimmed !== "" && Number.isInteger(parsed) && parsed >= 1 && parsed <= 200) {
+      return parsed;
+    }
+    return DEFAULT_CAPACITY;
+  }
+
   async function createSessions(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!date || isCreating) return;
@@ -495,7 +522,8 @@ export default function AdminSessionsClient({
         teacherId,
         location,
         modality,
-        priceCents: resolvePriceCents()
+        priceCents: resolvePriceCents(),
+        capacity: resolveCapacity()
       };
 
       const requests = Array.from({ length: repeatWeeks }).map((_, index) => {
@@ -612,7 +640,8 @@ export default function AdminSessionsClient({
         teacherId,
         location,
         modality,
-        priceCents: resolvePriceCents()
+        priceCents: resolvePriceCents(),
+        capacity: resolveCapacity()
       };
 
       const requests = dates.map((date) => {
@@ -745,7 +774,7 @@ export default function AdminSessionsClient({
                   <option value="ONLINE">Online</option>
                 </select>
               </label>
-              <label className="text-sm text-slate-600 md:col-span-2">
+              <label className="text-sm text-slate-600">
                 Valor (centavos)
                 <input
                   type="number"
@@ -756,6 +785,20 @@ export default function AdminSessionsClient({
                 />
                 <span className="mt-0.5 block text-xs text-slate-400">
                   Ex.: 5000 = R$&nbsp;50,00. Use 0 para gratuito.
+                </span>
+              </label>
+              <label className="text-sm text-slate-600">
+                Limite de alunos
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+                  value={editCapacity}
+                  onChange={(e) => setEditCapacity(e.target.value)}
+                />
+                <span className="mt-0.5 block text-xs text-slate-400">
+                  Máximo de alunos inscritos na sessão.
                 </span>
               </label>
             </div>
@@ -885,6 +928,19 @@ export default function AdminSessionsClient({
             </span>
           </label>
           <label className="text-sm text-slate-600">
+            Limite de alunos
+            <input
+              type="number"
+              min={1}
+              max={200}
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
+              value={capacityInput}
+              onChange={(event) => setCapacityInput(event.target.value)}
+              placeholder={`Padrão: ${DEFAULT_CAPACITY}`}
+            />
+            <span className="mt-1 block text-xs text-slate-400">Máximo de alunos inscritos na sessão.</span>
+          </label>
+          <label className="text-sm text-slate-600">
             Repetir por (semanas)
             <input
               type="number"
@@ -974,7 +1030,7 @@ export default function AdminSessionsClient({
         </div>
         <p className="mt-2 text-xs text-slate-500">
           Serão criadas sessões em todas as datas do mês que caem no dia selecionado. Usa a disciplina, o professor,
-          o local e o preço do formulário acima.
+          o local, o preço e o limite de alunos do formulário acima.
         </p>
         <button
           disabled={isCreatingMonthly}
@@ -1187,6 +1243,7 @@ export default function AdminSessionsClient({
           }) {
             const isPast = new Date(session.startsAt) < now;
             const hasStudents = session.enrollments.length > 0;
+            const isFull = session.enrollments.length >= session.capacity;
             const sortedEnrollments = [...session.enrollments].sort((a, b) =>
               a.student.name.localeCompare(b.student.name, "pt-BR", { sensitivity: "base" })
             );
@@ -1211,9 +1268,14 @@ export default function AdminSessionsClient({
                         Próxima
                       </span>
                     )}
-                    {hasStudents && !isPast && (
+                    {!isPast && (
                       <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
-                        {session.enrollments.length} aluno{session.enrollments.length > 1 ? "s" : ""}
+                        {session.enrollments.length}/{session.capacity} alunos
+                      </span>
+                    )}
+                    {isFull && !isPast && (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                        Lotada
                       </span>
                     )}
                     {isPast && (
@@ -1300,6 +1362,7 @@ export default function AdminSessionsClient({
                   </button>
                   {session.status === "ATIVA" && (
                     <button
+                      title={isFull ? "Sessão lotada — aumente o limite em Editar" : undefined}
                       onClick={() => {
                         setEnrollingSessionId(enrollingSessionId === session.id ? null : session.id);
                         setEnrollStudentId(students[0]?.id ?? "");

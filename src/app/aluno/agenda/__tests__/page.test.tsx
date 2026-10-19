@@ -55,9 +55,11 @@ describe("AlunoAgendaPage", () => {
         location: "Sala 1",
         modality: "PRESENCIAL",
         priceCents: 2000,
+        capacity: 10,
         status: "ATIVA",
         subject: { name: "Matemática" },
-        teacher: { name: "Ana" }
+        teacher: { name: "Ana" },
+        _count: { enrollments: 2 }
       }
     ]);
     enrollmentRepo.findMany.mockResolvedValue([{ id: "enr1" }]);

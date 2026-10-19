@@ -44,6 +44,7 @@ describe("AdminSessoesPage", () => {
         startsAt: new Date("2024-01-10T10:00:00.000Z"),
         endsAt: new Date("2024-01-10T11:00:00.000Z"),
         priceCents: 2000,
+        capacity: 10,
         status: "ATIVA",
         subject: { name: "Matemática" },
         teacher: { name: "Ana" },

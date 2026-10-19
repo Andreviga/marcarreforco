@@ -16,6 +16,8 @@ interface SessionItem {
   modality: string;
   priceCents: number;
   status: string;
+  capacity: number;
+  enrolledCount: number;
   subject: { name: string };
   teacher: { name: string };
 }
@@ -154,6 +156,8 @@ export default function AgendaClient({
                 const enrollment = enrolledMap.get(session.id);
                 const startsAt = new Date(session.startsAt);
                 const requiresAdvance = startsAt.getTime() - Date.now() < MIN_ENROLL_ADVANCE_MS;
+                const spotsLeft = session.capacity - session.enrolledCount;
+                const isEnrolled = enrollment?.status === "AGENDADO";
                 return (
                   <div key={session.id} className="rounded-xl bg-white p-4 shadow-sm">
                     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -170,11 +174,23 @@ export default function AgendaClient({
                           {new Date(session.endsAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}
                         </p>
                         <p className="text-sm text-slate-500">{session.modality === "ONLINE" ? "Online" : session.location}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {spotsLeft > 0
+                            ? `${spotsLeft} ${spotsLeft === 1 ? "vaga restante" : "vagas restantes"}`
+                            : "Sem vagas"}
+                        </p>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-slate-700">1 crédito</span>
-                        {enrollment?.status === "AGENDADO" ? (
+                        {spotsLeft > 0 && spotsLeft <= 3 && (
+                          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-700">
+                            {spotsLeft === 1 ? "Última vaga" : `Últimas ${spotsLeft} vagas`}
+                          </span>
+                        )}
+                        {isEnrolled ? (
                           <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700">Agendado</span>
+                        ) : spotsLeft <= 0 ? (
+                          <span className="rounded-full bg-red-100 px-3 py-1 text-xs text-red-700">Sessão lotada</span>
                         ) : requiresAdvance ? (
                           <span className="rounded-full bg-amber-100 px-3 py-1 text-xs text-amber-700">
                             Disponível com 48h de antecedência
