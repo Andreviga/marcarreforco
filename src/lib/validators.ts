@@ -68,6 +68,7 @@ export const sessionCreateSchema = z.object({
   location: z.string().min(1),
   modality: z.enum(["PRESENCIAL", "ONLINE"]),
   priceCents: z.number().int().min(0).optional(),
+  capacity: z.number().int().min(1, "O limite deve ser de pelo menos 1 aluno").max(200).optional(),
   status: z.enum(["ATIVA", "CANCELADA"]).optional()
 });
 

@@ -5,6 +5,7 @@ import { enrollSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
 import { addPaymentCredits, getBalance, reserveCredit } from "@/lib/credits";
 import { sendEmail } from "@/lib/mail";
+import { assertSessionHasRoom, SESSION_FULL } from "@/lib/capacity";
 
 const MIN_ENROLL_ADVANCE_HOURS = 48;
 const MIN_ENROLL_ADVANCE_MS = MIN_ENROLL_ADVANCE_HOURS * 60 * 60 * 1000;
@@ -52,6 +53,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Disciplina inválida" }, { status: 400 });
   }
 
+  // Checagem rápida antes de qualquer efeito colateral (ex.: crédito
+  // automático); a checagem definitiva, com lock, ocorre na transação.
+  const takenSpots = await prisma.enrollment.count({
+    where: { sessionId: parsed.data.sessionId, status: "AGENDADO" }
+  });
+  if (takenSpots >= sessionRecord.capacity) {
+    return NextResponse.json(
+      { message: "Esta sessão está lotada. Escolha outro horário." },
+      { status: 409 }
+    );
+  }
+
   const wildcardSubject = await prisma.subject.findFirst({
     where: { name: { equals: "A DEFINIR", mode: "insensitive" } },
     select: { id: true }
@@ -86,6 +99,8 @@ export async function POST(request: Request) {
 
   try {
     enrollment = await prisma.$transaction(async (tx) => {
+      await assertSessionHasRoom(tx, parsed.data.sessionId, session.user.id);
+
       const updated = await tx.enrollment.upsert({
         where: {
           sessionId_studentId: {
@@ -130,6 +145,12 @@ export async function POST(request: Request) {
       return updated;
     });
   } catch (error) {
+    if (error instanceof Error && error.message === SESSION_FULL) {
+      return NextResponse.json(
+        { message: "Esta sessão está lotada. Escolha outro horário." },
+        { status: 409 }
+      );
+    }
     if (error instanceof Error && error.message === "SEM_CREDITO") {
       return NextResponse.json({ message: "Saldo insuficiente para agendar." }, { status: 400 });
     }

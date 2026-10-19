@@ -189,6 +189,8 @@ model Session {
   location   String
   modality   Modality
   priceCents Int
+  // Limite de alunos inscritos (AGENDADO) na sessão; editável pelo admin.
+  capacity   Int           @default(10)
   status     SessionStatus @default(ATIVA)
   createdAt  DateTime      @default(now())
 

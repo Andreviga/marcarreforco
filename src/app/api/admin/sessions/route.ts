@@ -75,6 +75,7 @@ export async function POST(request: Request) {
       location: parsed.data.location,
       modality: parsed.data.modality,
       priceCents: parsed.data.priceCents ?? 0,
+      capacity: parsed.data.capacity ?? 10,
       status: parsed.data.status ?? "ATIVA"
     }
   });
@@ -113,6 +114,22 @@ export async function PATCH(request: Request) {
     }
   }
 
+  // O limite não pode ficar abaixo de quem já está inscrito: ninguém é
+  // removido da sessão por uma edição de limite.
+  if (parsed.data.capacity !== undefined) {
+    const enrolledCount = await prisma.enrollment.count({
+      where: { sessionId: parsed.data.id, status: "AGENDADO" }
+    });
+    if (parsed.data.capacity < enrolledCount) {
+      return NextResponse.json(
+        {
+          message: `Já há ${enrolledCount} aluno(s) inscrito(s); o limite não pode ser menor que isso. Cancele inscrições antes, se necessário.`
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   const updated = await prisma.session.update({
     where: { id: parsed.data.id },
     data: {
@@ -123,6 +140,7 @@ export async function PATCH(request: Request) {
       location: parsed.data.location,
       modality: parsed.data.modality,
       priceCents: parsed.data.priceCents,
+      capacity: parsed.data.capacity,
       status: parsed.data.status
     }
   });
