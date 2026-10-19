@@ -11,7 +11,7 @@ export default async function AdminSessoesPage() {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  const sessions = await prisma.session.findMany({
+  const sessionRows = await prisma.session.findMany({
     include: {
       subject: true,
       teacher: { select: { id: true, name: true, email: true } },
@@ -32,6 +32,19 @@ export default async function AdminSessoesPage() {
     },
     orderBy: { startsAt: "asc" }
   });
+  // Nos inscritos de cada sessão exibe-se o nome do ALUNO (a conta é do
+  // responsável); sem nome do aluno cadastrado, cai no nome da conta.
+  const sessions = sessionRows.map((item) => ({
+    ...item,
+    enrollments: item.enrollments.map((enrollment) => ({
+      ...enrollment,
+      student: {
+        id: enrollment.student.id,
+        name: enrollment.student.studentProfile?.studentName ?? enrollment.student.name,
+        email: enrollment.student.email
+      }
+    }))
+  }));
   const subjects = await prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" } });
   const teachers = await prisma.user.findMany({
     where: { role: "PROFESSOR" },

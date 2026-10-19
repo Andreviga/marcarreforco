@@ -8,6 +8,8 @@ interface User {
   email: string;
   role: string;
   createdAt: string;
+  // Nome da conta quando difere do nome do aluno (responsável).
+  guardianName?: string | null;
 }
 
 export default function CheckRolesClient() {
@@ -85,7 +87,8 @@ export default function CheckRolesClient() {
     const matchesFilter = filter === "ALL" || user.role === filter;
     const matchesSearch = search === "" ||
       user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase());
+      user.email.toLowerCase().includes(search.toLowerCase()) ||
+      (user.guardianName ?? "").toLowerCase().includes(search.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
@@ -173,7 +176,10 @@ export default function CheckRolesClient() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex-1 min-w-[200px]">
                     <p className="font-medium text-slate-900">{user.name}</p>
-                    <p className="text-sm text-slate-500">{user.email}</p>
+                    <p className="text-sm text-slate-500">
+                      {user.guardianName ? `Resp.: ${user.guardianName} • ` : ""}
+                      {user.email}
+                    </p>
                   </div>
 
                   <div className="flex items-center gap-3">

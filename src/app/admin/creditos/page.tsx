@@ -17,8 +17,9 @@ export default async function AdminCreditosPage() {
   const students = studentUserRows
     .map((user) => ({
       id: user.id,
-      name: user.studentProfile?.studentName ?? user.name,
-      email: user.email
+      name: user.studentProfile?.studentName?.trim() || user.name,
+      email: user.email,
+      guardianName: user.studentProfile?.studentName?.trim() && user.studentProfile.studentName.trim() !== user.name ? user.name : null
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
@@ -153,6 +154,7 @@ export default async function AdminCreditosPage() {
       id: student.id,
       name: student.name,
       email: student.email,
+      guardianName: student.guardianName,
       balances,
       total: balances.reduce((sum, b) => sum + b.balance, 0)
     };

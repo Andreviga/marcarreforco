@@ -72,8 +72,8 @@ export async function POST(request: Request) {
               serie: user.serie ?? "",
               turma: user.turma ?? "",
               unidade: user.unidade?.trim() ? user.unidade : defaultUnidade,
-              // Planilha não tem coluna de nome do aluno: replica o nome.
-              studentName: user.name
+              // Coluna "aluno" é opcional na planilha; sem ela, replica o nome.
+              studentName: user.studentName?.trim() || user.name
             }
           } : undefined,
           teacherProfile: user.role === "PROFESSOR" ? { create: {} } : undefined

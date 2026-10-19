@@ -1,21 +1,37 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
+import { studentDisplayName } from "@/lib/student-name";
 
 // GET /api/admin/check-roles - Listar todos os usuários e suas roles
 export async function GET() {
   const { response } = await requireApiRole(["ADMIN"]);
   if (response) return response;
 
-  const users = await prisma.user.findMany({
+  const userRows = await prisma.user.findMany({
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
-      createdAt: true
+      createdAt: true,
+      studentProfile: { select: { studentName: true } }
     },
     orderBy: [{ role: "asc" }, { email: "asc" }]
+  });
+
+  // Para alunos, `name` é o nome do aluno e `guardianName` o da conta
+  // (responsável); demais perfis seguem com o próprio nome.
+  const users = userRows.map((user) => {
+    const displayName = studentDisplayName(user);
+    return {
+      id: user.id,
+      name: displayName,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt,
+      guardianName: displayName !== user.name ? user.name : null
+    };
   });
 
   const summary = {

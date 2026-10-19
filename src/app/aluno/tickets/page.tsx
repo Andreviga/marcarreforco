@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { withStudentDisplayName } from "@/lib/student-name";
 import AppShell from "@/components/AppShell";
 import TicketsClient from "@/components/TicketsClient";
 
@@ -9,9 +10,9 @@ export default async function AlunoTicketsPage() {
   const tickets = await prisma.ticket.findMany({
     where: { studentId: session.user.id },
     include: {
-      student: { select: { id: true, name: true } },
+      student: { select: { id: true, name: true, studentProfile: { select: { studentName: true } } } },
       teacher: { select: { id: true, name: true } },
-      createdBy: { select: { id: true, name: true, role: true } },
+      createdBy: { select: { id: true, name: true, role: true, studentProfile: { select: { studentName: true } } } },
       _count: { select: { messages: true } }
     },
     orderBy: { updatedAt: "desc" }
@@ -25,7 +26,16 @@ export default async function AlunoTicketsPage() {
 
   return (
     <AppShell title="Tickets" subtitle="Envie dúvidas e acompanhe respostas" role="ALUNO">
-      <TicketsClient role="ALUNO" tickets={tickets} teachers={teachers} basePath="/aluno/tickets" />
+      <TicketsClient
+        role="ALUNO"
+        tickets={tickets.map((ticket) => ({
+          ...ticket,
+          student: withStudentDisplayName(ticket.student),
+          createdBy: withStudentDisplayName(ticket.createdBy)
+        }))}
+        teachers={teachers}
+        basePath="/aluno/tickets"
+      />
     </AppShell>
   );
 }
