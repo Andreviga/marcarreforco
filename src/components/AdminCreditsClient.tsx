@@ -26,6 +26,8 @@ interface StudentRow {
   id: string;
   name: string;
   email: string;
+  // Nome da conta (responsável) quando difere do nome do aluno.
+  guardianName?: string | null;
   balances: SubjectEntry[];
   total: number;
 }
@@ -58,7 +60,8 @@ export default function AdminCreditsClient({
   const filtered = students.filter(
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.email.toLowerCase().includes(search.toLowerCase())
+      s.email.toLowerCase().includes(search.toLowerCase()) ||
+      (s.guardianName ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
   async function handleAdjust(studentId: string) {
@@ -125,7 +128,7 @@ export default function AdminCreditsClient({
           </div>
           <input
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm md:w-64"
-            placeholder="Buscar por nome ou e-mail"
+            placeholder="Buscar por aluno, responsável ou e-mail"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -144,7 +147,10 @@ export default function AdminCreditsClient({
             <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="font-semibold text-slate-900">{student.name}</p>
-                <p className="text-xs text-slate-500">{student.email}</p>
+                <p className="text-xs text-slate-500">
+                  {student.guardianName ? `Resp.: ${student.guardianName} • ` : ""}
+                  {student.email}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <span

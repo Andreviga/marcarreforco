@@ -49,19 +49,13 @@ export async function PATCH(request: Request) {
       document: cleanedDocument,
       userId: { not: session.user.id }
     },
-    include: {
-      user: {
-        select: {
-          name: true,
-          email: true
-        }
-      }
-    }
+    select: { userId: true }
   });
 
   if (duplicateDocument) {
-    return NextResponse.json({ 
-      message: `Este CPF/CNPJ já está cadastrado para outro usuário (${duplicateDocument.user.name})` 
+    // Sem citar o nome do titular: seria vazamento de dado pessoal de terceiros.
+    return NextResponse.json({
+      message: "Este CPF/CNPJ já está cadastrado para outro usuário. Fale com a coordenação."
     }, { status: 400 });
   }
 

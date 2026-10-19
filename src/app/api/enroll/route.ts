@@ -145,6 +145,21 @@ export async function POST(request: Request) {
   });
 
   if (session.user.email) {
+    // O e-mail vai para o responsável: informa para qual aluno é a aula.
+    // Busca em melhor esforço — se falhar, o e-mail sai sem a linha do aluno.
+    let studentLabel: string | null = null;
+    try {
+      const profile = await prisma.studentProfile.findUnique({
+        where: { userId: session.user.id },
+        select: { studentName: true }
+      });
+      studentLabel = profile?.studentName?.trim() || null;
+    } catch {
+      studentLabel = null;
+    }
+    const escapeHtml = (value: string) =>
+      value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
     const startsAtLabel = sessionRecord.startsAt.toLocaleDateString("pt-BR", {
       weekday: "long",
       day: "2-digit",
@@ -180,6 +195,7 @@ export async function POST(request: Request) {
                 </tr>
                 <tr>
                   <td style="padding:0 28px 24px 28px;">
+                    ${studentLabel ? `<p style="margin:0 0 8px 0;font-size:14px;color:#0f172a;"><strong>Aluno(a):</strong> ${escapeHtml(studentLabel)}</p>` : ""}
                     <p style="margin:0 0 8px 0;font-size:14px;color:#0f172a;"><strong>Disciplina:</strong> ${sessionRecord.subject.name}</p>
                     <p style="margin:0 0 8px 0;font-size:14px;color:#0f172a;"><strong>Professor(a):</strong> ${sessionRecord.teacher.name}</p>
                     <p style="margin:0 0 8px 0;font-size:14px;color:#0f172a;"><strong>Data:</strong> ${startsAtLabel}</p>

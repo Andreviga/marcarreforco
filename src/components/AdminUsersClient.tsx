@@ -359,8 +359,8 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
   }
 
   function downloadTemplate() {
-    const header = ["nome", "email", "senha", "perfil", "serie", "turma", "unidade", "disciplinas"];
-    const example = ["Ana Souza", "ana@colegio.com", "123456", "ALUNO", "8º ano", "Manhã", defaultUnidade, "Matemática, Português"];
+    const header = ["nome", "email", "senha", "perfil", "serie", "turma", "unidade", "disciplinas", "aluno"];
+    const example = ["Maria Souza", "maria@colegio.com", "123456", "ALUNO", "8º ano", "Manhã", defaultUnidade, "Matemática, Português", "Ana Souza"];
     const worksheet = XLSX.utils.aoa_to_sheet([header, example]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "usuarios");
@@ -405,6 +405,8 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
       const idxTurma = headerIndex("turma");
       const idxUnidade = headerIndex("unidade");
       const idxSubjects = headerIndex("disciplinas");
+      // Coluna opcional: nome do aluno (a coluna "nome" é o responsável).
+      const idxStudentName = headerIndex("aluno");
 
       if (idxName === -1 || idxEmail === -1 || idxPassword === -1 || idxRole === -1) {
         throw new Error("Cabeçalho inválido. Use o modelo fornecido.");
@@ -432,6 +434,10 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
         acc.push({
           _rowNumber: index + 2,
           name: nameValue,
+          studentName:
+            roleParsed === "ALUNO" && idxStudentName !== -1
+              ? String(row[idxStudentName] ?? "").trim() || undefined
+              : undefined,
           email: emailValue,
           password: passwordValue,
           role: roleParsed,
@@ -442,7 +448,7 @@ export default function AdminUsersClient({ users, subjects }: { users: UserRow[]
         });
 
         return acc;
-      }, [] as Array<{ _rowNumber: number; name: string; email: string; password: string; role: string; serie?: string; turma?: string; unidade?: string; subjectIds?: string[] }>);
+      }, [] as Array<{ _rowNumber: number; name: string; studentName?: string; email: string; password: string; role: string; serie?: string; turma?: string; unidade?: string; subjectIds?: string[] }>);
 
       if (!payload.length) {
         throw new Error("Nenhum usuário válido foi encontrado");

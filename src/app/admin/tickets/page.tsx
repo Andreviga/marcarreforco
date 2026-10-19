@@ -1,5 +1,6 @@
 import { requireRole } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
+import { withStudentDisplayName } from "@/lib/student-name";
 import AppShell from "@/components/AppShell";
 import TicketsClient from "@/components/TicketsClient";
 
@@ -10,7 +11,7 @@ export default async function AdminTicketsPage() {
     include: {
       student: { select: { id: true, name: true, studentProfile: { select: { studentName: true } } } },
       teacher: { select: { id: true, name: true } },
-      createdBy: { select: { id: true, name: true, role: true } },
+      createdBy: { select: { id: true, name: true, role: true, studentProfile: { select: { studentName: true } } } },
       _count: { select: { messages: true } }
     },
     orderBy: { updatedAt: "desc" }
@@ -38,9 +39,8 @@ export default async function AdminTicketsPage() {
         role="ADMIN"
         tickets={tickets.map((ticket) => ({
           ...ticket,
-          student: ticket.student
-            ? { id: ticket.student.id, name: ticket.student.studentProfile?.studentName ?? ticket.student.name }
-            : ticket.student
+          student: withStudentDisplayName(ticket.student),
+          createdBy: withStudentDisplayName(ticket.createdBy)
         }))}
         teachers={teachers}
         students={students}

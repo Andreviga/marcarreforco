@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
 import { ticketCreateSchema } from "@/lib/validators";
+import { withStudentDisplayName } from "@/lib/student-name";
 
 export async function GET() {
   const { session, response } = await requireApiRole(["ALUNO", "PROFESSOR", "ADMIN"]);
@@ -22,7 +23,7 @@ export async function GET() {
     include: {
       student: { select: { id: true, name: true, studentProfile: { select: { studentName: true } } } },
       teacher: { select: { id: true, name: true } },
-      createdBy: { select: { id: true, name: true, role: true } },
+      createdBy: { select: { id: true, name: true, role: true, studentProfile: { select: { studentName: true } } } },
       _count: { select: { messages: true } }
     },
     orderBy: { updatedAt: "desc" }
@@ -32,9 +33,8 @@ export async function GET() {
   return NextResponse.json({
     tickets: tickets.map((ticket) => ({
       ...ticket,
-      student: ticket.student
-        ? { id: ticket.student.id, name: ticket.student.studentProfile?.studentName ?? ticket.student.name }
-        : ticket.student
+      student: withStudentDisplayName(ticket.student),
+      createdBy: withStudentDisplayName(ticket.createdBy)
     }))
   });
 }

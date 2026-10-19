@@ -8,6 +8,8 @@ interface UserInfo {
   id: string;
   name: string;
   email: string;
+  // Nome da conta quando difere do nome do aluno (responsável).
+  guardianName?: string | null;
 }
 
 interface PackageInfo {
@@ -93,7 +95,11 @@ function formatActionLabel(action: string): string {
 function matchesUser(user: UserInfo, search: string) {
   if (!search) return true;
   const term = search.toLowerCase();
-  return user.name.toLowerCase().includes(term) || user.email.toLowerCase().includes(term);
+  return (
+    user.name.toLowerCase().includes(term) ||
+    user.email.toLowerCase().includes(term) ||
+    (user.guardianName ?? "").toLowerCase().includes(term)
+  );
 }
 
 function Pagination({
@@ -304,7 +310,10 @@ export default function AdminPaymentsClient({
                 <div key={sub.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-slate-900">{sub.user.name}</p>
-                    <p className="text-xs text-slate-500">{sub.user.email}</p>
+                    <p className="text-xs text-slate-500">
+                      {sub.user.guardianName ? `Resp.: ${sub.user.guardianName} • ` : ""}
+                      {sub.user.email}
+                    </p>
                     <p className="text-xs text-slate-500">
                       {sub.package.name}
                       {sub.package.subject ? ` • ${sub.package.subject.name}` : ""}
@@ -383,7 +392,10 @@ export default function AdminPaymentsClient({
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-slate-900">{payment.user.name}</p>
-                      <p className="text-xs text-slate-500">{payment.user.email}</p>
+                      <p className="text-xs text-slate-500">
+                        {payment.user.guardianName ? `Resp.: ${payment.user.guardianName} • ` : ""}
+                        {payment.user.email}
+                      </p>
                       <p className="text-xs text-slate-500">
                         {payment.package.name}
                         {payment.package.subject ? ` • ${payment.package.subject.name}` : ""}

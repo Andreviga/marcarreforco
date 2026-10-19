@@ -17,7 +17,7 @@ export default async function ProfessorSessoesPage() {
       subject: true,
       enrollments: {
         where: { status: "AGENDADO" },
-        select: { id: true, student: { select: { name: true } } }
+        select: { id: true }
       }
     },
     orderBy: { startsAt: "asc" }

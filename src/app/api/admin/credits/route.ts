@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiRole } from "@/lib/api-auth";
+import { studentDisplayName } from "@/lib/student-name";
 
 export async function GET() {
   const { response } = await requireApiRole(["ADMIN"]);
@@ -12,7 +13,7 @@ export async function GET() {
   const students = await prisma.user.findMany({
     where: { role: "ALUNO" },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, email: true }
+    select: { id: true, name: true, email: true, studentProfile: { select: { studentName: true } } }
   });
 
   if (!students.length) return NextResponse.json({ students: [] });
@@ -61,7 +62,15 @@ export async function GET() {
         )
       : [];
     const total = balances.reduce((sum, b) => sum + b.balance, 0);
-    return { ...student, balances, total };
+    const displayName = studentDisplayName(student);
+    return {
+      id: student.id,
+      name: displayName,
+      email: student.email,
+      guardianName: displayName !== student.name ? student.name : null,
+      balances,
+      total
+    };
   });
 
   return NextResponse.json({ students: result });
