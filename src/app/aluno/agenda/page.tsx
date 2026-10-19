@@ -14,7 +14,7 @@ export default async function AlunoAgendaPage() {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  const sessions = await prisma.session.findMany({
+  const sessionRows = await prisma.session.findMany({
     where: { status: "ATIVA" },
     select: {
       id: true,
@@ -24,11 +24,18 @@ export default async function AlunoAgendaPage() {
       modality: true,
       priceCents: true,
       status: true,
+      capacity: true,
       subject: { select: { id: true, name: true } },
-      teacher: { select: { id: true, name: true } }
+      teacher: { select: { id: true, name: true } },
+      // Só a contagem de vagas ocupadas — nunca os nomes dos inscritos.
+      _count: { select: { enrollments: { where: { status: "AGENDADO" } } } }
     },
     orderBy: { startsAt: "asc" }
   });
+  const sessions = sessionRows.map(({ _count, ...item }) => ({
+    ...item,
+    enrolledCount: _count.enrollments
+  }));
 
   const [balances, pendingConfirmedPayments] = await Promise.all([
     getBalancesForStudent(session.user.id),

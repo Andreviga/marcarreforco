@@ -29,6 +29,7 @@ const sessions = [
     location: "Sala 1",
     modality: "PRESENCIAL",
     priceCents: 4000,
+    capacity: 10,
     status: "ATIVA",
     subject: { id: "sub1", name: "Matemática" },
     teacher: { id: "t1", name: "Ana" },

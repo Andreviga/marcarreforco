@@ -4,6 +4,7 @@ import { requireApiRole } from "@/lib/api-auth";
 import { adminEnrollSchema } from "@/lib/validators";
 import { logAudit } from "@/lib/audit";
 import { addPaymentCredits, getBalance, reserveCredit } from "@/lib/credits";
+import { assertSessionHasRoom, SESSION_FULL } from "@/lib/capacity";
 
 export async function POST(request: Request) {
   const { session, response } = await requireApiRole(["ADMIN"]);
@@ -43,6 +44,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Disciplina inválida" }, { status: 400 });
   }
 
+  const fullMessage = `Sessão lotada (${sessionRecord.capacity}/${sessionRecord.capacity}). Aumente o limite em "Editar" para inscrever mais alunos.`;
+  const takenSpots = await prisma.enrollment.count({
+    where: { sessionId: parsed.data.sessionId, status: "AGENDADO" }
+  });
+  if (takenSpots >= sessionRecord.capacity) {
+    return NextResponse.json({ message: fullMessage }, { status: 409 });
+  }
+
   const wildcardSubject = await prisma.subject.findFirst({
     where: { name: { equals: "A DEFINIR", mode: "insensitive" } },
     select: { id: true }
@@ -80,6 +89,8 @@ export async function POST(request: Request) {
 
   try {
     enrollment = await prisma.$transaction(async (tx) => {
+      await assertSessionHasRoom(tx, parsed.data.sessionId, parsed.data.studentId);
+
       const updated = await tx.enrollment.upsert({
         where: {
           sessionId_studentId: {
@@ -124,6 +135,9 @@ export async function POST(request: Request) {
       return updated;
     });
   } catch (error) {
+    if (error instanceof Error && error.message === SESSION_FULL) {
+      return NextResponse.json({ message: fullMessage }, { status: 409 });
+    }
     if (error instanceof Error && error.message === "SEM_CREDITO") {
       return NextResponse.json({ message: "Saldo insuficiente para agendar." }, { status: 400 });
     }

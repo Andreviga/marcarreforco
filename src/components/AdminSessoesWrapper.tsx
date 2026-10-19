@@ -39,6 +39,7 @@ interface SessionItem {
   location: string;
   modality: string;
   priceCents: number;
+  capacity: number;
   status: string;
   subject: Subject;
   teacher: Teacher;

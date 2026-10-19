@@ -24,7 +24,8 @@ jest.mock("@/lib/prisma", () => ({
     },
     enrollment: {
       findUnique: jest.fn(),
-      upsert: jest.fn()
+      upsert: jest.fn(),
+      count: jest.fn()
     },
     $transaction: jest.fn()
   }
@@ -54,12 +55,21 @@ describe("enroll route", () => {
   const sessionRepo = prisma.session as unknown as { findUnique: jest.Mock };
   const subjectRepo = prisma.subject as unknown as { findFirst: jest.Mock };
   const paymentRepo = prisma.asaasPayment as unknown as { findFirst: jest.Mock };
-  const enrollmentRepo = prisma.enrollment as unknown as { findUnique: jest.Mock; upsert: jest.Mock };
+  const enrollmentRepo = prisma.enrollment as unknown as {
+    findUnique: jest.Mock;
+    upsert: jest.Mock;
+    count: jest.Mock;
+  };
   const transactionMock = prisma.$transaction as jest.Mock;
 
   const txMock = {
+    $executeRaw: jest.fn(),
+    session: {
+      findUnique: jest.fn()
+    },
     enrollment: {
-      upsert: jest.fn()
+      upsert: jest.fn(),
+      count: jest.fn()
     }
   };
 
@@ -74,6 +84,74 @@ describe("enroll route", () => {
     });
     subjectRepo.findFirst.mockResolvedValue(null);
     sendEmailMock.mockResolvedValue(undefined);
+    // Por padrão há vaga: sessão com limite 10 e ninguém inscrito.
+    enrollmentRepo.count.mockResolvedValue(0);
+    txMock.$executeRaw.mockResolvedValue(undefined);
+    txMock.session.findUnique.mockResolvedValue({ capacity: 10 });
+    txMock.enrollment.count.mockResolvedValue(0);
+  });
+
+  it("rejects enrollment when the session is full", async () => {
+    sessionRepo.findUnique.mockResolvedValue({
+      id: "s1",
+      status: "ATIVA",
+      startsAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+      endsAt: new Date(Date.now() + 73 * 60 * 60 * 1000),
+      location: "Unidade Centro",
+      modality: "PRESENCIAL",
+      subjectId: "sub1",
+      capacity: 10,
+      subject: { name: "Matemática" },
+      teacher: { name: "Ana" }
+    });
+    enrollmentRepo.findUnique.mockResolvedValue(null);
+    enrollmentRepo.count.mockResolvedValue(10);
+
+    const response = await POST(
+      new Request("http://localhost/api/enroll", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: "s1" })
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data.message).toMatch(/lotada/i);
+    expect(reserveCreditMock).not.toHaveBeenCalled();
+    expect(txMock.enrollment.upsert).not.toHaveBeenCalled();
+  });
+
+  it("blocks the last spot when a concurrent enrollment filled it inside the transaction", async () => {
+    sessionRepo.findUnique.mockResolvedValue({
+      id: "s1",
+      status: "ATIVA",
+      startsAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+      endsAt: new Date(Date.now() + 73 * 60 * 60 * 1000),
+      location: "Unidade Centro",
+      modality: "PRESENCIAL",
+      subjectId: "sub1",
+      capacity: 10,
+      subject: { name: "Matemática" },
+      teacher: { name: "Ana" }
+    });
+    enrollmentRepo.findUnique.mockResolvedValue(null);
+    getBalanceMock.mockResolvedValue(1);
+    paymentRepo.findFirst.mockResolvedValue(null);
+    // A checagem rápida ainda via vaga (9/10), mas dentro da transação outra
+    // inscrição simultânea já ocupou a última.
+    enrollmentRepo.count.mockResolvedValue(9);
+    txMock.enrollment.count.mockResolvedValue(10);
+
+    const response = await POST(
+      new Request("http://localhost/api/enroll", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: "s1" })
+      })
+    );
+
+    expect(response.status).toBe(409);
+    expect(txMock.enrollment.upsert).not.toHaveBeenCalled();
+    expect(reserveCreditMock).not.toHaveBeenCalled();
   });
 
   it("rejects unavailable session", async () => {
