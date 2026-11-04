@@ -131,9 +131,9 @@ export const packageSchema = z.object({
   sessionCount: z.number().int().min(1),
   priceCents: z.number().int().min(0),
   active: z.boolean().optional(),
-  billingType: z.enum(["PACKAGE", "SUBSCRIPTION"]).optional(),
-  // O front envia null para pacote avulso — precisa aceitar null além de undefined.
-  billingCycle: z.enum(["MONTHLY", "WEEKLY"]).nullable().optional(),
+  // Pacotes são sempre compra única por quantidade: billingType/billingCycle
+  // não fazem mais parte do cadastro (clientes antigos que os enviem são
+  // ignorados pelo schema).
   subjectId: z.string().min(1).nullable().optional()
 });
 

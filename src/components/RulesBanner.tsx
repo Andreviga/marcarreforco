@@ -49,8 +49,8 @@ export default function RulesBanner({
             Plantao de Duvidas 2026
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Todos os valores abaixo sao mensais. Cada dia no plano equivale a 1 aula por semana,
-            com 1h por aula.
+            Pacotes de aulas com pagamento único (PIX). Cada aula tem 1h. As aulas compradas não
+            vencem: use quando quiser.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export default function RulesBanner({
           <ul className="mt-2 space-y-1 text-sm text-slate-600">
             <li>Vagas conforme formação de turma.</li>
             <li>Valores promocionais de lançamento.</li>
-            <li>Pagamento mensal antecipado.</li>
+            <li>Pagamento antecipado via PIX; as aulas não têm prazo de validade.</li>
             <li>Alterações e solicitações com 48 horas (2 dias) de antecedência.</li>
             <li>Turmas abaixo do mínimo podem ser reagrupadas por nível/horário.</li>
           </ul>
@@ -106,10 +106,11 @@ export default function RulesBanner({
             <li>Disciplinas: Inglês e professora da turma (reforço da turma).</li>
           </ul>
           <div className="mt-3 text-sm text-slate-600">
-            <p className="font-semibold text-slate-900">Valores mensais</p>
+            <p className="font-semibold text-slate-900">Pacotes de aulas</p>
             <ul className="mt-1 space-y-1">
-              <li>1 dia/semana: R$ 22,00</li>
-              <li>2 dias/semana: R$ 39,00</li>
+              <li>4 aulas: R$ 22,00</li>
+              <li>8 aulas: R$ 39,00</li>
+              <li>20 aulas: R$ 89,00 (pacote especial)</li>
             </ul>
           </div>
           <div className="mt-3 text-sm text-slate-600">
@@ -130,13 +131,13 @@ export default function RulesBanner({
             <li>4o ano: ate 4 dias por semana.</li>
           </ul>
           <div className="mt-3 text-sm text-slate-600">
-            <p className="font-semibold text-slate-900">Valores mensais</p>
+            <p className="font-semibold text-slate-900">Pacotes de aulas</p>
             <ul className="mt-1 space-y-1">
-              <li>1 dia/semana: R$ 27,00</li>
-              <li>2 dias/semana: R$ 48,00</li>
-              <li>3 dias/semana: R$ 66,00</li>
-              <li>4 dias/semana: R$ 81,00</li>
-              <li>5 dias/semana: R$ 95,00 (somente 5o ao 9o)</li>
+              <li>4 aulas: R$ 27,00</li>
+              <li>8 aulas: R$ 48,00</li>
+              <li>12 aulas: R$ 66,00</li>
+              <li>16 aulas: R$ 81,00</li>
+              <li>20 aulas: R$ 95,00 (somente 5o ao 9o)</li>
             </ul>
           </div>
           <div className="mt-3 text-sm text-slate-600">

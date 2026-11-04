@@ -29,7 +29,8 @@ export default async function AlunoPagamentosPage() {
         ]
       },
       include: { subject: true },
-      orderBy: { createdAt: "desc" }
+      // Pacotes por quantidade: do menor para o maior.
+      orderBy: [{ sessionCount: "asc" }, { priceCents: "asc" }]
     }),
     getBalancesForStudent(session.user.id),
     prisma.asaasSubscription.findMany({

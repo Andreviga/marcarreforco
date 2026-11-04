@@ -190,81 +190,68 @@ async function main() {
 
   await prisma.session.createMany({ data: sessions });
 
-  const daysToSessions = (days: number) => days * 4;
-  const createPackage = async (params: {
-    name: string;
-    sessionCount: number;
-    priceCents: number;
-    subjectId?: string | null;
-    billingType?: "PACKAGE" | "SUBSCRIPTION";
-    billingCycle?: "MONTHLY" | "WEEKLY" | null;
-  }) =>
+  // Pacotes de compra única por quantidade de aulas (as aulas não vencem).
+  // A quantidade equivale ao antigo plano semanal (1 dia/semana = 4 aulas).
+  const createPackage = async (params: { name: string; sessionCount: number; priceCents: number }) =>
     prisma.sessionPackage.upsert({
       where: { name: params.name },
       update: {
         sessionCount: params.sessionCount,
         priceCents: params.priceCents,
         active: true,
-        subjectId: params.subjectId ?? null,
-        billingType: params.billingType ?? "PACKAGE",
-        billingCycle: params.billingType === "SUBSCRIPTION" ? params.billingCycle ?? "MONTHLY" : null
+        subjectId: null,
+        billingType: "PACKAGE",
+        billingCycle: null
       },
       create: {
         name: params.name,
         sessionCount: params.sessionCount,
         priceCents: params.priceCents,
         active: true,
-        subjectId: params.subjectId ?? null,
-        billingType: params.billingType ?? "PACKAGE",
-        billingCycle: params.billingType === "SUBSCRIPTION" ? params.billingCycle ?? "MONTHLY" : null
+        subjectId: null,
+        billingType: "PACKAGE",
+        billingCycle: null
       }
     });
 
   const packagesBase = [
     {
       label: "1o ao 3o",
-      monthly: [
-        { days: 1, priceCents: 2200 },
-        { days: 2, priceCents: 3900 },
-        { days: 5, priceCents: 8900, name: "Pacote especial 5 dias/semana" }
+      packages: [
+        { sessionCount: 4, priceCents: 2200 },
+        { sessionCount: 8, priceCents: 3900 },
+        { sessionCount: 20, priceCents: 8900, prefix: "Pacote especial " }
       ],
       avulsoPriceCents: 700
     },
     {
       label: "4o ao 9o",
-      monthly: [
-        { days: 1, priceCents: 2700 },
-        { days: 2, priceCents: 4800 },
-        { days: 3, priceCents: 6600 },
-        { days: 4, priceCents: 8100 },
-        { days: 5, priceCents: 9500 }
+      packages: [
+        { sessionCount: 4, priceCents: 2700 },
+        { sessionCount: 8, priceCents: 4800 },
+        { sessionCount: 12, priceCents: 6600 },
+        { sessionCount: 16, priceCents: 8100 },
+        { sessionCount: 20, priceCents: 9500 }
       ],
       avulsoPriceCents: 900
     }
   ];
 
-  // Apenas os planos genéricos da tabela de preços. As variantes por
+  // Apenas os pacotes genéricos da tabela de preços. As variantes por
   // disciplina inflavam o catálogo (e o upsert as reativava a cada seed).
   for (const base of packagesBase) {
-    for (const monthly of base.monthly) {
-      const displayName = monthly.name ?? `${monthly.days} dia/semana`;
-
+    for (const item of base.packages) {
       await createPackage({
-        name: `${displayName} - ${base.label} (sem disciplina)`,
-        sessionCount: daysToSessions(monthly.days),
-        priceCents: monthly.priceCents,
-        subjectId: null,
-        billingType: "SUBSCRIPTION",
-        billingCycle: "MONTHLY"
+        name: `${item.prefix ?? ""}${item.sessionCount} aulas - ${base.label} (sem disciplina)`,
+        sessionCount: item.sessionCount,
+        priceCents: item.priceCents
       });
     }
 
     await createPackage({
       name: `Avulso (1h) - ${base.label} (sem disciplina)`,
       sessionCount: 1,
-      priceCents: base.avulsoPriceCents,
-      subjectId: null,
-      billingType: "PACKAGE"
+      priceCents: base.avulsoPriceCents
     });
   }
 

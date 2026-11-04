@@ -23,25 +23,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
   }
 
-  if (parsed.data.billingType === "SUBSCRIPTION" && !parsed.data.billingCycle) {
-    return NextResponse.json({ message: "Ciclo obrigatório para assinaturas" }, { status: 400 });
-  }
-
-  const sessionCount = parsed.data.sessionCount ?? 0;
-  const requiresGeneralSubject =
-    parsed.data.billingType === "SUBSCRIPTION" &&
-    ((parsed.data.billingCycle === "WEEKLY" && sessionCount > 1) ||
-      (parsed.data.billingCycle === "MONTHLY" && sessionCount > 4));
-
   const created = await prisma.sessionPackage.create({
     data: {
       name: parsed.data.name,
       sessionCount: parsed.data.sessionCount,
       priceCents: parsed.data.priceCents,
       active: parsed.data.active ?? true,
-      billingType: parsed.data.billingType ?? "PACKAGE",
-      billingCycle: parsed.data.billingType === "SUBSCRIPTION" ? parsed.data.billingCycle ?? "MONTHLY" : null,
-      subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
+      billingType: "PACKAGE",
+      billingCycle: null,
+      subjectId: parsed.data.subjectId ?? null
     }
   });
 
@@ -66,16 +56,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ message: "Dados inválidos" }, { status: 400 });
   }
 
-  if (parsed.data.billingType === "SUBSCRIPTION" && !parsed.data.billingCycle) {
-    return NextResponse.json({ message: "Ciclo obrigatório para assinaturas" }, { status: 400 });
-  }
-
-  const sessionCount = parsed.data.sessionCount ?? 0;
-  const requiresGeneralSubject =
-    parsed.data.billingType === "SUBSCRIPTION" &&
-    ((parsed.data.billingCycle === "WEEKLY" && sessionCount > 1) ||
-      (parsed.data.billingCycle === "MONTHLY" && sessionCount > 4));
-
   const updated = await prisma.sessionPackage.update({
     where: { id: parsed.data.id },
     data: {
@@ -83,15 +63,11 @@ export async function PATCH(request: Request) {
       sessionCount: parsed.data.sessionCount,
       priceCents: parsed.data.priceCents,
       active: parsed.data.active,
-      billingType: parsed.data.billingType,
-      // Atualização parcial sem billingType não pode zerar o ciclo de uma assinatura.
-      billingCycle:
-        parsed.data.billingType === undefined
-          ? undefined
-          : parsed.data.billingType === "SUBSCRIPTION"
-            ? parsed.data.billingCycle ?? "MONTHLY"
-            : null,
-      subjectId: requiresGeneralSubject ? null : parsed.data.subjectId ?? null
+      // Editar um pacote o converte para compra única (modelo único agora).
+      billingType: "PACKAGE",
+      billingCycle: null,
+      // undefined mantém a disciplina atual; null remove ("sem disciplina").
+      subjectId: parsed.data.subjectId
     }
   });
 

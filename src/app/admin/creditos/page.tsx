@@ -6,8 +6,6 @@ import AdminCreditsClient from "@/components/AdminCreditsClient";
 export default async function AdminCreditosPage() {
   await requireRole(["ADMIN"]);
 
-  const now = new Date();
-
   const studentUserRows = await prisma.user.findMany({
     where: { role: "ALUNO" },
     orderBy: { name: "asc" },
@@ -43,11 +41,10 @@ export default async function AdminCreditosPage() {
   const lots = await prisma.studentCreditLot.findMany({
     where: {
       studentId: { in: studentIds },
-      remaining: { gt: 0 },
-      expiresAt: { gt: now }
+      remaining: { gt: 0 }
     },
     include: { subject: { select: { id: true, name: true } } },
-    orderBy: { expiresAt: "asc" }
+    orderBy: { createdAt: "asc" }
   });
 
   // Total credits ever received per student per subject
@@ -78,7 +75,6 @@ export default async function AdminCreditosPage() {
     subjectId: string;
     subjectName: string;
     balance: number;
-    expiresAt: string;
     received: number;
     enrolled: number;
   };
@@ -114,7 +110,6 @@ export default async function AdminCreditosPage() {
         subjectId: lot.subjectId,
         subjectName: lot.subject.name,
         balance: lot.remaining,
-        expiresAt: lot.expiresAt.toISOString(),
         received: receivedMap.get(lot.studentId)?.get(lot.subjectId) ?? 0,
         enrolled: enrolledMap.get(lot.studentId)?.get(lot.subjectId) ?? 0
       });
@@ -131,7 +126,6 @@ export default async function AdminCreditosPage() {
           subjectId,
           subjectName: subjectNameMap.get(subjectId) ?? subjectId,
           balance: 0,
-          expiresAt: new Date(0).toISOString(),
           received: rec,
           enrolled: enrolledMap.get(studentId)?.get(subjectId) ?? 0
         });

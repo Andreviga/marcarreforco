@@ -7,7 +7,6 @@ interface SubjectEntry {
   subjectId: string;
   subjectName: string;
   balance: number;
-  expiresAt: string;
   received: number;
   enrolled: number;
 }
@@ -196,7 +195,6 @@ export default function AdminCreditsClient({
                       <th className="pb-1 text-right font-medium">Recebidos</th>
                       <th className="pb-1 text-right font-medium">Inscritos</th>
                       <th className="pb-1 text-right font-medium">Saldo atual</th>
-                      <th className="pb-1 text-right font-medium">Expira em</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -207,15 +205,6 @@ export default function AdminCreditsClient({
                         <td className="py-1.5 text-right text-slate-600">{b.enrolled}</td>
                         <td className="py-1.5 text-right font-semibold text-slate-900">
                           {b.balance}
-                        </td>
-                        <td className="py-1.5 text-right text-xs text-slate-400">
-                          {b.balance > 0
-                            ? new Date(b.expiresAt).toLocaleDateString("pt-BR", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric"
-                              })
-                            : "—"}
                         </td>
                       </tr>
                     ))}

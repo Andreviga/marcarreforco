@@ -7,15 +7,6 @@ import { asaasFetch, normalizeDocument, isValidDocument } from "@/lib/asaas";
 import { logAudit } from "@/lib/audit";
 import { addPaymentCredits } from "@/lib/credits";
 
-type AsaasPaymentListResponse = {
-  data?: Array<{
-    id: string;
-    status?: string;
-  }>;
-};
-
-const OPEN_PAYMENT_STATUSES = new Set(["PENDING", "OVERDUE", "AWAITING_RISK_ANALYSIS"]);
-
 function formatValue(priceCents: number) {
   return Number((priceCents / 100).toFixed(2));
 }
@@ -29,32 +20,6 @@ function todayInSaoPaulo() {
     month: "2-digit",
     day: "2-digit"
   }).format(new Date());
-}
-
-async function cancelOpenSubscriptionPayments(asaasSubscriptionId: string) {
-  const payments = await asaasFetch<AsaasPaymentListResponse>(
-    `/payments?subscription=${asaasSubscriptionId}&limit=100`,
-    { method: "GET" }
-  );
-
-  const openPaymentIds = (payments.data ?? [])
-    .filter((payment) => OPEN_PAYMENT_STATUSES.has(payment.status ?? ""))
-    .map((payment) => payment.id);
-
-  for (const paymentId of openPaymentIds) {
-    await asaasFetch(`/payments/${paymentId}`, {
-      method: "DELETE"
-    });
-  }
-
-  if (openPaymentIds.length > 0) {
-    await prisma.asaasPayment.updateMany({
-      where: { asaasId: { in: openPaymentIds } },
-      data: { status: "CANCELED" }
-    });
-  }
-
-  return openPaymentIds.length;
 }
 
 async function cancelOpenOneTimePayments(userId: string, packageId: string) {
@@ -144,142 +109,10 @@ export async function POST(request: Request) {
     asaasCustomerId = created.asaasId;
   }
 
-  if (packageRecord.billingType === "SUBSCRIPTION") {
-    const existing = await prisma.asaasSubscription.findFirst({
-      where: {
-        userId: session.user.id,
-        packageId: packageRecord.id,
-        status: "ACTIVE"
-      }
-    });
-
-    if (existing) {
-      return NextResponse.json({ message: "Assinatura já ativa." }, { status: 400 });
-    }
-
-    // Duplo clique / requisições concorrentes: se acabamos de criar uma
-    // assinatura aguardando pagamento, reaproveita o link em vez de gerar
-    // outra cobrança no Asaas.
-    const veryRecent = await prisma.asaasSubscription.findFirst({
-      where: {
-        userId: session.user.id,
-        packageId: packageRecord.id,
-        status: "INACTIVE",
-        createdAt: { gte: new Date(Date.now() - 2 * 60 * 1000) }
-      },
-      orderBy: { createdAt: "desc" },
-      include: {
-        payments: {
-          where: { status: "PENDING" },
-          orderBy: { createdAt: "desc" },
-          take: 1
-        }
-      }
-    });
-    if (veryRecent) {
-      const recentPayload = veryRecent.payments[0]?.payload as { invoiceUrl?: string; bankSlipUrl?: string } | null;
-      return NextResponse.json({
-        subscriptionId: veryRecent.id,
-        paymentUrl: recentPayload?.invoiceUrl ?? recentPayload?.bankSlipUrl ?? null,
-        reused: true
-      });
-    }
-
-    const staleSubscriptions = await prisma.asaasSubscription.findMany({
-      where: {
-        userId: session.user.id,
-        packageId: packageRecord.id,
-        status: { in: ["INACTIVE", "OVERDUE"] }
-      },
-      orderBy: { createdAt: "desc" }
-    });
-
-    let canceledOpenPaymentsCount = 0;
-    for (const stale of staleSubscriptions) {
-      canceledOpenPaymentsCount += await cancelOpenSubscriptionPayments(stale.asaasId);
-
-      await asaasFetch(`/subscriptions/${stale.asaasId}`, {
-        method: "DELETE"
-      });
-
-      await prisma.asaasSubscription.update({
-        where: { id: stale.id },
-        data: { status: "CANCELED" }
-      });
-    }
-
-    const subscription = await asaasFetch<{ id: string; status: string; nextDueDate?: string }>("/subscriptions", {
-      method: "POST",
-      body: {
-        customer: asaasCustomerId,
-        billingType,
-        value: formatValue(packageRecord.priceCents),
-        nextDueDate: todayInSaoPaulo(),
-        cycle: packageRecord.billingCycle ?? "MONTHLY",
-        description: `${packageRecord.name} (${packageRecord.subject?.name ?? "Disciplina"})`,
-        externalReference: `package:${packageRecord.id}:user:${session.user.id}`
-      }
-    });
-
-    const createdSubscription = await prisma.asaasSubscription.create({
-      data: {
-        userId: session.user.id,
-        packageId: packageRecord.id,
-        asaasId: subscription.id,
-        status: "INACTIVE", // Sempre começa INACTIVE, será ativada via webhook após pagamento
-        nextDueDate: subscription.nextDueDate ? new Date(subscription.nextDueDate) : null
-      }
-    });
-
-    const paymentList = await asaasFetch<{ data: Array<{ id: string; invoiceUrl?: string; bankSlipUrl?: string; status: string; dueDate?: string; value: number; billingType: string }> }>(
-      `/payments?subscription=${subscription.id}&limit=1`,
-      { method: "GET" }
-    );
-
-    const payment = paymentList.data?.[0];
-    if (payment) {
-      const firstPaymentStatus =
-        payment.status === "RECEIVED" || payment.status === "CONFIRMED" ? "CONFIRMED" : "PENDING";
-      const createdFirstPayment = await prisma.asaasPayment.create({
-        data: {
-          userId: session.user.id,
-          packageId: packageRecord.id,
-          subscriptionId: createdSubscription.id,
-          asaasId: payment.id,
-          status: firstPaymentStatus,
-          amountCents: Math.round(payment.value * 100),
-          billingType: payment.billingType,
-          dueDate: payment.dueDate ? new Date(payment.dueDate) : null,
-          payload: payment as unknown as Prisma.InputJsonValue
-        }
-      });
-
-      // Confirmado já na criação: credita agora (idempotente com o webhook).
-      if (firstPaymentStatus === "CONFIRMED" && packageRecord.subjectId) {
-        await addPaymentCredits({
-          studentId: session.user.id,
-          subjectId: packageRecord.subjectId,
-          amount: packageRecord.sessionCount,
-          paymentId: createdFirstPayment.id,
-          paidAt: new Date()
-        });
-      }
-    }
-
-    await logAudit({
-      actorUserId: session.user.id,
-      action: "CREATE_SUBSCRIPTION",
-      entityType: "AsaasSubscription",
-      entityId: createdSubscription.id,
-      payload: { packageId: packageRecord.id, canceledOpenPaymentsCount }
-    });
-
-    return NextResponse.json({
-      subscriptionId: createdSubscription.id,
-      paymentUrl: payment?.invoiceUrl ?? payment?.bankSlipUrl ?? null
-    });
-  }
-
+  // Todos os pacotes são compra única (PIX). O modelo de assinatura foi
+  // descontinuado: mesmo que o registro do pacote ainda traga billingType
+  // SUBSCRIPTION, a cobrança gerada aqui é sempre única. Assinaturas que já
+  // existem no Asaas seguem seu curso até o aluno cancelar.
   const canceledOpenPaymentsCount = await cancelOpenOneTimePayments(session.user.id, packageRecord.id);
 
   const payment = await asaasFetch<{ id: string; status: string; invoiceUrl?: string; bankSlipUrl?: string; dueDate?: string; value: number; billingType: string }>(

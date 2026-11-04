@@ -7,8 +7,6 @@ export async function GET() {
   const { response } = await requireApiRole(["ADMIN"]);
   if (response) return response;
 
-  const now = new Date();
-
   // All students
   const students = await prisma.user.findMany({
     where: { role: "ALUNO" },
@@ -24,15 +22,14 @@ export async function GET() {
   const lots = await prisma.studentCreditLot.findMany({
     where: {
       studentId: { in: studentIds },
-      remaining: { gt: 0 },
-      expiresAt: { gt: now }
+      remaining: { gt: 0 }
     },
     include: { subject: { select: { id: true, name: true } } },
-    orderBy: { expiresAt: "asc" }
+    orderBy: { createdAt: "asc" }
   });
 
-  // Build map: studentId -> subjectId -> { balance, expiresAt (earliest) }
-  type SubjectEntry = { subjectId: string; subjectName: string; balance: number; expiresAt: string };
+  // Build map: studentId -> subjectId -> { balance } (créditos não expiram)
+  type SubjectEntry = { subjectId: string; subjectName: string; balance: number };
   const balanceMap = new Map<string, Map<string, SubjectEntry>>();
 
   for (const lot of lots) {
@@ -43,13 +40,11 @@ export async function GET() {
     if (bySubject.has(lot.subjectId)) {
       const entry = bySubject.get(lot.subjectId)!;
       entry.balance += lot.remaining;
-      // keep earliest expiry already stored (lots are ordered asc)
     } else {
       bySubject.set(lot.subjectId, {
         subjectId: lot.subjectId,
         subjectName: lot.subject.name,
-        balance: lot.remaining,
-        expiresAt: lot.expiresAt.toISOString()
+        balance: lot.remaining
       });
     }
   }
