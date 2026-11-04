@@ -1,3 +1,18 @@
+# Pacotes de Aulas e Créditos
+
+## Modelo atual (vigente)
+
+- Todos os pacotes são **compra única via PIX**, definidos por **quantidade de aulas** (ex.: 4, 8, 12, 16, 20 aulas) — não existe mais assinatura mensal nem "N dias por semana".
+- **Os créditos não expiram.** O aluno usa as aulas quando quiser. A coluna `StudentCreditLot.expiresAt` continua no banco (obrigatória), mas recebe `2099-12-31` e é ignorada por todas as consultas; os lotes são consumidos por ordem de criação (FIFO).
+- Lotes que já tinham vencido e ainda tinham saldo foram reativados pela migração `20261104120000_one_time_packages_no_expiry`.
+- O checkout (`POST /api/payments/checkout`) sempre gera uma cobrança única. Pacotes antigos do tipo assinatura foram convertidos em pacotes comuns pela migração.
+- **Assinaturas já existentes no Asaas não foram canceladas**: continuam cobrando até o aluno cancelar em *Pagamentos → Suas assinaturas*, e cada cobrança paga continua creditando aulas (agora sem validade). O webhook e `/api/subscriptions/[id]` permanecem para isso.
+- Tabela de preços (seed): 1º ao 3º — 4 aulas R$ 22, 8 aulas R$ 39, 20 aulas R$ 89 (pacote especial), avulso R$ 7; 4º ao 9º — 4 aulas R$ 27, 8 aulas R$ 48, 12 aulas R$ 66, 16 aulas R$ 81, 20 aulas R$ 95, avulso R$ 9.
+
+> O restante deste documento descreve o **modelo antigo (legado)** de assinatura mensal com validade de 30 dias e é mantido apenas como referência histórica.
+
+---
+
 # Sistema de Assinaturas e Créditos
 
 ## 📌 Visão Geral

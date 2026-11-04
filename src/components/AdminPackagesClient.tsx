@@ -10,8 +10,8 @@ interface SessionPackage {
   sessionCount: number;
   priceCents: number;
   active: boolean;
-  billingType: "PACKAGE" | "SUBSCRIPTION";
-  billingCycle: "MONTHLY" | "WEEKLY" | null;
+  billingType?: "PACKAGE" | "SUBSCRIPTION";
+  billingCycle?: "MONTHLY" | "WEEKLY" | null;
   subjectId: string | null;
 }
 
@@ -32,8 +32,6 @@ export default function AdminPackagesClient({
   const [sessionCount, setSessionCount] = useState(1);
   const [priceCents, setPriceCents] = useState(0);
   const [active, setActive] = useState(true);
-  const [billingType, setBillingType] = useState<"PACKAGE" | "SUBSCRIPTION">("PACKAGE");
-  const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "WEEKLY">("MONTHLY");
   const [subjectId, setSubjectId] = useState("");
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -44,15 +42,6 @@ export default function AdminPackagesClient({
   const [listSearch, setListSearch] = useState("");
   const [listStatus, setListStatus] = useState<"all" | "active" | "inactive">("active");
   const [bulkRunning, setBulkRunning] = useState(false);
-  const requiresGeneralSubject =
-    billingType === "SUBSCRIPTION" &&
-    ((billingCycle === "WEEKLY" && sessionCount > 1) || (billingCycle === "MONTHLY" && sessionCount > 4));
-
-  useEffect(() => {
-    if (requiresGeneralSubject && subjectId) {
-      setSubjectId("");
-    }
-  }, [requiresGeneralSubject, subjectId]);
 
   async function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -69,8 +58,6 @@ export default function AdminPackagesClient({
           sessionCount,
           priceCents,
           active,
-          billingType,
-          billingCycle: billingType === "SUBSCRIPTION" ? billingCycle : null,
           subjectId: subjectId || null
         })
       });
@@ -84,8 +71,6 @@ export default function AdminPackagesClient({
       setSessionCount(1);
       setPriceCents(0);
       setActive(true);
-      setBillingType("PACKAGE");
-      setBillingCycle("MONTHLY");
       setSubjectId("");
       router.refresh();
     } catch {
@@ -104,7 +89,14 @@ export default function AdminPackagesClient({
       const response = await fetch("/api/admin/packages", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item)
+        body: JSON.stringify({
+          id: item.id,
+          name: item.name,
+          sessionCount: item.sessionCount,
+          priceCents: item.priceCents,
+          active: item.active,
+          subjectId: item.subjectId
+        })
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -143,7 +135,14 @@ export default function AdminPackagesClient({
           const response = await fetch("/api/admin/packages", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...item, active: false })
+            body: JSON.stringify({
+              id: item.id,
+              name: item.name,
+              sessionCount: item.sessionCount,
+              priceCents: item.priceCents,
+              active: false,
+              subjectId: item.subjectId
+            })
           });
           if (response.ok) ok += 1;
           else failed += 1;
@@ -189,14 +188,14 @@ export default function AdminPackagesClient({
     <div className="space-y-6">
       <form onSubmit={handleCreate} className="rounded-xl bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Novo pacote</h2>
-        <div className="mt-3 grid gap-2 md:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
+        <div className="mt-3 grid gap-2 md:grid-cols-[2fr_1fr_1fr_1fr_auto]">
           <label className="text-sm text-slate-600">
             Nome do pacote
             <input
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Ex.: 2 dias/semana - 4o ao 9o"
+              placeholder="Ex.: 4 aulas - 4o ao 9o"
               required
             />
           </label>
@@ -206,7 +205,6 @@ export default function AdminPackagesClient({
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
               value={subjectId}
               onChange={(event) => setSubjectId(event.target.value)}
-              disabled={requiresGeneralSubject}
             >
               <option value="">Sem disciplina (escolha do aluno)</option>
               {subjects.map((subject) => (
@@ -228,7 +226,7 @@ export default function AdminPackagesClient({
               placeholder="Ex.: 4"
               required
             />
-            <span className="mt-1 block text-xs text-slate-400">Total de aulas no pacote.</span>
+            <span className="mt-1 block text-xs text-slate-400">Total de aulas do pacote — as aulas não vencem.</span>
           </label>
           <label className="text-sm text-slate-600">
             Valor (centavos)
@@ -242,31 +240,6 @@ export default function AdminPackagesClient({
               required
             />
             <span className="mt-1 block text-xs text-slate-400">R$ 9,00 = 900.</span>
-          </label>
-          <label className="text-sm text-slate-600">
-            Tipo de cobrança
-            <select
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-              value={billingType}
-              onChange={(event) => setBillingType(event.target.value as "PACKAGE" | "SUBSCRIPTION")}
-            >
-              <option value="PACKAGE">Pacote avulso</option>
-              <option value="SUBSCRIPTION">Assinatura</option>
-            </select>
-            <span className="mt-1 block text-xs text-slate-400">Assinaturas renovam automaticamente.</span>
-          </label>
-          <label className="text-sm text-slate-600">
-            Ciclo
-            <select
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2"
-              value={billingCycle}
-              onChange={(event) => setBillingCycle(event.target.value as "MONTHLY" | "WEEKLY")}
-              disabled={billingType !== "SUBSCRIPTION"}
-            >
-              <option value="MONTHLY">Mensal</option>
-              <option value="WEEKLY">Semanal</option>
-            </select>
-            <span className="mt-1 block text-xs text-slate-400">Obrigatório para assinatura.</span>
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input
@@ -283,11 +256,6 @@ export default function AdminPackagesClient({
         >
           {creating ? "Criando..." : "Criar"}
         </button>
-        {requiresGeneralSubject && (
-          <p className="mt-2 text-xs text-slate-500">
-            Para mais de 1 aula por semana, a disciplina fica livre para o aluno escolher.
-          </p>
-        )}
         {formError && <p className="mt-3 text-sm text-red-600">{formError}</p>}
         {formSuccess && <p className="mt-3 text-sm text-emerald-600">{formSuccess}</p>}
       </form>
@@ -375,12 +343,7 @@ function PackageRow({
   const [sessionCount, setSessionCount] = useState(item.sessionCount);
   const [priceCents, setPriceCents] = useState(item.priceCents);
   const [active, setActive] = useState(item.active);
-  const [billingType, setBillingType] = useState<"PACKAGE" | "SUBSCRIPTION">(item.billingType);
-  const [billingCycle, setBillingCycle] = useState<"MONTHLY" | "WEEKLY">(item.billingCycle ?? "MONTHLY");
   const [subjectId, setSubjectId] = useState(item.subjectId ?? "");
-  const requiresGeneralSubject =
-    billingType === "SUBSCRIPTION" &&
-    ((billingCycle === "WEEKLY" && sessionCount > 1) || (billingCycle === "MONTHLY" && sessionCount > 4));
 
   // Re-sincroniza o estado local quando os dados do servidor mudarem (router.refresh)
   useEffect(() => {
@@ -388,19 +351,11 @@ function PackageRow({
     setSessionCount(item.sessionCount);
     setPriceCents(item.priceCents);
     setActive(item.active);
-    setBillingType(item.billingType);
-    setBillingCycle(item.billingCycle ?? "MONTHLY");
     setSubjectId(item.subjectId ?? "");
   }, [item]);
 
-  useEffect(() => {
-    if (requiresGeneralSubject && subjectId) {
-      setSubjectId("");
-    }
-  }, [requiresGeneralSubject, subjectId]);
-
   return (
-    <div className="grid gap-2 rounded-lg border border-slate-100 p-3 text-sm md:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto_auto] md:items-center">
+    <div className="grid gap-2 rounded-lg border border-slate-100 p-3 text-sm md:grid-cols-[2fr_1fr_1fr_1fr_auto_auto] md:items-center">
       <input
         className="rounded-lg border border-slate-200 px-3 py-2"
         value={name}
@@ -410,7 +365,6 @@ function PackageRow({
         className="rounded-lg border border-slate-200 px-3 py-2"
         value={subjectId}
         onChange={(event) => setSubjectId(event.target.value)}
-        disabled={requiresGeneralSubject}
       >
         <option value="">Sem disciplina</option>
         {subjects.map((subject) => (
@@ -433,23 +387,6 @@ function PackageRow({
         value={priceCents}
         onChange={(event) => setPriceCents(Number(event.target.value))}
       />
-      <select
-        className="rounded-lg border border-slate-200 px-3 py-2"
-        value={billingType}
-        onChange={(event) => setBillingType(event.target.value as "PACKAGE" | "SUBSCRIPTION")}
-      >
-        <option value="PACKAGE">Pacote avulso</option>
-        <option value="SUBSCRIPTION">Assinatura</option>
-      </select>
-      <select
-        className="rounded-lg border border-slate-200 px-3 py-2"
-        value={billingCycle}
-        onChange={(event) => setBillingCycle(event.target.value as "MONTHLY" | "WEEKLY")}
-        disabled={billingType !== "SUBSCRIPTION"}
-      >
-        <option value="MONTHLY">Mensal</option>
-        <option value="WEEKLY">Semanal</option>
-      </select>
       <label className="flex items-center gap-2 text-xs text-slate-500">
         <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
         Ativo
@@ -465,8 +402,6 @@ function PackageRow({
               sessionCount,
               priceCents,
               active,
-              billingType,
-              billingCycle: billingType === "SUBSCRIPTION" ? billingCycle : null,
               subjectId: subjectId || null
             })
           }
@@ -483,9 +418,8 @@ function PackageRow({
           Excluir
         </button>
       </div>
-      <p className="md:col-span-7 text-xs text-slate-500">
-        {sessionCount} aulas • Valor: {formatCurrency(priceCents)} • {billingType === "SUBSCRIPTION" ? "Assinatura" : "Pacote"}
-        {requiresGeneralSubject ? " • Disciplina livre" : ""}
+      <p className="md:col-span-6 text-xs text-slate-500">
+        {sessionCount} aulas • Valor: {formatCurrency(priceCents)} • Pacote único
       </p>
     </div>
   );

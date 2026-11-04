@@ -1,7 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
-const CREDIT_TTL_DAYS = 30;
+// Créditos não expiram. A coluna expiresAt continua obrigatória no banco, então
+// todo lote novo recebe uma data muito distante, e NENHUMA leitura de saldo
+// filtra por ela — assim também voltam a valer lotes antigos que já haviam
+// "vencido" na regra de 30 dias.
+const NO_EXPIRY = new Date("2099-12-31T23:59:59.000Z");
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -11,14 +15,8 @@ async function lockKey(tx: Prisma.TransactionClient, key: string) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
 }
 
-function addDays(date: Date, days: number) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
-function getExpiryDate(base?: Date | null) {
-  return addDays(base ?? new Date(), CREDIT_TTL_DAYS);
+function getExpiryDate() {
+  return new Date(NO_EXPIRY);
 }
 
 async function ensureLegacyLot(db: DbClient, studentId: string, subjectId: string, now: Date) {
@@ -38,7 +36,7 @@ async function ensureLegacyLot(db: DbClient, studentId: string, subjectId: strin
       subjectId,
       total: legacyBalance.balance,
       remaining: legacyBalance.balance,
-      expiresAt: getExpiryDate(legacyBalance.updatedAt ?? now)
+      expiresAt: getExpiryDate()
     }
   });
 }
@@ -48,8 +46,7 @@ async function recalcBalance(db: DbClient, studentId: string, subjectId: string,
     where: {
       studentId,
       subjectId,
-      remaining: { gt: 0 },
-      expiresAt: { gt: now }
+      remaining: { gt: 0 }
     },
     _sum: { remaining: true }
   });
@@ -68,10 +65,10 @@ async function getAvailableLots(db: DbClient, studentId: string, subjectId: stri
     where: {
       studentId,
       subjectId,
-      remaining: { gt: 0 },
-      expiresAt: { gt: now }
+      remaining: { gt: 0 }
     },
-    orderBy: { expiresAt: "asc" }
+    // Consome primeiro os créditos mais antigos.
+    orderBy: { createdAt: "asc" }
   });
 }
 
@@ -124,9 +121,9 @@ export async function addPaymentCredits(params: {
   paymentId?: string;
   paidAt?: Date | null;
 }) {
-  const { studentId, subjectId, amount, paymentId, paidAt } = params;
+  const { studentId, subjectId, amount, paymentId } = params;
   const now = new Date();
-  const expiresAt = getExpiryDate(paidAt ?? now);
+  const expiresAt = getExpiryDate();
 
   return prisma.$transaction(async (tx) => {
     if (paymentId) {
@@ -200,7 +197,7 @@ export async function adjustCredits(params: {
           paymentId,
           total: delta,
           remaining: delta,
-          expiresAt: getExpiryDate(now)
+          expiresAt: getExpiryDate()
         }
       });
       await tx.studentCreditLedger.create({
@@ -381,34 +378,6 @@ export async function releaseCredit(params: {
     }
   }
 
-  // O lote expirou entre a reserva e o cancelamento: o aluno reservou dentro
-  // da validade, então a devolução não pode evaporar — cria um lote de
-  // reposição com fôlego curto (7 dias) para o crédito ser reutilizado.
-  if (lot.expiresAt <= now) {
-    const replacement = await tx.studentCreditLot.create({
-      data: {
-        studentId: lot.studentId,
-        subjectId: lot.subjectId,
-        paymentId: lot.paymentId,
-        total: 1,
-        remaining: 1,
-        expiresAt: addDays(now, 7)
-      }
-    });
-    await tx.studentCreditLedger.create({
-      data: {
-        studentId,
-        subjectId: lot.subjectId,
-        delta: 1,
-        reason: "ENROLL_RELEASE",
-        enrollmentId,
-        creditLotId: replacement.id
-      }
-    });
-    await recalcBalance(tx, studentId, lot.subjectId, now);
-    return true;
-  }
-
   await tx.studentCreditLot.update({
     where: { id: lot.id },
     data: { remaining: { increment: 1 } }
@@ -430,13 +399,11 @@ export async function releaseCredit(params: {
 }
 
 export async function getBalance(studentId: string, subjectId: string) {
-  const now = new Date();
   const aggregate = await prisma.studentCreditLot.aggregate({
     where: {
       studentId,
       subjectId,
-      remaining: { gt: 0 },
-      expiresAt: { gt: now }
+      remaining: { gt: 0 }
     },
     _sum: { remaining: true }
   });
@@ -444,13 +411,11 @@ export async function getBalance(studentId: string, subjectId: string) {
 }
 
 export async function getBalancesForStudent(studentId: string) {
-  const now = new Date();
   const [lots, legacyBalances] = await Promise.all([
     prisma.studentCreditLot.findMany({
       where: {
         studentId,
-        remaining: { gt: 0 },
-        expiresAt: { gt: now }
+        remaining: { gt: 0 }
       }
     }),
     prisma.studentCreditBalance.findMany({

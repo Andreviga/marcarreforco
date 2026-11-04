@@ -65,4 +65,19 @@ describe("getBalancesForStudent", () => {
       }
     ]);
   });
+  it("does not filter lots by expiration date (credits never expire)", async () => {
+    const lotRepo = prismaModule.prisma.studentCreditLot as unknown as { findMany: jest.Mock };
+    const legacyRepo = prismaModule.prisma.studentCreditBalance as unknown as { findMany: jest.Mock };
+    const subjectRepo = prismaModule.prisma.subject as unknown as { findMany: jest.Mock };
+
+    lotRepo.findMany.mockResolvedValue([{ studentId: "stu1", subjectId: "sub1", remaining: 4 }]);
+    legacyRepo.findMany.mockResolvedValue([]);
+    subjectRepo.findMany.mockResolvedValue([{ id: "sub1", name: "Matemática" }]);
+
+    await getBalancesForStudent("stu1");
+
+    const where = lotRepo.findMany.mock.calls[0][0].where;
+    expect(where).toEqual({ studentId: "stu1", remaining: { gt: 0 } });
+    expect(where).not.toHaveProperty("expiresAt");
+  });
 });

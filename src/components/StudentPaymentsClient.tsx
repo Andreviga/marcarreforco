@@ -15,8 +15,8 @@ interface PackageItem {
   name: string;
   sessionCount: number;
   priceCents: number;
-  billingType: "PACKAGE" | "SUBSCRIPTION";
-  billingCycle: "MONTHLY" | "WEEKLY" | null;
+  billingType?: "PACKAGE" | "SUBSCRIPTION";
+  billingCycle?: "MONTHLY" | "WEEKLY" | null;
   subject: SubjectOption | null;
 }
 
@@ -119,7 +119,8 @@ export default function StudentPaymentsClient({
     setIsChrome(chrome);
   }, []);
 
-  const subscriptionMap = useMemo(() => {
+  // Assinaturas antigas (não são mais vendidas) que o aluno ainda precisa ver e poder cancelar.
+  const visibleSubscriptions = useMemo(() => {
     // A lista já vem ordenada por createdAt desc.
     // Mantemos apenas a assinatura mais recente por pacote;
     // se a mais recente estiver CANCELED/OVERDUE, não exibimos assinatura para o pacote.
@@ -131,11 +132,9 @@ export default function StudentPaymentsClient({
       }
     }
 
-    const visibleSubscriptions = Array.from(latestByPackage.values()).filter(
+    return Array.from(latestByPackage.values()).filter(
       (sub) => sub.status === "ACTIVE" || sub.status === "INACTIVE"
     );
-
-    return new Map(visibleSubscriptions.map((sub) => [sub.package.id, sub]));
   }, [subscriptions]);
 
   // Opções do filtro derivadas dos pacotes à venda: disciplina sem nenhum
@@ -180,6 +179,9 @@ export default function StudentPaymentsClient({
       } else {
         groups.set(groupId, { id: groupId, label: groupLabel, items: [item] });
       }
+    }
+    for (const group of groups.values()) {
+      group.items.sort((a, b) => a.sessionCount - b.sessionCount || a.priceCents - b.priceCents);
     }
     return Array.from(groups.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [filteredPackages]);
@@ -287,7 +289,7 @@ export default function StudentPaymentsClient({
         return;
       }
 
-      setMessage("Assinatura criada. Aguarde a cobrança.");
+      setMessage("Pagamento criado. Aguarde a confirmação do PIX.");
     } catch {
       setMessage("Falha de conexão ao iniciar pagamento. Tente novamente.");
     } finally {
@@ -532,9 +534,55 @@ export default function StudentPaymentsClient({
         </div>
       )}
 
+      {visibleSubscriptions.length > 0 && (
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Suas assinaturas</h2>
+          <p className="text-sm text-slate-500">
+            Estas assinaturas antigas continuam cobrando todo mês até você cancelar. As aulas que você recebe não vencem.
+          </p>
+          <div className="mt-3 space-y-3">
+            {visibleSubscriptions.map((subscription) => (
+              <div key={subscription.id} className="rounded-xl border border-slate-100 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-base font-semibold text-slate-900">{subscription.package.name}</p>
+                    <span
+                      className={`inline-block rounded-full px-3 py-1 text-xs font-medium ${
+                        subscription.status === "ACTIVE"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {subscription.status === "ACTIVE" ? "Assinatura ativa" : "Aguardando pagamento"}
+                    </span>
+                    {subscription.nextDueDate && (
+                      <p className="text-xs text-slate-500">
+                        Próxima cobrança: {new Date(subscription.nextDueDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCancelSubscription(subscription.id)}
+                    disabled={cancelingId === subscription.id}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                    title={subscription.status === "ACTIVE" ? "Cancelar assinatura" : "Cancelar e remover cobrança"}
+                  >
+                    {cancelingId === subscription.id ? "Cancelando..." : "Cancelar"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-900">Planos e pacotes</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Pacotes de aulas</h2>
+            <p className="text-sm text-slate-500">Pagamento único via PIX. As aulas compradas não vencem.</p>
+          </div>
           {!isChrome && (
             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
               Pagamento via PIX
@@ -575,78 +623,30 @@ export default function StudentPaymentsClient({
                   <span className="text-xs text-slate-400">{group.items.length} item(s)</span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {group.items.map((item) => {
-                    const subscription = subscriptionMap.get(item.id);
-                    return (
-                      <div key={item.id} className="rounded-xl border border-slate-100 p-4">
-                        <div className="flex flex-col gap-3">
-                          <div>
-                            <p className="text-xs text-slate-500">{item.subject?.name ?? "Sem disciplina"}</p>
-                            <p className="text-base font-semibold text-slate-900">{item.name}</p>
-                            <p className="text-xs text-slate-500">
-                              {item.billingType === "SUBSCRIPTION" ? "Assinatura" : "Pacote"} • {item.sessionCount} aula(s)
-                              {item.billingType === "SUBSCRIPTION" && item.billingCycle
-                                ? ` / ${item.billingCycle === "MONTHLY" ? "mês" : "semana"}`
-                                : ""}
-                            </p>
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <span className="text-lg font-semibold text-slate-700">{formatCurrency(item.priceCents)}</span>
-                            {subscription && item.billingType === "SUBSCRIPTION" ? (
-                              <div className="flex flex-col gap-2">
-                                <span className={`rounded-full px-3 py-1.5 text-center text-xs font-medium ${
-                                  subscription.status === "ACTIVE" 
-                                    ? "bg-emerald-100 text-emerald-700" 
-                                    : subscription.status === "INACTIVE"
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-slate-100 text-slate-600"
-                                }`}>
-                                  {subscription.status === "ACTIVE" 
-                                    ? "Assinatura ativa" 
-                                    : "Aguardando pagamento"}
-                                </span>
-                                {subscription.status === "INACTIVE" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCheckout(item.id)}
-                                    disabled={loadingId === item.id || !hasDocument}
-                                    className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-                                  >
-                                    {loadingId === item.id ? "Gerando PIX..." : "Gerar PIX novamente"}
-                                  </button>
-                                )}
-                                {(subscription.status === "ACTIVE" || subscription.status === "INACTIVE") && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCancelSubscription(subscription.id)}
-                                    disabled={cancelingId === subscription.id}
-                                    className="w-full rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
-                                    title={subscription.status === "ACTIVE" ? "Cancelar assinatura" : "Cancelar e remover cobrança"}
-                                  >
-                                    {cancelingId === subscription.id ? "Cancelando..." : "Cancelar"}
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleCheckout(item.id)}
-                                disabled={loadingId === item.id || !hasDocument}
-                                className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
-                              >
-                                {loadingId === item.id ? "Processando..." : "Contratar"}
-                              </button>
-                            )}
-                          </div>
-                          {subscription?.nextDueDate && (
-                            <p className="text-xs text-slate-500">
-                              Próxima cobrança: {new Date(subscription.nextDueDate).toLocaleDateString("pt-BR", { timeZone: "UTC" })}
-                            </p>
-                          )}
+                  {group.items.map((item) => (
+                    <div key={item.id} className="rounded-xl border border-slate-100 p-4">
+                      <div className="flex flex-col gap-3">
+                        <div>
+                          <p className="text-xs text-slate-500">{item.subject?.name ?? "Sem disciplina"}</p>
+                          <p className="text-base font-semibold text-slate-900">{item.name}</p>
+                          <p className="text-xs text-slate-500">
+                            {item.sessionCount} aula(s) • sem prazo para usar
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <span className="text-lg font-semibold text-slate-700">{formatCurrency(item.priceCents)}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCheckout(item.id)}
+                            disabled={loadingId === item.id || !hasDocument}
+                            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                          >
+                            {loadingId === item.id ? "Processando..." : "Comprar"}
+                          </button>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               </div>
             ))
